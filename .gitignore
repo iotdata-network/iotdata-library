@@ -1,0 +1,10 @@
+*.o
+*.a
+*.su
+.vscode
+tests/test_default
+tests/test_complete
+tests/test_failures
+tests/test_custom
+tests/test_example
+tests/test_version_*
