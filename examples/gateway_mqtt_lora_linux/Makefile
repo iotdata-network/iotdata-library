@@ -1,7 +1,7 @@
 
 DIR_IOTDATA=/opt/iotdata-library
 DIR_IOTDATA_VARIANT=../iotdata
-DIR_E22XXXTXX=/opt/e22900t22/include
+DIR_E22XXXTXX=/opt/iotdata-depend/e22900t22/include
 
 ##
 

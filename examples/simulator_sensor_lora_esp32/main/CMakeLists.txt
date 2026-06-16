@@ -5,7 +5,7 @@ idf_component_register(
         "."
         "/opt/iotdata-library"               # iotdata.c/h
         "../../iotdata"                 # iotdata_variant_suite.h
-        "/opt/e22900t22/include"        # e22xxxtxx.h
+        "/opt/iotdata-depend/e22900t22/include"        # e22xxxtxx.h
         "../../simulator"               # simulator
 )
 target_compile_options(${COMPONENT_LIB} PRIVATE
