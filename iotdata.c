@@ -594,11 +594,8 @@ iotdata_status_t iotdata_peek(const uint8_t *buf, size_t len, uint8_t *variant, 
     const uint8_t h_variant = (uint8_t)bits_read(buf, bb, &bp, IOTDATA_VARIANT_BITS);
     const uint16_t h_station = (uint16_t)bits_read(buf, bb, &bp, IOTDATA_STATION_BITS);
     const uint16_t h_sequence = (uint16_t)bits_read(buf, bb, &bp, IOTDATA_SEQUENCE_BITS);
-    if (variant) {
+    if (variant)
         *variant = h_variant;
-        if (*variant == IOTDATA_VARIANT_RESERVED)
-            return IOTDATA_ERR_DECODE_VARIANT;
-    }
     if (station)
         *station = h_station;
     if (sequence)

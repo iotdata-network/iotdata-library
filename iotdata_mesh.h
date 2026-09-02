@@ -34,6 +34,41 @@
 #define IOTDATA_MESH_CTRL_NEIGHBOUR_RPT 0x4
 #define IOTDATA_MESH_CTRL_PING          0x5 /* v2 */
 #define IOTDATA_MESH_CTRL_PONG          0x6 /* v2 */
+#define IOTDATA_MESH_CTRL_MANAGE        0x7 /* node management / diagnostics (request + response, see command byte) */
+
+/* Management (ctrl 0x7) commands — byte 6; command-specific args follow at byte 8 */
+/* Command byte (MANAGE frame, byte 6). The high bit (IOTDATA_MESH_MANAGE_RESPONSE) is the
+ * DIRECTION: clear = a REQUEST to a node, set = a RESPONSE from a node (routed up). So a node
+ * or an in-path analyser classifies request vs reply from the command byte alone — never by
+ * inspecting the args (a request may carry scope ids; a reply carries the report). Report-type
+ * commands come as explicit REQUEST/RESPONSE pairs; action commands are request-only for now.
+ * The RESPONSE opcodes are RESERVED — the uplink response mechanism is future work (reports go
+ * to the node console for now); broadcast responses will be spread via the timed TX queue. */
+#define IOTDATA_MESH_MANAGE_RESPONSE                   0x80 /* command-byte flag: set = response, clear = request */
+
+#define IOTDATA_MESH_MANAGE_CMD_STATUS_REQUEST         0x01 /* dump status + peers + filter (no args) */
+#define IOTDATA_MESH_MANAGE_CMD_STATUS_RESPONSE        (IOTDATA_MESH_MANAGE_CMD_STATUS_REQUEST | IOTDATA_MESH_MANAGE_RESPONSE)
+#define IOTDATA_MESH_MANAGE_CMD_STATIONS_REPORT_REQUEST  0x02 /* dump the "stations heard" table (mesh + sensor, no args) */
+#define IOTDATA_MESH_MANAGE_CMD_STATIONS_REPORT_RESPONSE (IOTDATA_MESH_MANAGE_CMD_STATIONS_REPORT_REQUEST | IOTDATA_MESH_MANAGE_RESPONSE)
+#define IOTDATA_MESH_MANAGE_CMD_PEERS_REPORT_REQUEST   0x03 /* dump the neighbour/peer table (no args) */
+#define IOTDATA_MESH_MANAGE_CMD_PEERS_REPORT_RESPONSE  (IOTDATA_MESH_MANAGE_CMD_PEERS_REPORT_REQUEST | IOTDATA_MESH_MANAGE_RESPONSE)
+#define IOTDATA_MESH_MANAGE_CMD_PEERS_REMOVE           0x04 /* action: forget one peer; args: station(2 BE) */
+#define IOTDATA_MESH_MANAGE_CMD_PEERS_CLEAR            0x05 /* action: clear the neighbour table, re-discover (no args) */
+#define IOTDATA_MESH_MANAGE_CMD_FILTER_REPORT_REQUEST  0x10 /* dump the station filter table (no args) */
+#define IOTDATA_MESH_MANAGE_CMD_FILTER_REPORT_RESPONSE (IOTDATA_MESH_MANAGE_CMD_FILTER_REPORT_REQUEST | IOTDATA_MESH_MANAGE_RESPONSE)
+#define IOTDATA_MESH_MANAGE_CMD_FILTER_INSERT          0x11 /* action; args: station(2 BE) + action(1) */
+#define IOTDATA_MESH_MANAGE_CMD_FILTER_REMOVE          0x12 /* action; args: station(2 BE) */
+#define IOTDATA_MESH_MANAGE_CMD_FILTER_CLEAR           0x13 /* action; args: scope(1) */
+/* request opcodes 0x05..0x0F, 0x14..0x7F reserved (reboot, set-param, ...); 0x80+ are their responses */
+
+/* Station-filter action (byte in FILTER_INSERT args) and clear scope (FILTER_CLEAR args) */
+#define IOTDATA_MESH_MANAGE_FILTER_BLOCK      0x00 /* blacklist: drop this station's frames */
+#define IOTDATA_MESH_MANAGE_FILTER_ALLOW      0x01 /* whitelist: when any exist, only these pass */
+#define IOTDATA_MESH_MANAGE_FILTER_SCOPE_ALL    0x00
+#define IOTDATA_MESH_MANAGE_FILTER_SCOPE_MANUAL 0x01
+#define IOTDATA_MESH_MANAGE_FILTER_SCOPE_AUTO   0x02
+
+#define IOTDATA_MESH_MANAGE_TARGET_ALL  0xFFF /* broadcast: every node executes */
 
 /* Route error reasons (lower nibble of byte 4) */
 #define IOTDATA_MESH_REASON_PARENT_LOST 0x0
@@ -63,6 +98,7 @@
 #define IOTDATA_MESH_NEIGHBOUR_ENTRY_SZ 3
 #define IOTDATA_MESH_PING_SIZE          8
 #define IOTDATA_MESH_PONG_SIZE          8
+#define IOTDATA_MESH_MANAGE_HDR_SIZE    8 /* + arg_len bytes of command args */
 
 /* Dedup ring default size */
 #define IOTDATA_MESH_DEDUP_RING_SIZE    64
@@ -235,6 +271,11 @@ typedef struct {
     uint8_t reason;
 } iotdata_mesh_route_error_t;
 
+static inline void iotdata_mesh_pack_route_error(uint8_t *buf, uint16_t sender_station, uint16_t sender_seq, uint8_t reason) {
+    iotdata_mesh_pack_header(buf, sender_station, sender_seq);
+    buf[4] = (uint8_t)((IOTDATA_MESH_CTRL_ROUTE_ERROR << 4) | (reason & 0x0F));
+}
+
 static inline bool iotdata_mesh_unpack_route_error(const uint8_t *buf, int len, iotdata_mesh_route_error_t *r) {
     if (len < IOTDATA_MESH_ROUTE_ERROR_SIZE)
         return false;
@@ -242,6 +283,89 @@ static inline bool iotdata_mesh_unpack_route_error(const uint8_t *buf, int len, 
     iotdata_mesh_unpack_4_12(&buf[0], &ctrl, &r->sender_station);
     r->sender_seq = ((uint16_t)buf[2] << 8) | buf[3];
     r->reason = buf[4] & 0x0F;
+    return true;
+}
+
+/* -------------------------------------------------------------------------
+ * MANAGE (ctrl_type 0x7) — 8 + N bytes — node management / diagnostics
+ *
+ * byte 4-5: ctrl(4) | target_station(12)   (0xFFF = broadcast to all nodes)
+ * byte 6:   command(8)
+ * byte 7:   arg_len(8)
+ * byte 8+:  args (command-specific, arg_len bytes)
+ *
+ * A supervisory channel: a gateway (or, later, a relay) addresses a command at one
+ * node or all of them. New commands are new opcodes with their own args — the frame
+ * shape never changes. See IOTDATA_MESH_MANAGE_CMD_* for the command vocabulary.
+ * ----------------------------------------------------------------------- */
+
+typedef struct {
+    uint16_t sender_station;
+    uint16_t sender_seq;
+    uint16_t target_station; /* IOTDATA_MESH_MANAGE_TARGET_ALL (0xFFF) = broadcast */
+    uint8_t command;
+    uint8_t arg_len;
+    const uint8_t *args; /* pointer into the receive buffer, not owned; NULL if arg_len == 0 */
+} iotdata_mesh_manage_t;
+
+/* Returns the total packet length (IOTDATA_MESH_MANAGE_HDR_SIZE + arg_len). */
+static inline int iotdata_mesh_pack_manage(uint8_t *buf, uint16_t sender_station, uint16_t sender_seq, uint16_t target_station, uint8_t command, const uint8_t *args, uint8_t arg_len) {
+    iotdata_mesh_pack_header(buf, sender_station, sender_seq);
+    iotdata_mesh_pack_4_12(&buf[4], IOTDATA_MESH_CTRL_MANAGE, target_station);
+    buf[6] = command;
+    buf[7] = arg_len;
+    if (arg_len > 0 && args != NULL)
+        memcpy(&buf[8], args, arg_len);
+    return IOTDATA_MESH_MANAGE_HDR_SIZE + (int)arg_len;
+}
+
+static inline int iotdata_mesh_pack_manage_status(uint8_t *buf, uint16_t sender_station, uint16_t sender_seq, uint16_t target_station) {
+    return iotdata_mesh_pack_manage(buf, sender_station, sender_seq, target_station, IOTDATA_MESH_MANAGE_CMD_STATUS_REQUEST, NULL, 0);
+}
+
+static inline int iotdata_mesh_pack_manage_stations_report(uint8_t *buf, uint16_t sender_station, uint16_t sender_seq, uint16_t target_station) {
+    return iotdata_mesh_pack_manage(buf, sender_station, sender_seq, target_station, IOTDATA_MESH_MANAGE_CMD_STATIONS_REPORT_REQUEST, NULL, 0);
+}
+
+static inline int iotdata_mesh_pack_manage_peers_report(uint8_t *buf, uint16_t sender_station, uint16_t sender_seq, uint16_t target_station) {
+    return iotdata_mesh_pack_manage(buf, sender_station, sender_seq, target_station, IOTDATA_MESH_MANAGE_CMD_PEERS_REPORT_REQUEST, NULL, 0);
+}
+static inline int iotdata_mesh_pack_manage_peers_remove(uint8_t *buf, uint16_t sender_station, uint16_t sender_seq, uint16_t target_station, uint16_t station) {
+    const uint8_t args[2] = { (uint8_t)(station >> 8), (uint8_t)(station & 0xFFu) };
+    return iotdata_mesh_pack_manage(buf, sender_station, sender_seq, target_station, IOTDATA_MESH_MANAGE_CMD_PEERS_REMOVE, args, 2);
+}
+static inline int iotdata_mesh_pack_manage_peers_clear(uint8_t *buf, uint16_t sender_station, uint16_t sender_seq, uint16_t target_station) {
+    return iotdata_mesh_pack_manage(buf, sender_station, sender_seq, target_station, IOTDATA_MESH_MANAGE_CMD_PEERS_CLEAR, NULL, 0);
+}
+
+static inline int iotdata_mesh_pack_manage_filter_report(uint8_t *buf, uint16_t sender_station, uint16_t sender_seq, uint16_t target_station) {
+    return iotdata_mesh_pack_manage(buf, sender_station, sender_seq, target_station, IOTDATA_MESH_MANAGE_CMD_FILTER_REPORT_REQUEST, NULL, 0);
+}
+static inline int iotdata_mesh_pack_manage_filter_insert(uint8_t *buf, uint16_t sender_station, uint16_t sender_seq, uint16_t target_station, uint16_t station, uint8_t action) {
+    const uint8_t args[3] = { (uint8_t)(station >> 8), (uint8_t)(station & 0xFFu), action };
+    return iotdata_mesh_pack_manage(buf, sender_station, sender_seq, target_station, IOTDATA_MESH_MANAGE_CMD_FILTER_INSERT, args, 3);
+}
+static inline int iotdata_mesh_pack_manage_filter_remove(uint8_t *buf, uint16_t sender_station, uint16_t sender_seq, uint16_t target_station, uint16_t station) {
+    const uint8_t args[2] = { (uint8_t)(station >> 8), (uint8_t)(station & 0xFFu) };
+    return iotdata_mesh_pack_manage(buf, sender_station, sender_seq, target_station, IOTDATA_MESH_MANAGE_CMD_FILTER_REMOVE, args, 2);
+}
+static inline int iotdata_mesh_pack_manage_filter_clear(uint8_t *buf, uint16_t sender_station, uint16_t sender_seq, uint16_t target_station, uint8_t scope) {
+    const uint8_t args[1] = { scope };
+    return iotdata_mesh_pack_manage(buf, sender_station, sender_seq, target_station, IOTDATA_MESH_MANAGE_CMD_FILTER_CLEAR, args, 1);
+}
+
+static inline bool iotdata_mesh_unpack_manage(const uint8_t *buf, int len, iotdata_mesh_manage_t *m) {
+    if (len < IOTDATA_MESH_MANAGE_HDR_SIZE)
+        return false;
+    uint8_t ctrl;
+    iotdata_mesh_unpack_4_12(&buf[0], &ctrl, &m->sender_station);
+    m->sender_seq = ((uint16_t)buf[2] << 8) | buf[3];
+    iotdata_mesh_unpack_4_12(&buf[4], &ctrl, &m->target_station);
+    m->command = buf[6];
+    m->arg_len = buf[7];
+    if (len < IOTDATA_MESH_MANAGE_HDR_SIZE + (int)m->arg_len)
+        return false; /* truncated args */
+    m->args = (m->arg_len > 0) ? &buf[8] : NULL;
     return true;
 }
 
@@ -322,6 +446,8 @@ static inline const char *iotdata_mesh_ctrl_name(uint8_t ctrl_type) {
         return "PING";
     case IOTDATA_MESH_CTRL_PONG:
         return "PONG";
+    case IOTDATA_MESH_CTRL_MANAGE:
+        return "MANAGE";
     default:
         return "UNKNOWN";
     }
