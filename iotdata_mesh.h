@@ -24,17 +24,17 @@
  * Constants
  * ----------------------------------------------------------------------- */
 
-#define IOTDATA_MESH_VARIANT            0x0F
+#define IOTDATA_MESH_VARIANT                             0x0F
 
 /* Control types (upper nibble of byte 4) */
-#define IOTDATA_MESH_CTRL_BEACON        0x0
-#define IOTDATA_MESH_CTRL_FORWARD       0x1
-#define IOTDATA_MESH_CTRL_ACK           0x2
-#define IOTDATA_MESH_CTRL_ROUTE_ERROR   0x3
-#define IOTDATA_MESH_CTRL_NEIGHBOUR_RPT 0x4
-#define IOTDATA_MESH_CTRL_PING          0x5 /* v2 */
-#define IOTDATA_MESH_CTRL_PONG          0x6 /* v2 */
-#define IOTDATA_MESH_CTRL_MANAGE        0x7 /* node management / diagnostics (request + response, see command byte) */
+#define IOTDATA_MESH_CTRL_BEACON                         0x0
+#define IOTDATA_MESH_CTRL_FORWARD                        0x1
+#define IOTDATA_MESH_CTRL_ACK                            0x2
+#define IOTDATA_MESH_CTRL_ROUTE_ERROR                    0x3
+#define IOTDATA_MESH_CTRL_NEIGHBOUR_RPT                  0x4
+#define IOTDATA_MESH_CTRL_PING                           0x5 /* v2 */
+#define IOTDATA_MESH_CTRL_PONG                           0x6 /* v2 */
+#define IOTDATA_MESH_CTRL_MANAGE                         0x7 /* node management / diagnostics (request + response, see command byte) */
 
 /* Management (ctrl 0x7) commands — byte 6; command-specific args follow at byte 8 */
 /* Command byte (MANAGE frame, byte 6). The high bit (IOTDATA_MESH_MANAGE_RESPONSE) is the
@@ -44,64 +44,64 @@
  * commands come as explicit REQUEST/RESPONSE pairs; action commands are request-only for now.
  * The RESPONSE opcodes are RESERVED — the uplink response mechanism is future work (reports go
  * to the node console for now); broadcast responses will be spread via the timed TX queue. */
-#define IOTDATA_MESH_MANAGE_RESPONSE                   0x80 /* command-byte flag: set = response, clear = request */
+#define IOTDATA_MESH_MANAGE_RESPONSE                     0x80 /* command-byte flag: set = response, clear = request */
 
-#define IOTDATA_MESH_MANAGE_CMD_STATUS_REQUEST         0x01 /* dump status + peers + filter (no args) */
-#define IOTDATA_MESH_MANAGE_CMD_STATUS_RESPONSE        (IOTDATA_MESH_MANAGE_CMD_STATUS_REQUEST | IOTDATA_MESH_MANAGE_RESPONSE)
+#define IOTDATA_MESH_MANAGE_CMD_STATUS_REQUEST           0x01 /* dump status + peers + filter (no args) */
+#define IOTDATA_MESH_MANAGE_CMD_STATUS_RESPONSE          (IOTDATA_MESH_MANAGE_CMD_STATUS_REQUEST | IOTDATA_MESH_MANAGE_RESPONSE)
 #define IOTDATA_MESH_MANAGE_CMD_STATIONS_REPORT_REQUEST  0x02 /* dump the "stations heard" table (mesh + sensor, no args) */
 #define IOTDATA_MESH_MANAGE_CMD_STATIONS_REPORT_RESPONSE (IOTDATA_MESH_MANAGE_CMD_STATIONS_REPORT_REQUEST | IOTDATA_MESH_MANAGE_RESPONSE)
-#define IOTDATA_MESH_MANAGE_CMD_PEERS_REPORT_REQUEST   0x03 /* dump the neighbour/peer table (no args) */
-#define IOTDATA_MESH_MANAGE_CMD_PEERS_REPORT_RESPONSE  (IOTDATA_MESH_MANAGE_CMD_PEERS_REPORT_REQUEST | IOTDATA_MESH_MANAGE_RESPONSE)
-#define IOTDATA_MESH_MANAGE_CMD_PEERS_REMOVE           0x04 /* action: forget one peer; args: station(2 BE) */
-#define IOTDATA_MESH_MANAGE_CMD_PEERS_CLEAR            0x05 /* action: clear the neighbour table, re-discover (no args) */
-#define IOTDATA_MESH_MANAGE_CMD_FILTER_REPORT_REQUEST  0x10 /* dump the station filter table (no args) */
-#define IOTDATA_MESH_MANAGE_CMD_FILTER_REPORT_RESPONSE (IOTDATA_MESH_MANAGE_CMD_FILTER_REPORT_REQUEST | IOTDATA_MESH_MANAGE_RESPONSE)
-#define IOTDATA_MESH_MANAGE_CMD_FILTER_INSERT          0x11 /* action; args: station(2 BE) + action(1) */
-#define IOTDATA_MESH_MANAGE_CMD_FILTER_REMOVE          0x12 /* action; args: station(2 BE) */
-#define IOTDATA_MESH_MANAGE_CMD_FILTER_CLEAR           0x13 /* action; args: scope(1) */
+#define IOTDATA_MESH_MANAGE_CMD_PEERS_REPORT_REQUEST     0x03 /* dump the neighbour/peer table (no args) */
+#define IOTDATA_MESH_MANAGE_CMD_PEERS_REPORT_RESPONSE    (IOTDATA_MESH_MANAGE_CMD_PEERS_REPORT_REQUEST | IOTDATA_MESH_MANAGE_RESPONSE)
+#define IOTDATA_MESH_MANAGE_CMD_PEERS_REMOVE             0x04 /* action: forget one peer; args: station(2 BE) */
+#define IOTDATA_MESH_MANAGE_CMD_PEERS_CLEAR              0x05 /* action: clear the neighbour table, re-discover (no args) */
+#define IOTDATA_MESH_MANAGE_CMD_FILTER_REPORT_REQUEST    0x10 /* dump the station filter table (no args) */
+#define IOTDATA_MESH_MANAGE_CMD_FILTER_REPORT_RESPONSE   (IOTDATA_MESH_MANAGE_CMD_FILTER_REPORT_REQUEST | IOTDATA_MESH_MANAGE_RESPONSE)
+#define IOTDATA_MESH_MANAGE_CMD_FILTER_INSERT            0x11 /* action; args: station(2 BE) + action(1) */
+#define IOTDATA_MESH_MANAGE_CMD_FILTER_REMOVE            0x12 /* action; args: station(2 BE) */
+#define IOTDATA_MESH_MANAGE_CMD_FILTER_CLEAR             0x13 /* action; args: scope(1) */
 /* request opcodes 0x05..0x0F, 0x14..0x7F reserved (reboot, set-param, ...); 0x80+ are their responses */
 
 /* Station-filter action (byte in FILTER_INSERT args) and clear scope (FILTER_CLEAR args) */
-#define IOTDATA_MESH_MANAGE_FILTER_BLOCK      0x00 /* blacklist: drop this station's frames */
-#define IOTDATA_MESH_MANAGE_FILTER_ALLOW      0x01 /* whitelist: when any exist, only these pass */
-#define IOTDATA_MESH_MANAGE_FILTER_SCOPE_ALL    0x00
-#define IOTDATA_MESH_MANAGE_FILTER_SCOPE_MANUAL 0x01
-#define IOTDATA_MESH_MANAGE_FILTER_SCOPE_AUTO   0x02
+#define IOTDATA_MESH_MANAGE_FILTER_BLOCK                 0x00 /* blacklist: drop this station's frames */
+#define IOTDATA_MESH_MANAGE_FILTER_ALLOW                 0x01 /* whitelist: when any exist, only these pass */
+#define IOTDATA_MESH_MANAGE_FILTER_SCOPE_ALL             0x00
+#define IOTDATA_MESH_MANAGE_FILTER_SCOPE_MANUAL          0x01
+#define IOTDATA_MESH_MANAGE_FILTER_SCOPE_AUTO            0x02
 
-#define IOTDATA_MESH_MANAGE_TARGET_ALL  0xFFF /* broadcast: every node executes */
+#define IOTDATA_MESH_MANAGE_TARGET_ALL                   0xFFF /* broadcast: every node executes */
 
 /* Route error reasons (lower nibble of byte 4) */
-#define IOTDATA_MESH_REASON_PARENT_LOST 0x0
-#define IOTDATA_MESH_REASON_OVERLOADED  0x1
-#define IOTDATA_MESH_REASON_SHUTDOWN    0x2
+#define IOTDATA_MESH_REASON_PARENT_LOST                  0x0
+#define IOTDATA_MESH_REASON_OVERLOADED                   0x1
+#define IOTDATA_MESH_REASON_SHUTDOWN                     0x2
 
 /* Beacon flags */
-#define IOTDATA_MESH_FLAG_ACCEPTING     0x01 /* gateway is accepting forwards */
+#define IOTDATA_MESH_FLAG_ACCEPTING                      0x01 /* gateway is accepting forwards */
 
 /* Special values */
-#define IOTDATA_MESH_PARENT_NONE        0xFFF /* orphaned — no parent */
-#define IOTDATA_MESH_STATION_RESERVED   0x000 /* do not assign to nodes */
+#define IOTDATA_MESH_PARENT_NONE                         0xFFF /* orphaned — no parent */
+#define IOTDATA_MESH_STATION_RESERVED                    0x000 /* do not assign to nodes */
 
 /* Protocol limits */
-#define IOTDATA_MESH_TTL_DEFAULT        7
-#define IOTDATA_MESH_TTL_MAX            255
-#define IOTDATA_MESH_GENERATION_HALF    2048 /* for modular comparison */
-#define IOTDATA_MESH_GENERATION_MOD     4096
-#define IOTDATA_MESH_MAX_NEIGHBOURS     63
+#define IOTDATA_MESH_TTL_DEFAULT                         7
+#define IOTDATA_MESH_TTL_MAX                             255
+#define IOTDATA_MESH_GENERATION_HALF                     2048 /* for modular comparison */
+#define IOTDATA_MESH_GENERATION_MOD                      4096
+#define IOTDATA_MESH_MAX_NEIGHBOURS                      63
 
 /* Packet sizes */
-#define IOTDATA_MESH_BEACON_SIZE        9
-#define IOTDATA_MESH_FORWARD_HDR_SIZE   6 /* + inner packet bytes */
-#define IOTDATA_MESH_ACK_SIZE           8
-#define IOTDATA_MESH_ROUTE_ERROR_SIZE   5
-#define IOTDATA_MESH_NEIGHBOUR_HDR_SIZE 10 /* + 3 per entry */
-#define IOTDATA_MESH_NEIGHBOUR_ENTRY_SZ 3
-#define IOTDATA_MESH_PING_SIZE          8
-#define IOTDATA_MESH_PONG_SIZE          8
-#define IOTDATA_MESH_MANAGE_HDR_SIZE    8 /* + arg_len bytes of command args */
+#define IOTDATA_MESH_BEACON_SIZE                         9
+#define IOTDATA_MESH_FORWARD_HDR_SIZE                    6 /* + inner packet bytes */
+#define IOTDATA_MESH_ACK_SIZE                            8
+#define IOTDATA_MESH_ROUTE_ERROR_SIZE                    5
+#define IOTDATA_MESH_NEIGHBOUR_HDR_SIZE                  10 /* + 3 per entry */
+#define IOTDATA_MESH_NEIGHBOUR_ENTRY_SZ                  3
+#define IOTDATA_MESH_PING_SIZE                           8
+#define IOTDATA_MESH_PONG_SIZE                           8
+#define IOTDATA_MESH_MANAGE_HDR_SIZE                     8 /* + arg_len bytes of command args */
 
 /* Dedup ring default size */
-#define IOTDATA_MESH_DEDUP_RING_SIZE    64
+#define IOTDATA_MESH_DEDUP_RING_SIZE                     64
 
 /* -------------------------------------------------------------------------
  * iotdata header peek — extract fields from the standard 4-byte header
@@ -228,24 +228,27 @@ static inline bool iotdata_mesh_unpack_forward(const uint8_t *buf, int len, iotd
 }
 
 /* -------------------------------------------------------------------------
- * ACK (ctrl_type 0x2) — 8 bytes
+ * ACK (ctrl_type 0x2) — 8 bytes. Confirms delivery of an inner sensor packet, keyed on its
+ * ORIGIN identity (not the forwarder), so a single ACK both clears the forwarder's retry AND
+ * lets any sibling suppress an about-to-send duplicate forward of the same packet.
  *
- * byte 4-5: ctrl(4) | fwd_station(12)
- * byte 6-7: fwd_seq(16)
+ * byte 4-5: ctrl(4) | origin_station(12)
+ * byte 6-7: origin_sequence(16)
  * ----------------------------------------------------------------------- */
 
 typedef struct {
-    uint16_t sender_station;
+    uint16_t sender_station; /* who sent this ACK (the receiving parent / gateway) */
     uint16_t sender_seq;
-    uint16_t fwd_station;
-    uint16_t fwd_seq;
+    uint16_t origin_station;  /* identity of the inner sensor packet this ACK confirms delivered */
+    uint16_t origin_sequence; /* -> any relay holding this {origin_station,origin_sequence} can clear
+                                 its pending forward (retry done) or suppress an about-to-send one */
 } iotdata_mesh_ack_t;
 
 static inline void iotdata_mesh_pack_ack(uint8_t *buf, const iotdata_mesh_ack_t *a) {
     iotdata_mesh_pack_header(buf, a->sender_station, a->sender_seq);
-    iotdata_mesh_pack_4_12(&buf[4], IOTDATA_MESH_CTRL_ACK, a->fwd_station);
-    buf[6] = (uint8_t)(a->fwd_seq >> 8);
-    buf[7] = (uint8_t)(a->fwd_seq & 0xFF);
+    iotdata_mesh_pack_4_12(&buf[4], IOTDATA_MESH_CTRL_ACK, a->origin_station);
+    buf[6] = (uint8_t)(a->origin_sequence >> 8);
+    buf[7] = (uint8_t)(a->origin_sequence & 0xFF);
 }
 
 static inline bool iotdata_mesh_unpack_ack(const uint8_t *buf, int len, iotdata_mesh_ack_t *a) {
@@ -254,8 +257,99 @@ static inline bool iotdata_mesh_unpack_ack(const uint8_t *buf, int len, iotdata_
     uint8_t ctrl;
     iotdata_mesh_unpack_4_12(&buf[0], &ctrl, &a->sender_station);
     a->sender_seq = ((uint16_t)buf[2] << 8) | buf[3];
-    iotdata_mesh_unpack_4_12(&buf[4], &ctrl, &a->fwd_station);
-    a->fwd_seq = ((uint16_t)buf[6] << 8) | buf[7];
+    iotdata_mesh_unpack_4_12(&buf[4], &ctrl, &a->origin_station);
+    a->origin_sequence = ((uint16_t)buf[6] << 8) | buf[7];
+    return true;
+}
+
+/* -------------------------------------------------------------------------
+ * NEIGHBOUR_REPORT (ctrl_type 0x4) — 10-byte header + 3N bytes (spec G.4.7)
+ *
+ * A relay's periodic topology snapshot: its parent/cost/gateway + the stations it hears.
+ * Extended here to carry SENSOR neighbours too (cost = 0xFF sentinel); the gateway reads
+ * cost 0 = gateway, 1..254 = relay, 0xFF = sensor.
+ *
+ * byte 0-1: 0xF | sender_station(12)     byte 4-5: ctrl=0x4 | parent_id(12)
+ * byte 2-3: sender_seq(16)               byte 6:   my_cost(8)
+ * byte 7:   num_neighbours(6) | gateway_id[11:10]   byte 8: gateway_id[9:2]   byte 9: gateway_id[1:0]
+ * byte 10+: entries, each { cost(8), rssi_q4(4) | station_id(12) }
+ * ----------------------------------------------------------------------- */
+
+#define IOTDATA_MESH_NBR_HDR_SIZE    10
+#define IOTDATA_MESH_NBR_ENTRY_SIZE  3
+#define IOTDATA_MESH_NBR_MAX         63 /* 6-bit count */
+#define IOTDATA_MESH_NBR_COST_SENSOR 0xFF
+
+typedef struct {
+    uint8_t cost;     /* neighbour's advertised cost; 0xFF = sensor (no cost) */
+    uint8_t rssi_q4;  /* RSSI quantised to 4 bits (5 dBm steps from -120) */
+    uint16_t station; /* the heard station */
+} iotdata_mesh_nbr_entry_t;
+
+typedef struct {
+    uint16_t sender_station;
+    uint16_t sender_seq;
+    uint16_t parent_id;
+    uint8_t my_cost;
+    uint8_t num_neighbours;
+    uint16_t gateway_id;
+} iotdata_mesh_neighbour_report_t;
+
+static inline uint8_t iotdata_mesh_rssi_to_q4(int rssi_dbm) {
+    int q = (rssi_dbm + 120) / 5;
+    if (q < 0)
+        q = 0;
+    else if (q > 15)
+        q = 15;
+    return (uint8_t)q;
+}
+static inline int iotdata_mesh_rssi_from_q4(uint8_t q4) {
+    return (int)q4 * 5 - 120;
+}
+
+/* Pack a full report from `count` entries. Returns the frame length. Clamps count to what fits. */
+static inline int iotdata_mesh_pack_neighbour_report(uint8_t *buf, uint16_t sender_station, uint16_t sender_seq, uint16_t parent_id, uint8_t my_cost, uint16_t gateway_id, const iotdata_mesh_nbr_entry_t *entries, int count) {
+    if (count < 0)
+        count = 0;
+    if (count > IOTDATA_MESH_NBR_MAX)
+        count = IOTDATA_MESH_NBR_MAX;
+    iotdata_mesh_pack_header(buf, sender_station, sender_seq);
+    iotdata_mesh_pack_4_12(&buf[4], IOTDATA_MESH_CTRL_NEIGHBOUR_RPT, parent_id);
+    buf[6] = my_cost;
+    buf[7] = (uint8_t)((((uint8_t)count & 0x3Fu) << 2) | (uint8_t)((gateway_id >> 10) & 0x03u));
+    buf[8] = (uint8_t)((gateway_id >> 2) & 0xFFu);
+    buf[9] = (uint8_t)((gateway_id & 0x03u) << 6);
+    int off = IOTDATA_MESH_NBR_HDR_SIZE;
+    for (int i = 0; i < count; i++) {
+        buf[off + 0] = entries[i].cost;
+        buf[off + 1] = (uint8_t)(((entries[i].rssi_q4 & 0x0Fu) << 4) | (uint8_t)((entries[i].station >> 8) & 0x0Fu));
+        buf[off + 2] = (uint8_t)(entries[i].station & 0xFFu);
+        off += IOTDATA_MESH_NBR_ENTRY_SIZE;
+    }
+    return off;
+}
+
+static inline bool iotdata_mesh_unpack_neighbour_report(const uint8_t *buf, int len, iotdata_mesh_neighbour_report_t *r) {
+    if (len < IOTDATA_MESH_NBR_HDR_SIZE)
+        return false;
+    uint8_t v, ctrl;
+    iotdata_mesh_unpack_4_12(&buf[0], &v, &r->sender_station);
+    r->sender_seq = (uint16_t)(((uint16_t)buf[2] << 8) | buf[3]);
+    iotdata_mesh_unpack_4_12(&buf[4], &ctrl, &r->parent_id);
+    r->my_cost = buf[6];
+    r->num_neighbours = (uint8_t)((buf[7] >> 2) & 0x3Fu);
+    r->gateway_id = (uint16_t)((((uint16_t)(buf[7] & 0x03u)) << 10) | ((uint16_t)buf[8] << 2) | ((buf[9] >> 6) & 0x03u));
+    return true;
+}
+
+/* Read the index-th neighbour entry (0-based). False if it runs past the frame. */
+static inline bool iotdata_mesh_neighbour_report_entry(const uint8_t *buf, int len, int index, iotdata_mesh_nbr_entry_t *e) {
+    const int off = IOTDATA_MESH_NBR_HDR_SIZE + index * IOTDATA_MESH_NBR_ENTRY_SIZE;
+    if (index < 0 || off + IOTDATA_MESH_NBR_ENTRY_SIZE > len)
+        return false;
+    e->cost = buf[off];
+    e->rssi_q4 = (uint8_t)((buf[off + 1] >> 4) & 0x0Fu);
+    e->station = (uint16_t)(((uint16_t)(buf[off + 1] & 0x0Fu) << 8) | buf[off + 2]);
     return true;
 }
 
