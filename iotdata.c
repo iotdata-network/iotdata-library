@@ -132,7 +132,8 @@ typedef struct {
 #if defined(__GNUC__) || defined(__clang__)
 __attribute__((format(printf, 2, 3)))
 #endif
-static int bprintf(iotdata_buf_t *b, const char *fmt, ...) {
+static int
+bprintf(iotdata_buf_t *b, const char *fmt, ...) {
     if (b->pos >= b->size)
         return 0;
     va_list ap;
