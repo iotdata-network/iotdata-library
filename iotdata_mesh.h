@@ -59,7 +59,12 @@
 #define IOTDATA_MESH_MANAGE_CMD_FILTER_INSERT            0x11 /* action; args: station(2 BE) + action(1) */
 #define IOTDATA_MESH_MANAGE_CMD_FILTER_REMOVE            0x12 /* action; args: station(2 BE) */
 #define IOTDATA_MESH_MANAGE_CMD_FILTER_CLEAR             0x13 /* action; args: scope(1) */
-/* request opcodes 0x05..0x0F, 0x14..0x7F reserved (reboot, set-param, ...); 0x80+ are their responses */
+#define IOTDATA_MESH_MANAGE_CMD_DIAG_REPORT_REQUEST      0x20 /* dump the blackbox diagnostic status (no args) */
+#define IOTDATA_MESH_MANAGE_CMD_DIAG_REPORT_RESPONSE     (IOTDATA_MESH_MANAGE_CMD_DIAG_REPORT_REQUEST | IOTDATA_MESH_MANAGE_RESPONSE)
+#define IOTDATA_MESH_MANAGE_CMD_DIAG_ENABLE              0x21 /* action; args: on(1) 0=disable/1=enable the recorder */
+#define IOTDATA_MESH_MANAGE_CMD_DIAG_CLEAR               0x22 /* action: erase the diagnostic log (no args) */
+#define IOTDATA_MESH_MANAGE_CMD_DIAG_DUMP                0x23 /* action: dump stored records to the node console (no args) */
+/* request opcodes 0x05..0x0F, 0x14..0x1F, 0x24..0x7F reserved (reboot, set-param, ...); 0x80+ are responses */
 
 /* Station-filter action (byte in FILTER_INSERT args) and clear scope (FILTER_CLEAR args) */
 #define IOTDATA_MESH_MANAGE_FILTER_BLOCK                 0x00 /* blacklist: drop this station's frames */
@@ -446,6 +451,20 @@ static inline int iotdata_mesh_pack_manage_filter_remove(uint8_t *buf, uint16_t 
 static inline int iotdata_mesh_pack_manage_filter_clear(uint8_t *buf, uint16_t sender_station, uint16_t sender_seq, uint16_t target_station, uint8_t scope) {
     const uint8_t args[1] = { scope };
     return iotdata_mesh_pack_manage(buf, sender_station, sender_seq, target_station, IOTDATA_MESH_MANAGE_CMD_FILTER_CLEAR, args, 1);
+}
+
+static inline int iotdata_mesh_pack_manage_diag_report(uint8_t *buf, uint16_t sender_station, uint16_t sender_seq, uint16_t target_station) {
+    return iotdata_mesh_pack_manage(buf, sender_station, sender_seq, target_station, IOTDATA_MESH_MANAGE_CMD_DIAG_REPORT_REQUEST, NULL, 0);
+}
+static inline int iotdata_mesh_pack_manage_diag_enable(uint8_t *buf, uint16_t sender_station, uint16_t sender_seq, uint16_t target_station, uint8_t on) {
+    const uint8_t args[1] = { on };
+    return iotdata_mesh_pack_manage(buf, sender_station, sender_seq, target_station, IOTDATA_MESH_MANAGE_CMD_DIAG_ENABLE, args, 1);
+}
+static inline int iotdata_mesh_pack_manage_diag_clear(uint8_t *buf, uint16_t sender_station, uint16_t sender_seq, uint16_t target_station) {
+    return iotdata_mesh_pack_manage(buf, sender_station, sender_seq, target_station, IOTDATA_MESH_MANAGE_CMD_DIAG_CLEAR, NULL, 0);
+}
+static inline int iotdata_mesh_pack_manage_diag_dump(uint8_t *buf, uint16_t sender_station, uint16_t sender_seq, uint16_t target_station) {
+    return iotdata_mesh_pack_manage(buf, sender_station, sender_seq, target_station, IOTDATA_MESH_MANAGE_CMD_DIAG_DUMP, NULL, 0);
 }
 
 static inline bool iotdata_mesh_unpack_manage(const uint8_t *buf, int len, iotdata_mesh_manage_t *m) {
