@@ -60,11 +60,11 @@
  * arrive, and treats solicited and unsolicited (periodic) reports identically.
  *
  * ---------------------------------------------------------------------------------------------
- * DOWNSTREAM: addressing a command to a node
+ * DOWN: addressing a command to a node
  *
  * iotdata is one-way telemetry: a frame's station field says who SENT it, and the 32-bit header is
  * fully allocated, so there is no destination field to add one to. A frame whose sequence is
- * IOTDATA_SEQUENCE_DOWNSTREAM (0xFFFF) inverts the meaning of that one field: the station is who
+ * IOTDATA_SEQUENCE_DOWN (0xFFFF) inverts the meaning of that one field: the station is who
  * the frame is FOR. A node processes such a frame if the station is its own or
  * IOTDATA_STATION_BROADCAST, and ignores it otherwise. Nothing else about the frame changes, so a
  * downstream frame is decoded by an ordinary decoder and carries ordinary system TLVs.
@@ -530,6 +530,90 @@ static inline uint8_t iotdata_node_tlv_control_key(const uint8_t type) {
     default:
         return IOTDATA_NODE_TLV_NONE;
     }
+}
+
+/* -------------------------------------------------------------------------
+ * RECEIVE
+ *
+ * Reading the advertisement a node puts in its own outbound frame. Every key is optional, so an
+ * empty payload is the complete message "listening, for anything, for a period I am not stating" --
+ * which is why absence of a key means "no restriction" rather than "restricted to nothing".
+ * ----------------------------------------------------------------------- */
+
+typedef struct {
+    uint16_t duration_ms; /* 0 when unstated: the node is taking responsibility for being awake */
+    uint32_t types;       /* bitmask, bit N = TLV type N; meaningless unless has_types */
+    bool has_duration, has_types;
+} iotdata_node_receive_t;
+
+static inline void iotdata_node_receive_parse(const uint8_t *const kv, const size_t kvlen,
+                                              iotdata_node_receive_t *const out) {
+    out->duration_ms = 0;
+    out->types = 0;
+    out->has_duration = false;
+    out->has_types = false;
+    size_t cur = 0;
+    uint8_t key, vlen;
+    const uint8_t *val;
+    while (iotdata_kvr_next(kv, kvlen, &cur, &key, &val, &vlen)) {
+        if (key == IOTDATA_NODE_RECEIVE_DURATION) {
+            out->duration_ms = iotdata_kvr_u16(val, vlen, 0);
+            out->has_duration = true;
+        } else if (key == IOTDATA_NODE_RECEIVE_TYPES) {
+            out->types = iotdata_kvr_u32(val, vlen, 0);
+            out->has_types = true;
+        }
+    }
+}
+
+/* Build a RECEIVE payload. duration_ms 0 and types 0 are both "unstated", and an unstated pair
+   leaves the payload empty -- which is the complete message "listening, for anything". */
+static inline size_t iotdata_node_receive_build(uint8_t *const buf, const size_t size, const uint16_t duration_ms,
+                                                const uint32_t types) {
+    iotdata_kvr_t kv;
+    iotdata_kvr_init(&kv, buf, size);
+    if (duration_ms != 0)
+        iotdata_kvr_add_u16(&kv, IOTDATA_NODE_RECEIVE_DURATION, duration_ms);
+    if (types != 0)
+        iotdata_kvr_add_u32(&kv, IOTDATA_NODE_RECEIVE_TYPES, types);
+    return kv.overflow ? 0 : kv.len;
+}
+
+/* The two header predicates every node applies to an arriving frame. Kept here rather than in each
+   app so "what counts as addressed to me" has one definition. */
+static inline bool iotdata_node_is_down(const uint16_t sequence) {
+    return sequence == IOTDATA_SEQUENCE_DOWN;
+}
+
+static inline bool iotdata_node_addressed_to(const uint16_t header_station, const uint16_t my_station) {
+    return header_station == my_station || header_station == IOTDATA_STATION_BROADCAST;
+}
+
+/* Find a RECEIVE advertisement in an already-decoded frame. Decoding is the expensive part, so a
+   caller with a hold table should check that it holds something for this station FIRST. */
+static inline bool iotdata_node_receive_find(const iotdata_decoder_t *const dec, iotdata_node_receive_t *const out) {
+    for (uint8_t i = 0; i < dec->tlv_count; i++)
+        if (dec->tlv[i].type == IOTDATA_NODE_TLV_RECEIVE && dec->tlv[i].format == IOTDATA_TLV_FMT_RAW) {
+            iotdata_node_receive_parse(dec->tlv[i].raw, dec->tlv[i].length, out);
+            return true;
+        }
+    return false;
+}
+
+/* Would this node accept a frame carrying `type`? An unstated TYPES means no restriction. */
+static inline bool iotdata_node_receive_accepts(const iotdata_node_receive_t *const r, const uint8_t type) {
+    if (!r->has_types)
+        return true;
+    return type <= IOTDATA_TLV_TYPE_SYSTEM_MAX && ((r->types >> type) & 1u) != 0u;
+}
+
+/* Is a window of `duration_ms` long enough to be worth transmitting `bytes` into, at `bps` on air?
+   An unstated duration means the node is taking responsibility, so we always try. */
+static inline bool iotdata_node_receive_fits(const iotdata_node_receive_t *const r, const size_t bytes,
+                                             const uint32_t bps) {
+    if (!r->has_duration || r->duration_ms == 0 || bps == 0)
+        return true;
+    return ((bytes * 8u * 1000u) / bps) <= (size_t)r->duration_ms;
 }
 
 /* -------------------------------------------------------------------------

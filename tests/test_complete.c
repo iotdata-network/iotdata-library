@@ -874,7 +874,7 @@ static void test_node_reserved_header_values(void) {
     TEST("Reserved header values");
 
     ASSERT_EQ(IOTDATA_STATION_BROADCAST, IOTDATA_STATION_MAX, "broadcast is all-ones station");
-    ASSERT_EQ(IOTDATA_SEQUENCE_DOWNSTREAM, IOTDATA_SEQUENCE_MAX, "downstream is all-ones sequence");
+    ASSERT_EQ(IOTDATA_SEQUENCE_DOWN, IOTDATA_SEQUENCE_MAX, "down is all-ones sequence");
     ASSERT_EQ(IOTDATA_VARIANT_MESH, IOTDATA_VARIANT_RESERVED, "mesh is all-ones variant");
 
     /* no device id maps onto 0 or the broadcast id */
@@ -884,11 +884,17 @@ static void test_node_reserved_header_values(void) {
     }
     ASSERT_EQ(iotdata_station_from_id(IOTDATA_STATION_ASSIGNABLE_MAX - 1), IOTDATA_STATION_ASSIGNABLE_MAX, "top assignable id reachable");
 
+    /* an id that arrives rather than being derived is checked, not trusted */
+    ASSERT_TRUE(!iotdata_station_is_assignable(0), "0 is not a station");
+    ASSERT_TRUE(!iotdata_station_is_assignable(IOTDATA_STATION_BROADCAST), "broadcast is not assignable");
+    ASSERT_TRUE(iotdata_station_is_assignable(1), "1 is");
+    ASSERT_TRUE(iotdata_station_is_assignable(IOTDATA_STATION_ASSIGNABLE_MAX), "and so is the top one");
+
     /* the sequence wraps past the reserved value rather than onto it */
     ASSERT_EQ(iotdata_sequence_next(0), 1, "ordinary increment");
     ASSERT_EQ(iotdata_sequence_next(IOTDATA_SEQUENCE_ASSIGNABLE_MAX - 1), IOTDATA_SEQUENCE_ASSIGNABLE_MAX, "up to the last usable");
-    ASSERT_EQ(iotdata_sequence_next(IOTDATA_SEQUENCE_ASSIGNABLE_MAX), 0, "then wraps, skipping downstream");
-    ASSERT_EQ(iotdata_sequence_next(IOTDATA_SEQUENCE_DOWNSTREAM), 0, "and recovers if it ever holds one");
+    ASSERT_EQ(iotdata_sequence_next(IOTDATA_SEQUENCE_ASSIGNABLE_MAX), 0, "then wraps, skipping down");
+    ASSERT_EQ(iotdata_sequence_next(IOTDATA_SEQUENCE_DOWN), 0, "and recovers if it ever holds one");
     PASS();
 }
 

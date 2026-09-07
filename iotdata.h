@@ -145,7 +145,7 @@ struct iotdata_decoder_t_;
  *
  *   variant  = 0xF     this is a mesh frame (iotdata_mesh.h), not telemetry
  *   station  = 0xFFF   addressed to EVERY node, not sent by one
- *   sequence = 0xFFFF  DOWNSTREAM: this frame is FOR the station in the header
+ *   sequence = 0xFFFF  DOWN: this frame is FOR the station in the header
  *                      rather than FROM it
  *
  * Ordinarily a frame's station field says who SENT it and there is no
@@ -161,13 +161,20 @@ struct iotdata_decoder_t_;
 
 #define IOTDATA_STATION_BROADCAST      IOTDATA_STATION_MAX
 #define IOTDATA_STATION_ASSIGNABLE_MAX (IOTDATA_STATION_MAX - 1)
-#define IOTDATA_SEQUENCE_DOWNSTREAM    IOTDATA_SEQUENCE_MAX
+#define IOTDATA_SEQUENCE_DOWN          IOTDATA_SEQUENCE_MAX
 #define IOTDATA_SEQUENCE_ASSIGNABLE_MAX (IOTDATA_SEQUENCE_MAX - 1)
 
 /* Map an arbitrary device id (a MAC-derived word, say) onto an assignable
    station id, avoiding both 0 and the broadcast id. */
 static inline uint16_t iotdata_station_from_id(const uint32_t id) {
     return (uint16_t)((id % IOTDATA_STATION_ASSIGNABLE_MAX) + 1u);
+}
+
+/* For a station id that ARRIVES rather than being derived -- from a config file, a command line --
+   check it before use: 0 is not a station, and the broadcast id would make the node answer every
+   broadcast as though it were addressed to it alone. */
+static inline bool iotdata_station_is_assignable(const uint16_t station) {
+    return station != 0u && station <= IOTDATA_STATION_ASSIGNABLE_MAX;
 }
 
 /* Advance a sending node's own sequence, skipping the reserved downstream
