@@ -706,9 +706,12 @@ static void test_peek_errors(void) {
     uint8_t short_buf[] = { 0x00, 0x00 };
     ASSERT_ERR(iotdata_peek(short_buf, 2, NULL, NULL, NULL), IOTDATA_ERR_DECODE_SHORT, "peek short");
 
+    /* The reserved variant (15) is the mesh variant: peek must REPORT it, not reject it, so a
+       gateway/relay can identify mesh traffic by peeking. decode() is what refuses it. */
     uint8_t reserved[] = { 0xF0, 0x00, 0x00, 0x00, 0x00 };
     uint8_t v = 0;
-    ASSERT_ERR(iotdata_peek(reserved, 5, &v, NULL, NULL), IOTDATA_ERR_DECODE_VARIANT, "peek reserved");
+    ASSERT_OK(iotdata_peek(reserved, 5, &v, NULL, NULL), "peek reserved is not an error");
+    ASSERT_EQ(v, IOTDATA_VARIANT_RESERVED, "peek reports the reserved variant");
     PASS();
 }
 
@@ -844,19 +847,6 @@ static void test_tlv_type_boundary(void) {
     ASSERT_OK(iotdata_encode_tlv(&enc, 0, raw, 1), "type 0");
     ASSERT_OK(iotdata_encode_tlv(&enc, 63, raw, 1), "type 63");
     ASSERT_ERR(iotdata_encode_tlv(&enc, 64, raw, 1), IOTDATA_ERR_TLV_TYPE_HIGH, "type 64");
-    PASS();
-}
-
-static void test_tlv_kv_mismatch(void) {
-    TEST("TLV KV mismatch (odd count)");
-
-    begin(0, 1, 404);
-    const char *kv[] = { "key1", "val1", "orphan" };
-    char buf[256];
-    ASSERT_ERR(iotdata_encode_tlv_type_version(&enc, kv, 3, false, buf, sizeof(buf)), IOTDATA_ERR_TLV_KV_MISMATCH, "odd count");
-
-    const char *kv0[] = { NULL };
-    ASSERT_ERR(iotdata_encode_tlv_type_version(&enc, kv0, 0, false, buf, sizeof(buf)), IOTDATA_ERR_TLV_DATA_NULL, "zero count");
     PASS();
 }
 
@@ -1154,7 +1144,6 @@ int main(void) {
     test_tlv_max_data_length();
     test_tlv_empty_string();
     test_tlv_type_boundary();
-    test_tlv_kv_mismatch();
     test_tlv_string_invalid_chars();
 
     printf("\n--- Section 8: Buffer overflow ---\n");

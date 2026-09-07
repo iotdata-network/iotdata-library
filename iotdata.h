@@ -43,6 +43,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
+#include <string.h> /* the inline KV builders in iotdata_fields.h use memcpy/strlen */
 
 #ifdef __cplusplus
 extern "C" {
@@ -137,6 +138,43 @@ struct iotdata_decoder_t_;
 #define IOTDATA_VARIANT_MESH      IOTDATA_VARIANT_RESERVED
 #define IOTDATA_STATION_MAX       4095
 #define IOTDATA_SEQUENCE_MAX      65535
+
+/* ---------------------------------------------------------------------------
+ * Reserved header values: in each of the three fields, the all-ones value is
+ * reserved and means something other than "an ordinary frame from a station".
+ *
+ *   variant  = 0xF     this is a mesh frame (iotdata_mesh.h), not telemetry
+ *   station  = 0xFFF   addressed to EVERY node, not sent by one
+ *   sequence = 0xFFFF  DOWNSTREAM: this frame is FOR the station in the header
+ *                      rather than FROM it
+ *
+ * Ordinarily a frame's station field says who SENT it and there is no
+ * destination -- the protocol is one-way telemetry. The downstream sequence
+ * inverts that one field's meaning so a node can be addressed without spending
+ * header bits that do not exist: the header is exactly 32 bits, fully
+ * allocated. A node accepts a downstream frame whose station is its own or the
+ * broadcast id, and ignores every other one.
+ *
+ * Assignable station ids are therefore 1..IOTDATA_STATION_ASSIGNABLE_MAX;
+ * derive them with iotdata_station_from_id() so every node agrees.
+ * ------------------------------------------------------------------------ */
+
+#define IOTDATA_STATION_BROADCAST      IOTDATA_STATION_MAX
+#define IOTDATA_STATION_ASSIGNABLE_MAX (IOTDATA_STATION_MAX - 1)
+#define IOTDATA_SEQUENCE_DOWNSTREAM    IOTDATA_SEQUENCE_MAX
+#define IOTDATA_SEQUENCE_ASSIGNABLE_MAX (IOTDATA_SEQUENCE_MAX - 1)
+
+/* Map an arbitrary device id (a MAC-derived word, say) onto an assignable
+   station id, avoiding both 0 and the broadcast id. */
+static inline uint16_t iotdata_station_from_id(const uint32_t id) {
+    return (uint16_t)((id % IOTDATA_STATION_ASSIGNABLE_MAX) + 1u);
+}
+
+/* Advance a sending node's own sequence, skipping the reserved downstream
+   value so an upstream frame can never be mistaken for a command. */
+static inline uint16_t iotdata_sequence_next(const uint16_t seq) {
+    return (uint16_t)((seq >= IOTDATA_SEQUENCE_ASSIGNABLE_MAX) ? 0u : (seq + 1u));
+}
 
 /* ---------------------------------------------------------------------------
  * Presence byte layout (N-byte extension chain)

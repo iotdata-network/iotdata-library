@@ -401,11 +401,6 @@ static void test_tlv_errors(void) {
         ASSERT_OK(iotdata_encode_tlv(&enc, 0x20, raw, 1), "fill");
     ASSERT_ERR(iotdata_encode_tlv(&enc, 0x20, raw, 1), IOTDATA_ERR_TLV_FULL, "full");
 
-    /* KV mismatch (odd count) */
-    begin(0, 1, 24);
-    const char *kv_odd[] = { "key1", "val1", "key2" };
-    char kv_buf[256];
-    ASSERT_ERR(iotdata_encode_tlv_type_version(&enc, kv_odd, 3, false, kv_buf, sizeof(kv_buf)), IOTDATA_ERR_TLV_KV_MISMATCH, "kv odd");
     PASS();
 }
 
@@ -475,10 +470,20 @@ static void test_peek_short_buffer(void) {
 static void test_peek_reserved_variant(void) {
     TEST("Peek reserved variant (15)");
 
-    /* Manually construct: variant=15 (0xF), station=0, sequence=0 */
+    /* Variant 15 is reserved, and is what the mesh uses (IOTDATA_VARIANT_MESH). peek() must
+       therefore SUCCEED and report it -- identifying a mesh frame is exactly what a gateway or
+       relay peeks for. It is decode() that refuses to interpret it as a telemetry packet.
+       Manually construct: variant=15 (0xF), station=0, sequence=0. */
     uint8_t bad[] = { 0xF0, 0x00, 0x00, 0x00, 0x00 };
-    uint8_t v;
-    ASSERT_ERR(iotdata_peek(bad, 5, &v, NULL, NULL), IOTDATA_ERR_DECODE_VARIANT, "reserved");
+    uint8_t v = 0;
+    uint16_t station = 0xFFFF, sequence = 0xFFFF;
+    ASSERT_OK(iotdata_peek(bad, 5, &v, &station, &sequence), "peek identifies, does not reject");
+    ASSERT_EQ(v, IOTDATA_VARIANT_RESERVED, "variant reported");
+    ASSERT_EQ(v, IOTDATA_VARIANT_MESH, "reserved variant is the mesh variant");
+    ASSERT_EQ(station, 0, "station");
+
+    iotdata_decoder_t d;
+    ASSERT_ERR(iotdata_decode(bad, 5, &d), IOTDATA_ERR_DECODE_VARIANT, "decode refuses it");
     PASS();
 }
 
@@ -486,156 +491,404 @@ static void test_peek_reserved_variant(void) {
  * Section 6: TLV typed helpers
  * =========================================================================*/
 
-static void test_tlv_version_round_trip(void) {
-    TEST("TLV version (KV) round-trip");
-    begin(0, 1, 30);
-
-    const char *kv[] = { "FW", "142", "HW", "3" };
-    char kv_buf[256];
-    ASSERT_OK(iotdata_encode_tlv_type_version(&enc, kv, 4, false, kv_buf, sizeof(kv_buf)), "encode");
-    finish();
-    decode_pkt();
-
-    ASSERT_EQ(dec.tlv_count, 1, "count");
-    ASSERT_EQ(dec.tlv[0].type, IOTDATA_TLV_VERSION, "type");
-    ASSERT_EQ(dec.tlv[0].format, IOTDATA_TLV_FMT_STRING, "fmt");
-    ASSERT_EQ(strcmp(dec.tlv[0].str, "FW 142 HW 3"), 0, "str");
-    PASS();
-}
-
-static void test_tlv_status_round_trip(void) {
-    TEST("TLV status round-trip");
-    begin(0, 1, 31);
-
-    uint8_t status_buf[9];
-    ASSERT_OK(iotdata_encode_tlv_type_status(&enc, 3600, 86400, 5, IOTDATA_TLV_REASON_POWER_ON, status_buf), "encode");
-    finish();
-    decode_pkt();
-
-    ASSERT_EQ(dec.tlv_count, 1, "count");
-    ASSERT_EQ(dec.tlv[0].type, IOTDATA_TLV_STATUS, "type");
-    ASSERT_EQ(dec.tlv[0].format, IOTDATA_TLV_FMT_RAW, "fmt");
-    ASSERT_EQ(dec.tlv[0].length, 9, "len");
-    /* Verify raw bytes: session=3600/5=720=0x0002D0 */
-    ASSERT_EQ(dec.tlv[0].raw[0], 0x00, "sess0");
-    ASSERT_EQ(dec.tlv[0].raw[1], 0x02, "sess1");
-    ASSERT_EQ(dec.tlv[0].raw[2], 0xD0, "sess2");
-    /* lifetime=86400/5=17280=0x004380 */
-    ASSERT_EQ(dec.tlv[0].raw[3], 0x00, "life0");
-    ASSERT_EQ(dec.tlv[0].raw[4], 0x43, "life1");
-    ASSERT_EQ(dec.tlv[0].raw[5], 0x80, "life2");
-    /* restarts=5=0x0005 */
-    ASSERT_EQ(dec.tlv[0].raw[6], 0x00, "rst0");
-    ASSERT_EQ(dec.tlv[0].raw[7], 0x05, "rst1");
-    /* reason=POWER_ON=1 */
-    ASSERT_EQ(dec.tlv[0].raw[8], 0x01, "reason");
-    PASS();
-}
-
-static void test_tlv_health_round_trip(void) {
-    TEST("TLV health round-trip");
-    begin(0, 1, 32);
-
-    uint8_t health_buf[7];
-    ASSERT_OK(iotdata_encode_tlv_type_health(&enc, 42, 3300, 32768, 1800, health_buf), "encode");
-    finish();
-    decode_pkt();
-
-    ASSERT_EQ(dec.tlv_count, 1, "count");
-    ASSERT_EQ(dec.tlv[0].type, IOTDATA_TLV_HEALTH, "type");
-    ASSERT_EQ(dec.tlv[0].format, IOTDATA_TLV_FMT_RAW, "fmt");
-    ASSERT_EQ(dec.tlv[0].length, 7, "len");
-    /* cpu_temp=42=0x2A */
-    ASSERT_EQ(dec.tlv[0].raw[0], 0x2A, "cpu");
-    /* supply_mv=3300=0x0CE4 */
-    ASSERT_EQ(dec.tlv[0].raw[1], 0x0C, "mv0");
-    ASSERT_EQ(dec.tlv[0].raw[2], 0xE4, "mv1");
-    /* free_heap=32768=0x8000 */
-    ASSERT_EQ(dec.tlv[0].raw[3], 0x80, "heap0");
-    ASSERT_EQ(dec.tlv[0].raw[4], 0x00, "heap1");
-    /* active=1800/5=360=0x0168 */
-    ASSERT_EQ(dec.tlv[0].raw[5], 0x01, "act0");
-    ASSERT_EQ(dec.tlv[0].raw[6], 0x68, "act1");
-    PASS();
-}
-
-static void test_tlv_config_round_trip(void) {
-    TEST("TLV config (KV) round-trip");
-    begin(0, 1, 33);
-
-    const char *kv[] = { "mode", "auto", "rate", "60" };
-    char kv_buf[256];
-    ASSERT_OK(iotdata_encode_tlv_type_config(&enc, kv, 4, false, kv_buf, sizeof(kv_buf)), "encode");
-    finish();
-    decode_pkt();
-
-    ASSERT_EQ(dec.tlv_count, 1, "count");
-    ASSERT_EQ(dec.tlv[0].type, IOTDATA_TLV_CONFIG, "type");
-    ASSERT_EQ(dec.tlv[0].format, IOTDATA_TLV_FMT_STRING, "fmt");
-    ASSERT_EQ(strcmp(dec.tlv[0].str, "mode auto rate 60"), 0, "str");
-    PASS();
-}
-
-static void test_tlv_diagnostic_round_trip(void) {
-    TEST("TLV diagnostic round-trip (string + raw)");
-
-    /* String mode */
-    begin(0, 1, 34);
-    ASSERT_OK(iotdata_encode_tlv_type_diagnostic(&enc, "system ok", false), "str");
-    finish();
-    decode_pkt();
-    ASSERT_EQ(dec.tlv[0].type, IOTDATA_TLV_DIAGNOSTIC, "type");
-    ASSERT_EQ(dec.tlv[0].format, IOTDATA_TLV_FMT_STRING, "fmt_str");
-    ASSERT_EQ(strcmp(dec.tlv[0].str, "system ok"), 0, "str_val");
-
-    /* Raw mode */
-    begin(0, 1, 35);
-    ASSERT_OK(iotdata_encode_tlv_type_diagnostic(&enc, "error42", true), "raw");
-    finish();
-    decode_pkt();
-    ASSERT_EQ(dec.tlv[0].type, IOTDATA_TLV_DIAGNOSTIC, "type_raw");
-    ASSERT_EQ(dec.tlv[0].format, IOTDATA_TLV_FMT_RAW, "fmt_raw");
-    ASSERT_EQ(dec.tlv[0].length, 7, "len_raw");
-    ASSERT_EQ(memcmp(dec.tlv[0].raw, "error42", 7), 0, "raw_val");
-    PASS();
-}
-
-static void test_tlv_userdata_round_trip(void) {
-    TEST("TLV userdata round-trip");
-    begin(0, 1, 36);
-
-    ASSERT_OK(iotdata_encode_tlv_type_userdata(&enc, "boot event", false), "encode");
-    finish();
-    decode_pkt();
-
-    ASSERT_EQ(dec.tlv[0].type, IOTDATA_TLV_USERDATA, "type");
-    ASSERT_EQ(dec.tlv[0].format, IOTDATA_TLV_FMT_STRING, "fmt");
-    ASSERT_EQ(strcmp(dec.tlv[0].str, "boot event"), 0, "str");
-    PASS();
-}
-
 static void test_tlv_multiple(void) {
     TEST("Multiple TLV entries in one packet");
     begin(0, 1, 37);
 
     ASSERT_OK(iotdata_encode_battery(&enc, 50, false), "bat");
 
-    const char *ver_kv[] = { "FW", "100" };
-    char kv_buf[256];
-    ASSERT_OK(iotdata_encode_tlv_type_version(&enc, ver_kv, 2, false, kv_buf, sizeof(kv_buf)), "ver");
+    uint8_t kvbuf[64];
+    iotdata_kvr_t kv;
+    iotdata_kvr_init(&kv, kvbuf, sizeof(kvbuf));
+    iotdata_kvr_add_str(&kv, 0x00, "100");
+    ASSERT_OK(iotdata_encode_tlv(&enc, 0x01, kvbuf, (uint8_t)kv.len), "kvr tlv");
 
-    uint8_t status_buf[9];
-    ASSERT_OK(iotdata_encode_tlv_type_status(&enc, 600, 7200, 1, IOTDATA_TLV_REASON_SOFTWARE, status_buf), "status");
+    uint8_t raw2[] = { 0x01, 0x02, 0x03 };
+    ASSERT_OK(iotdata_encode_tlv(&enc, 0x22, raw2, 3), "raw tlv");
 
-    ASSERT_OK(iotdata_encode_tlv_type_userdata(&enc, "test data", false), "user");
+    ASSERT_OK(iotdata_encode_tlv_string(&enc, 0x23, "test data"), "str tlv");
 
     finish();
     decode_pkt();
 
     ASSERT_EQ(dec.tlv_count, 3, "count");
-    ASSERT_EQ(dec.tlv[0].type, IOTDATA_TLV_VERSION, "t0");
-    ASSERT_EQ(dec.tlv[1].type, IOTDATA_TLV_STATUS, "t1");
-    ASSERT_EQ(dec.tlv[2].type, IOTDATA_TLV_USERDATA, "t2");
+    ASSERT_EQ(dec.tlv[0].type, 0x01, "t0");
+    ASSERT_EQ(dec.tlv[1].type, 0x22, "t1");
+    ASSERT_EQ(dec.tlv[2].type, 0x23, "t2");
+    PASS();
+}
+
+/* =========================================================================
+ * Section 6b: TLV key-value payload codecs (kvr / kvs)
+ * =========================================================================*/
+
+static void test_kv_raw_round_trip(void) {
+    TEST("kvr build + walk round-trip");
+
+    uint8_t buf[128];
+    iotdata_kvr_t kv;
+    iotdata_kvr_init(&kv, buf, sizeof(buf));
+    ASSERT_TRUE(iotdata_kvr_add_u8(&kv, 0x01, 0xAB), "add u8");
+    ASSERT_TRUE(iotdata_kvr_add_u16(&kv, 0x02, 0x1234), "add u16");
+    ASSERT_TRUE(iotdata_kvr_add_u32(&kv, 0x03, 0xDEADBEEFu), "add u32");
+    ASSERT_TRUE(iotdata_kvr_add_i8(&kv, 0x04, -5), "add i8");
+    ASSERT_TRUE(iotdata_kvr_add_str(&kv, 0x05, "1.4.2"), "add str");
+    ASSERT_TRUE(iotdata_kvr_add_flag(&kv, 0x06), "add flag");
+    ASSERT_TRUE(!kv.overflow, "no overflow");
+    /* 1+2 + 2+2 + 4+2 + 1+2 + 5+2 + 0+2 */
+    ASSERT_EQ((int)kv.len, 25, "len");
+
+    size_t cur = 0;
+    uint8_t k, n;
+    const uint8_t *v;
+    char sbuf[16];
+
+    ASSERT_TRUE(iotdata_kvr_next(buf, kv.len, &cur, &k, &v, &n), "next 1");
+    ASSERT_EQ(k, 0x01, "k1");
+    ASSERT_EQ(iotdata_kvr_u8(v, n, 0), 0xAB, "v1");
+    ASSERT_TRUE(iotdata_kvr_next(buf, kv.len, &cur, &k, &v, &n), "next 2");
+    ASSERT_EQ(iotdata_kvr_u16(v, n, 0), 0x1234, "v2");
+    ASSERT_TRUE(iotdata_kvr_next(buf, kv.len, &cur, &k, &v, &n), "next 3");
+    ASSERT_TRUE(iotdata_kvr_u32(v, n, 0) == 0xDEADBEEFu, "v3");
+    ASSERT_TRUE(iotdata_kvr_next(buf, kv.len, &cur, &k, &v, &n), "next 4");
+    ASSERT_EQ(iotdata_kvr_i8(v, n, 0), -5, "v4 signed");
+    ASSERT_TRUE(iotdata_kvr_next(buf, kv.len, &cur, &k, &v, &n), "next 5");
+    ASSERT_EQ((int)iotdata_kvr_str(v, n, sbuf, sizeof(sbuf)), 5, "v5 len");
+    ASSERT_EQ(strcmp(sbuf, "1.4.2"), 0, "v5 str (punctuation survives raw)");
+    ASSERT_TRUE(iotdata_kvr_next(buf, kv.len, &cur, &k, &v, &n), "next 6");
+    ASSERT_EQ(k, 0x06, "k6");
+    ASSERT_EQ(n, 0, "v6 flag has no value");
+    ASSERT_TRUE(!iotdata_kvr_next(buf, kv.len, &cur, &k, &v, &n), "end");
+    PASS();
+}
+
+static void test_kv_raw_robustness(void) {
+    TEST("kvr width mismatch, unknown-key skip, overflow, truncation");
+
+    uint8_t buf[64];
+    iotdata_kvr_t kv;
+    iotdata_kvr_init(&kv, buf, sizeof(buf));
+    iotdata_kvr_add_u16(&kv, 0x01, 0x1234);
+    iotdata_kvr_add_u32(&kv, 0x80, 0x11223344u); /* a proprietary key we will skip past */
+    iotdata_kvr_add_u8(&kv, 0x02, 7);
+
+    /* reading a key at the wrong width yields the default, not garbage */
+    size_t cur = 0;
+    uint8_t k, n;
+    const uint8_t *v;
+    ASSERT_TRUE(iotdata_kvr_next(buf, kv.len, &cur, &k, &v, &n), "n1");
+    ASSERT_EQ(iotdata_kvr_u32(v, n, 99), 99, "u32 read of a u16 -> default");
+    ASSERT_EQ(iotdata_kvr_u16(v, n, 0), 0x1234, "correct width still works");
+
+    /* an unknown/proprietary key is skippable: the walk reaches the key after it */
+    ASSERT_TRUE(iotdata_kvr_next(buf, kv.len, &cur, &k, &v, &n), "n2");
+    ASSERT_TRUE(!iotdata_tlv_key_is_system(k), "0x80 is proprietary");
+    ASSERT_TRUE(iotdata_kvr_next(buf, kv.len, &cur, &k, &v, &n), "n3 (skipped past)");
+    ASSERT_EQ(k, 0x02, "k3");
+    ASSERT_TRUE(iotdata_tlv_key_is_system(k), "0x02 is system");
+
+    /* a truncated payload stops rather than running off the end */
+    cur = 0;
+    ASSERT_TRUE(!iotdata_kvr_next(buf, 3, &cur, &k, &v, &n), "truncated pair rejected");
+
+    /* overflow is sticky and does not write past the buffer */
+    uint8_t small[6];
+    iotdata_kvr_t ov;
+    iotdata_kvr_init(&ov, small, sizeof(small));
+    ASSERT_TRUE(iotdata_kvr_add_u32(&ov, 0x01, 1), "fits");
+    ASSERT_TRUE(!iotdata_kvr_add_u32(&ov, 0x02, 2), "does not fit");
+    ASSERT_TRUE(ov.overflow, "overflow sticky");
+    ASSERT_EQ((int)ov.len, 6, "len unchanged after failed add");
+    PASS();
+}
+
+static void test_kv_raw_in_tlv(void) {
+    TEST("kvr payload carried in a TLV, decoded and walked");
+    begin(0, 1, 40);
+
+    uint8_t kvbuf[64];
+    iotdata_kvr_t kv;
+    iotdata_kvr_init(&kv, kvbuf, sizeof(kvbuf));
+    iotdata_kvr_add_u32(&kv, 0x00, 123456);
+    iotdata_kvr_add_u16(&kv, 0x02, 42);
+    ASSERT_OK(iotdata_encode_tlv(&enc, 0x02, kvbuf, (uint8_t)kv.len), "encode tlv");
+    finish();
+    decode_pkt();
+
+    ASSERT_EQ(dec.tlv_count, 1, "count");
+    ASSERT_EQ(dec.tlv[0].format, IOTDATA_TLV_FMT_RAW, "kvr rides in a RAW tlv");
+    ASSERT_TRUE(iotdata_tlv_type_is_system(dec.tlv[0].type), "0x02 is a system type");
+
+    size_t cur = 0;
+    uint8_t k, n;
+    const uint8_t *v;
+    ASSERT_TRUE(iotdata_kvr_next(dec.tlv[0].raw, dec.tlv[0].length, &cur, &k, &v, &n), "walk 1");
+    ASSERT_EQ(k, 0x00, "k1");
+    ASSERT_TRUE(iotdata_kvr_u32(v, n, 0) == 123456u, "v1 survived the packet");
+    ASSERT_TRUE(iotdata_kvr_next(dec.tlv[0].raw, dec.tlv[0].length, &cur, &k, &v, &n), "walk 2");
+    ASSERT_EQ(iotdata_kvr_u16(v, n, 0), 42, "v2");
+    ASSERT_TRUE(!iotdata_kvr_next(dec.tlv[0].raw, dec.tlv[0].length, &cur, &k, &v, &n), "end");
+    PASS();
+}
+
+static void test_kv_string_round_trip(void) {
+    TEST("kvs build + walk round-trip");
+
+    char buf[128];
+    iotdata_kvs_t kv;
+    iotdata_kvs_init(&kv, buf, sizeof(buf));
+    ASSERT_TRUE(iotdata_kvs_add(&kv, "firmware", "142"), "add 1");
+    ASSERT_TRUE(iotdata_kvs_add(&kv, "hardware", "3"), "add 2");
+    ASSERT_TRUE(!kv.overflow, "no overflow");
+    ASSERT_EQ(strcmp(buf, "firmware 142 hardware 3"), 0, "wire form");
+
+    size_t cur = 0, nl, vl;
+    const char *nm, *val;
+    ASSERT_TRUE(iotdata_kvs_next(buf, &cur, &nm, &nl, &val, &vl), "next 1");
+    ASSERT_EQ((int)nl, 8, "name len");
+    ASSERT_EQ(strncmp(nm, "firmware", nl), 0, "name");
+    ASSERT_EQ(strncmp(val, "142", vl), 0, "value");
+    ASSERT_TRUE(iotdata_kvs_next(buf, &cur, &nm, &nl, &val, &vl), "next 2");
+    ASSERT_EQ(strncmp(nm, "hardware", nl), 0, "name 2");
+    ASSERT_TRUE(!iotdata_kvs_next(buf, &cur, &nm, &nl, &val, &vl), "end");
+
+    /* a dangling key with no value is malformed and must stop the walk, not read past */
+    char odd[] = "a 1 b";
+    cur = 0;
+    ASSERT_TRUE(iotdata_kvs_next(odd, &cur, &nm, &nl, &val, &vl), "odd: first pair ok");
+    ASSERT_TRUE(!iotdata_kvs_next(odd, &cur, &nm, &nl, &val, &vl), "odd: dangling key stops");
+
+    /* kvs values must be 6-bit representable; punctuation is NOT (that is what kvr is for) */
+    ASSERT_TRUE(!iotdata_issixbit('.'), "'.' not encodable in a string TLV");
+    ASSERT_TRUE(!iotdata_issixbit('-'), "'-' not encodable in a string TLV");
+    ASSERT_TRUE(iotdata_issixbit('A') && iotdata_issixbit('9') && iotdata_issixbit(' '), "alnum + space are");
+    PASS();
+}
+
+/* =========================================================================
+ * Section 6c: node system TLVs (iotdata_node.h)
+ *
+ * Deliberately minimal for now -- enough to pin the definitions down and give later work a
+ * place to grow into.
+ * =========================================================================*/
+
+static void test_node_definitions(void) {
+    TEST("Node system TLV definitions");
+
+    const uint8_t types[] = { IOTDATA_NODE_TLV_VERSION, IOTDATA_NODE_TLV_VARIANT, IOTDATA_NODE_TLV_CONTROL,
+                              IOTDATA_NODE_TLV_STATUS,  IOTDATA_NODE_TLV_CONFIG,  IOTDATA_NODE_TLV_DIAGNOSTICS,
+                              IOTDATA_NODE_TLV_CONTENT };
+    for (size_t i = 0; i < sizeof(types) / sizeof(types[0]); i++) {
+        ASSERT_TRUE(iotdata_tlv_type_is_system(types[i]), "type is system");
+        ASSERT_TRUE(iotdata_node_tlv_name(types[i]) != NULL, "type is named");
+        size_t n = 0;
+        const iotdata_node_keydef_t *tbl = iotdata_node_tlv_keys(types[i], &n);
+        ASSERT_TRUE(tbl != NULL && n > 0, "type has keys");
+        for (size_t k = 0; k < n; k++)
+            ASSERT_TRUE(iotdata_tlv_key_is_system(tbl[k].key), "system keys have bit7 clear");
+        /* asking for a type is the same identifier as the type itself */
+        ASSERT_EQ(iotdata_node_tlv_control_key(types[i]), types[i], "request key == type");
+        ASSERT_EQ(iotdata_node_tlv_control_type(types[i]), types[i], "and back again");
+    }
+    /* proprietary space is neither system nor named -- the split is on the type field's top bit,
+       which is 0x20 because the field is 6 bits wide (the key field is 8, so its bit is 0x80) */
+    ASSERT_TRUE(iotdata_tlv_type_is_system(0x1F), "0x1F is the last system type");
+    ASSERT_TRUE(!iotdata_tlv_type_is_system(0x20), "0x20 is proprietary");
+    ASSERT_TRUE(iotdata_node_tlv_name(0x20) == NULL, "proprietary type unnamed");
+    ASSERT_TRUE(!iotdata_tlv_key_is_system(0x80), "0x80 is a proprietary key");
+    ASSERT_TRUE(iotdata_node_tlv_key_name(IOTDATA_NODE_TLV_STATUS, 0x80) == NULL, "proprietary key unnamed");
+    /* a non-request control command does not map to a type. the sentinel must not be 0, because
+       0x00 is RECEIVE -- a real type */
+    ASSERT_EQ(iotdata_node_tlv_control_type(IOTDATA_NODE_CONTROL_REBOOT), IOTDATA_NODE_TLV_NONE, "reboot is not a request");
+    ASSERT_TRUE(IOTDATA_NODE_TLV_NONE != IOTDATA_NODE_TLV_RECEIVE, "sentinel is not a valid type");
+
+    /* RECEIVE is a system type with keys, but it is volunteered, never requested */
+    ASSERT_TRUE(iotdata_tlv_type_is_system(IOTDATA_NODE_TLV_RECEIVE), "receive is a system type");
+    ASSERT_TRUE(iotdata_node_tlv_name(IOTDATA_NODE_TLV_RECEIVE) != NULL, "receive is named");
+    ASSERT_EQ(iotdata_node_tlv_control_key(IOTDATA_NODE_TLV_RECEIVE), IOTDATA_NODE_TLV_NONE, "receive cannot be requested");
+    PASS();
+}
+
+static void test_node_status_tlv(void) {
+    TEST("Node STATUS TLV encode/decode via kvr");
+    begin(0, 1, 48);
+
+    uint8_t kvbuf[64];
+    iotdata_kvr_t kv;
+    iotdata_kvr_init(&kv, kvbuf, sizeof(kvbuf));
+    iotdata_kvr_add_u32(&kv, IOTDATA_NODE_STATUS_UPTIME, 3600);
+    iotdata_kvr_add_u16(&kv, IOTDATA_NODE_STATUS_RESTARTS, 7);
+    iotdata_kvr_add_u8(&kv, IOTDATA_NODE_STATUS_REASON, IOTDATA_NODE_REASON_WATCHDOG);
+    iotdata_kvr_add_i8(&kv, IOTDATA_NODE_STATUS_TEMPERATURE, -5);
+    ASSERT_TRUE(!kv.overflow, "built");
+    ASSERT_OK(iotdata_encode_tlv(&enc, IOTDATA_NODE_TLV_STATUS, kvbuf, (uint8_t)kv.len), "encode");
+    finish();
+    decode_pkt();
+
+    ASSERT_EQ(dec.tlv_count, 1, "one tlv");
+    ASSERT_EQ(dec.tlv[0].type, IOTDATA_NODE_TLV_STATUS, "type");
+
+    size_t cur = 0;
+    uint8_t k, n;
+    const uint8_t *v;
+    int seen = 0;
+    while (iotdata_kvr_next(dec.tlv[0].raw, dec.tlv[0].length, &cur, &k, &v, &n)) {
+        /* every key is known, and arrived at the width its definition claims */
+        ASSERT_TRUE(iotdata_node_tlv_key_name(IOTDATA_NODE_TLV_STATUS, k) != NULL, "key named");
+        ASSERT_EQ(n, iotdata_node_tlv_key_width(IOTDATA_NODE_TLV_STATUS, k), "width matches definition");
+        switch (k) {
+        case IOTDATA_NODE_STATUS_UPTIME:
+            ASSERT_TRUE(iotdata_kvr_u32(v, n, 0) == 3600u, "uptime");
+            break;
+        case IOTDATA_NODE_STATUS_RESTARTS:
+            ASSERT_EQ(iotdata_kvr_u16(v, n, 0), 7, "restarts");
+            break;
+        case IOTDATA_NODE_STATUS_REASON:
+            ASSERT_EQ(strcmp(iotdata_node_tlv_status_reason_str(iotdata_kvr_u8(v, n, 0)), "watchdog"), 0, "reason");
+            break;
+        case IOTDATA_NODE_STATUS_TEMPERATURE:
+            ASSERT_EQ(iotdata_kvr_i8(v, n, 0), -5, "temperature is signed");
+            break;
+        default:
+            break;
+        }
+        seen++;
+    }
+    ASSERT_EQ(seen, 4, "all four keys walked");
+    PASS();
+}
+
+/* An empty RECEIVE is the whole message "listening, for anything" -- and because its type is 0x00
+   and its length 0, every bit of it is zero. Worth pinning that this survives a round trip, since
+   it is the one system TLV indistinguishable from a run of zero bits. */
+static void test_node_receive_tlv(void) {
+    TEST("Node RECEIVE TLV, empty and populated");
+
+    begin(0, 1, 49);
+    ASSERT_OK(iotdata_encode_tlv(&enc, IOTDATA_NODE_TLV_RECEIVE, NULL, 0), "encode empty");
+    finish();
+    decode_pkt();
+    ASSERT_EQ(dec.tlv_count, 1, "one tlv");
+    ASSERT_EQ(dec.tlv[0].type, IOTDATA_NODE_TLV_RECEIVE, "type 0x00 survives");
+    ASSERT_EQ(dec.tlv[0].length, 0, "zero length");
+    ASSERT_EQ(dec.tlv[0].format, IOTDATA_TLV_FMT_RAW, "raw");
+    size_t cur = 0;
+    uint8_t k, n;
+    const uint8_t *v;
+    ASSERT_TRUE(!iotdata_kvr_next(dec.tlv[0].raw, dec.tlv[0].length, &cur, &k, &v, &n), "no keys to walk");
+
+    /* the same type carrying both its optional keys */
+    begin(0, 1, 50);
+    uint8_t kvbuf[32];
+    iotdata_kvr_t kv;
+    iotdata_kvr_init(&kv, kvbuf, sizeof(kvbuf));
+    iotdata_kvr_add_u16(&kv, IOTDATA_NODE_RECEIVE_DURATION, 500);
+    iotdata_kvr_add_u32(&kv, IOTDATA_NODE_RECEIVE_TYPES,
+                        (1u << IOTDATA_NODE_TLV_CONTROL) | (1u << IOTDATA_NODE_TLV_CONFIG));
+    ASSERT_TRUE(!kv.overflow, "built");
+    ASSERT_OK(iotdata_encode_tlv(&enc, IOTDATA_NODE_TLV_RECEIVE, kvbuf, (uint8_t)kv.len), "encode");
+    finish();
+    decode_pkt();
+
+    ASSERT_EQ(dec.tlv[0].type, IOTDATA_NODE_TLV_RECEIVE, "type");
+    cur = 0;
+    int seen = 0;
+    uint32_t types = 0;
+    while (iotdata_kvr_next(dec.tlv[0].raw, dec.tlv[0].length, &cur, &k, &v, &n)) {
+        ASSERT_TRUE(iotdata_node_tlv_key_name(IOTDATA_NODE_TLV_RECEIVE, k) != NULL, "key named");
+        ASSERT_EQ(n, iotdata_node_tlv_key_width(IOTDATA_NODE_TLV_RECEIVE, k), "width matches definition");
+        if (k == IOTDATA_NODE_RECEIVE_DURATION)
+            ASSERT_EQ(iotdata_kvr_u16(v, n, 0), 500, "duration");
+        if (k == IOTDATA_NODE_RECEIVE_TYPES)
+            types = iotdata_kvr_u32(v, n, 0);
+        seen++;
+    }
+    ASSERT_EQ(seen, 2, "both keys walked");
+    ASSERT_TRUE((types & (1u << IOTDATA_NODE_TLV_CONFIG)) != 0, "config accepted");
+    ASSERT_TRUE((types & (1u << IOTDATA_NODE_TLV_CONTENT)) == 0, "content declined");
+    PASS();
+}
+
+/* VARIANT carries a whole variant suite: key = variant number, value = name plus one 12-bit field
+   id per presence slot. Round-trip the suite this build was compiled against. */
+static void test_node_variant_tlv(void) {
+    TEST("Node VARIANT TLV, suite encode/decode");
+
+    const iotdata_variant_def_t *const def = iotdata_get_variant(0);
+    ASSERT_TRUE(def != NULL, "variant 0 defined");
+
+    const size_t slots = iotdata_node_variant_slots(def->num_pres_bytes);
+    ASSERT_TRUE(slots > 0 && slots <= IOTDATA_MAX_DATA_FIELDS, "slot count derived from presence bytes");
+
+    uint8_t val[128];
+    const size_t vlen = iotdata_node_variant_encode(def, val, sizeof(val));
+    ASSERT_TRUE(vlen > 0, "encoded");
+    ASSERT_EQ(vlen, 1u + strlen(def->name) + iotdata_node_variant_field_bytes(slots), "length is name + packed fields");
+
+    const char *name = NULL;
+    const uint8_t *fields = NULL;
+    size_t namelen = 0;
+    const size_t count = iotdata_node_variant_decode(val, vlen, &name, &namelen, &fields);
+    ASSERT_EQ(namelen, strlen(def->name), "name length");
+    ASSERT_EQ(memcmp(name, def->name, namelen), 0, "name bytes");
+    ASSERT_TRUE(count >= slots, "every slot survives (the last byte may hold a spare nibble)");
+
+    /* every slot comes back as the field it went in as, in the same position */
+    for (size_t i = 0; i < slots; i++)
+        ASSERT_EQ(iotdata_node_variant_field_get(fields, i), iotdata_node_variant_field_id(def->fields[i].type),
+                  "field id at its slot");
+
+    /* the packing straddles bytes, so prove neighbours do not bleed into each other */
+    uint8_t packed[8];
+    memset(packed, 0, sizeof(packed));
+    const uint16_t probe[] = { 0x000u, 0xFFFu, 0xABCu, 0x123u, 0xFFFu };
+    for (size_t i = 0; i < 5; i++)
+        iotdata_node_variant_field_set(packed, i, probe[i]);
+    for (size_t i = 0; i < 5; i++)
+        ASSERT_EQ(iotdata_node_variant_field_get(packed, i), probe[i], "adjacent 12-bit ids stay distinct");
+
+    /* a value too small to hold the name it claims is rejected rather than read past */
+    const uint8_t bad[] = { 0x40, 'x' };
+    ASSERT_EQ(iotdata_node_variant_decode(bad, sizeof(bad), NULL, NULL, NULL), 0, "overlong name rejected");
+    ASSERT_EQ(iotdata_node_variant_encode(def, val, 4), 0, "no room, no encode");
+
+    /* the manifest names exactly the variants that exist, so a receiver collecting chunks knows
+       when it has them all -- and never claims the mesh variant */
+    const uint16_t manifest = iotdata_node_variant_manifest();
+    ASSERT_TRUE(iotdata_node_variant_manifest_has(manifest, 0), "variant 0 is in the manifest");
+    ASSERT_TRUE(!iotdata_node_variant_manifest_has(manifest, IOTDATA_VARIANT_RESERVED), "mesh variant never named");
+    ASSERT_EQ(manifest & (1u << IOTDATA_VARIANT_RESERVED), 0, "bit 15 clear");
+    uint8_t defined = 0;
+    for (uint8_t v = 0; v <= IOTDATA_VARIANT_MAX; v++) {
+        ASSERT_EQ(iotdata_node_variant_manifest_has(manifest, v), iotdata_get_variant(v) != NULL, "bit tracks definition");
+        if (iotdata_get_variant(v) != NULL)
+            defined++;
+    }
+    ASSERT_EQ(iotdata_node_variant_manifest_count(manifest), defined, "count is the population count");
+    PASS();
+}
+
+/* The three header fields each reserve their all-ones value, so the helpers that produce a station
+   id or advance a sequence must never land on one. */
+static void test_node_reserved_header_values(void) {
+    TEST("Reserved header values");
+
+    ASSERT_EQ(IOTDATA_STATION_BROADCAST, IOTDATA_STATION_MAX, "broadcast is all-ones station");
+    ASSERT_EQ(IOTDATA_SEQUENCE_DOWNSTREAM, IOTDATA_SEQUENCE_MAX, "downstream is all-ones sequence");
+    ASSERT_EQ(IOTDATA_VARIANT_MESH, IOTDATA_VARIANT_RESERVED, "mesh is all-ones variant");
+
+    /* no device id maps onto 0 or the broadcast id */
+    for (uint32_t id = 0; id < 9000; id++) {
+        const uint16_t s = iotdata_station_from_id(id);
+        ASSERT_TRUE(s != 0 && s != IOTDATA_STATION_BROADCAST, "station id is assignable");
+    }
+    ASSERT_EQ(iotdata_station_from_id(IOTDATA_STATION_ASSIGNABLE_MAX - 1), IOTDATA_STATION_ASSIGNABLE_MAX, "top assignable id reachable");
+
+    /* the sequence wraps past the reserved value rather than onto it */
+    ASSERT_EQ(iotdata_sequence_next(0), 1, "ordinary increment");
+    ASSERT_EQ(iotdata_sequence_next(IOTDATA_SEQUENCE_ASSIGNABLE_MAX - 1), IOTDATA_SEQUENCE_ASSIGNABLE_MAX, "up to the last usable");
+    ASSERT_EQ(iotdata_sequence_next(IOTDATA_SEQUENCE_ASSIGNABLE_MAX), 0, "then wraps, skipping downstream");
+    ASSERT_EQ(iotdata_sequence_next(IOTDATA_SEQUENCE_DOWNSTREAM), 0, "and recovers if it ever holds one");
     PASS();
 }
 
@@ -694,8 +947,8 @@ static void test_json_round_trip_with_tlv(void) {
     ASSERT_OK(iotdata_encode_tlv(&enc, 0x20, raw, 2), "tlv raw");
     ASSERT_OK(iotdata_encode_tlv_string(&enc, 0x21, "hello world"), "tlv str");
 
-    /* Also add a userdata TLV (string mode) */
-    ASSERT_OK(iotdata_encode_tlv_type_userdata(&enc, "test note", false), "userdata");
+    /* and a third, to exercise the multi-TLV JSON path */
+    ASSERT_OK(iotdata_encode_tlv_string(&enc, 0x22, "test note"), "tlv str2");
 
     finish();
 
@@ -719,7 +972,7 @@ static void test_json_round_trip_with_tlv(void) {
     ASSERT_EQ(dec.tlv[1].type, 0x21, "t1 type");
     ASSERT_EQ(dec.tlv[1].format, IOTDATA_TLV_FMT_STRING, "t1 fmt");
     ASSERT_EQ(strcmp(dec.tlv[1].str, "hello world"), 0, "t1 str");
-    ASSERT_EQ(dec.tlv[2].type, IOTDATA_TLV_USERDATA, "t2 type");
+    ASSERT_EQ(dec.tlv[2].type, 0x22, "t2 type");
     PASS();
 }
 
@@ -932,13 +1185,16 @@ int main(void) {
     test_peek_reserved_variant();
 
     printf("\n--- Section 6: TLV typed helpers ---\n");
-    test_tlv_version_round_trip();
-    test_tlv_status_round_trip();
-    test_tlv_health_round_trip();
-    test_tlv_config_round_trip();
-    test_tlv_diagnostic_round_trip();
-    test_tlv_userdata_round_trip();
     test_tlv_multiple();
+    test_kv_raw_round_trip();
+    test_kv_raw_robustness();
+    test_kv_raw_in_tlv();
+    test_kv_string_round_trip();
+    test_node_definitions();
+    test_node_status_tlv();
+    test_node_receive_tlv();
+    test_node_variant_tlv();
+    test_node_reserved_header_values();
 
     printf("\n--- Section 7: JSON round-trip ---\n");
     test_json_round_trip_complete();

@@ -953,52 +953,219 @@ static inline bool iotdata_issixbit(const char c) {
 #define IOTDATA_TLV_DECODE_TO_JSON_SCRATCH
 #endif
 
-#if defined(IOTDATA_ENABLE_TLV) && !defined(IOTDATA_NO_TLV_SPECIFIC)
-#define IOTDATA_TLV_TYPE_GLOBAL_MAX  0x0F
-#define IOTDATA_TLV_TYPE_QUALITY_MAX 0x1F
+/* ---------------------------------------------------------------------------
+ * TLV key-value payloads (KV)
+ *
+ * A TLV payload may carry a sequence of key-value pairs. There are two framings, selected by
+ * the TLV's existing FMT bit -- they are the same idea in two presentations:
+ *
+ *   FMT_RAW    "kvr"  [K u8][L u8][V ...L bytes] repeated. K is a byte; V is opaque bytes whose
+ *                     width/meaning belong to the key. The length makes every pair skippable, so
+ *                     a reader can walk past keys it does not know -- which is what lets
+ *                     proprietary keys coexist with system ones, and lets a mixed-vintage fleet
+ *                     interoperate.
+ *
+ *   FMT_STRING "kvs"  "name value name value ..." space-delimited, 6-bit packed. Compact for bulk
+ *                     text, and readable on the wire. NOTE the 6-bit alphabet is [A-Za-z0-9 ] --
+ *                     no punctuation -- so kvs cannot carry "1.4.2", "-5", or CSV. Anything with
+ *                     punctuation, a negative number, or binary must use kvr.
+ *
+ * Key space (kvr): bit 7 clear = SYSTEM, assigned in iotdata_node.h; bit 7 set = PROPRIETARY,
+ * free for a vendor/application. Type space: 0x00..0x07 = SYSTEM (iotdata_node.h), above free.
+ *
+ * This file deliberately knows nothing about WHICH types or keys exist, only how a pair is framed.
+ * -------------------------------------------------------------------------*/
 
-#define IOTDATA_TLV_VERSION          0x01
-#define IOTDATA_TLV_STATUS           0x02
-#define IOTDATA_TLV_STATUS_LENGTH    9
-#define IOTDATA_TLV_STATUS_TICKS_RES 5
-#define IOTDATA_TLV_STATUS_TICKS_MAX 0xFFFFFF
-#define IOTDATA_TLV_HEALTH           0x03
-#define IOTDATA_TLV_HEALTH_LENGTH    7
-#define IOTDATA_TLV_HEALTH_TICKS_RES 5
-#define IOTDATA_TLV_HEALTH_TICKS_MAX 0xFFFF
-#define IOTDATA_TLV_CONFIG           0x04
-#define IOTDATA_TLV_DIAGNOSTIC       0x05
-#define IOTDATA_TLV_USERDATA         0x06
+#if defined(IOTDATA_ENABLE_TLV)
 
-#define IOTDATA_TLV_REASON_UNKNOWN   0x00
-#define IOTDATA_TLV_REASON_POWER_ON  0x01
-#define IOTDATA_TLV_REASON_SOFTWARE  0x02
-#define IOTDATA_TLV_REASON_WATCHDOG  0x03
-#define IOTDATA_TLV_REASON_BROWNOUT  0x04
-#define IOTDATA_TLV_REASON_PANIC     0x05
-#define IOTDATA_TLV_REASON_DEEPSLEEP 0x06
-#define IOTDATA_TLV_REASON_EXTERNAL  0x07
-#define IOTDATA_TLV_REASON_OTA       0x08
+/* Types and keys split the same way: the top bit of the field marks proprietary. The type field is
+   6 bits, so its top bit is 0x20 and the split is 32 system / 32 proprietary; the key field is a
+   full byte, so its top bit is 0x80 and the split is 128 / 128. One rule, two field widths. */
+#define IOTDATA_TLV_TYPE_PROPRIETARY 0x20
+#define IOTDATA_TLV_TYPE_SYSTEM_MAX  0x1F
+#define IOTDATA_TLV_KEY_PROPRIETARY  0x80
 
-#define IOTDATA_TLV_REASON_NA        0xFF
-#define IOTDATA_TLV_HEALTH_TEMP_NA   127
-#define IOTDATA_TLV_HEALTH_HEAP_NA   0xFFFF
+static inline bool iotdata_tlv_type_is_system(const uint8_t type) {
+    return (type & IOTDATA_TLV_TYPE_PROPRIETARY) == 0;
+}
+static inline bool iotdata_tlv_key_is_system(const uint8_t key) {
+    return (key & IOTDATA_TLV_KEY_PROPRIETARY) == 0;
+}
 
-#if !defined(IOTDATA_NO_ENCODE)
-/* 0x01 VERSION — key-value pairs, space-delimited on wire: kv[0]="FW", kv[1]="142", kv[2]="HW", kv[3]="3", ... count must be even (every key has a value). */
-enum iotdata_status_t_ iotdata_encode_tlv_type_version(struct iotdata_encoder_t_ *enc, const char *const *kv, size_t count, bool raw, char *buf, size_t buf_size);
-/* 0x02 STATUS — 9 bytes raw format: uptimes in seconds (converted to 5-second ticks internally), pass lifetime_uptime_secs=0 for "not tracked". */
-enum iotdata_status_t_ iotdata_encode_tlv_type_status(struct iotdata_encoder_t_ *enc, uint32_t session_uptime_secs, uint32_t lifetime_uptime_secs, uint16_t restarts, uint8_t reason, uint8_t buf[9]);
-/* 0x03 HEALTH — 7 bytes raw format: session_active_secs converted to 5-second ticks internally, pass cpu_temp=127 for "not available", free_heap=0xFFFF for "not tracked". */
-enum iotdata_status_t_ iotdata_encode_tlv_type_health(struct iotdata_encoder_t_ *enc, int8_t cpu_temp, uint16_t supply_mv, uint16_t free_heap, uint32_t session_active_secs, uint8_t buf[7]);
-/* 0x04 CONFIG — string format, space-delimited key-value pairs */
-enum iotdata_status_t_ iotdata_encode_tlv_type_config(struct iotdata_encoder_t_ *enc, const char *const *kv, size_t count, bool raw, char *buf, size_t buf_size);
-/* 0x05 DIAGNOSTIC — string format, free-form message */
-enum iotdata_status_t_ iotdata_encode_tlv_type_diagnostic(struct iotdata_encoder_t_ *enc, const char *str, bool raw);
-/* 0x06 USERDATA — string format, free-form event */
-enum iotdata_status_t_ iotdata_encode_tlv_type_userdata(struct iotdata_encoder_t_ *enc, const char *str, bool raw);
-#endif
-#endif
+/* --- kvr: build ---------------------------------------------------------- */
+
+typedef struct {
+    uint8_t *buf;
+    size_t size;
+    size_t len;
+    bool overflow; /* sticky: a single check after the last add is enough */
+} iotdata_kvr_t;
+
+static inline void iotdata_kvr_init(iotdata_kvr_t *kv, uint8_t *buf, const size_t size) {
+    kv->buf = buf;
+    kv->size = size;
+    kv->len = 0;
+    kv->overflow = (buf == NULL);
+}
+static inline bool iotdata_kvr_add(iotdata_kvr_t *kv, const uint8_t key, const void *val, const uint8_t vlen) {
+    if (kv->overflow || kv->len + 2u + (size_t)vlen > kv->size) {
+        kv->overflow = true;
+        return false;
+    }
+    kv->buf[kv->len++] = key;
+    kv->buf[kv->len++] = vlen;
+    if (vlen > 0 && val != NULL) {
+        memcpy(&kv->buf[kv->len], val, vlen);
+        kv->len += vlen;
+    }
+    return true;
+}
+static inline bool iotdata_kvr_add_flag(iotdata_kvr_t *kv, const uint8_t key) { /* present, no value */
+    return iotdata_kvr_add(kv, key, NULL, 0);
+}
+static inline bool iotdata_kvr_add_u8(iotdata_kvr_t *kv, const uint8_t key, const uint8_t v) {
+    return iotdata_kvr_add(kv, key, &v, 1);
+}
+static inline bool iotdata_kvr_add_u16(iotdata_kvr_t *kv, const uint8_t key, const uint16_t v) {
+    const uint8_t b[2] = { (uint8_t)(v >> 8), (uint8_t)v };
+    return iotdata_kvr_add(kv, key, b, 2);
+}
+static inline bool iotdata_kvr_add_u32(iotdata_kvr_t *kv, const uint8_t key, const uint32_t v) {
+    const uint8_t b[4] = { (uint8_t)(v >> 24), (uint8_t)(v >> 16), (uint8_t)(v >> 8), (uint8_t)v };
+    return iotdata_kvr_add(kv, key, b, 4);
+}
+static inline bool iotdata_kvr_add_i8(iotdata_kvr_t *kv, const uint8_t key, const int8_t v) {
+    return iotdata_kvr_add_u8(kv, key, (uint8_t)v);
+}
+static inline bool iotdata_kvr_add_str(iotdata_kvr_t *kv, const uint8_t key, const char *s) {
+    const size_t n = (s != NULL) ? strlen(s) : 0;
+    if (n > 255) {
+        kv->overflow = true;
+        return false;
+    }
+    return iotdata_kvr_add(kv, key, s, (uint8_t)n);
+}
+
+/* --- kvr: walk ----------------------------------------------------------- */
+
+/* Iterate the pairs in a kvr payload. Returns false at the end, or on a truncated pair (stopping
+   rather than running off the buffer). Usage:
+     size_t cur = 0; uint8_t k, n; const uint8_t *v;
+     while (iotdata_kvr_next(buf, len, &cur, &k, &v, &n)) { ... } */
+static inline bool iotdata_kvr_next(const uint8_t *buf, const size_t len, size_t *cursor, uint8_t *key, const uint8_t **val, uint8_t *vlen) {
+    if (buf == NULL || cursor == NULL || *cursor + 2u > len)
+        return false;
+    const uint8_t k = buf[*cursor], l = buf[*cursor + 1];
+    if (*cursor + 2u + (size_t)l > len)
+        return false;
+    if (key != NULL)
+        *key = k;
+    if (vlen != NULL)
+        *vlen = l;
+    if (val != NULL)
+        *val = &buf[*cursor + 2u];
+    *cursor += 2u + (size_t)l;
+    return true;
+}
+
+/* Value readers, mirroring the writers. A width mismatch yields the default rather than garbage,
+   so a reader survives a peer that encoded a key at a different width. */
+static inline uint8_t iotdata_kvr_u8(const uint8_t *v, const uint8_t n, const uint8_t dflt) {
+    return (n == 1) ? v[0] : dflt;
+}
+static inline int8_t iotdata_kvr_i8(const uint8_t *v, const uint8_t n, const int8_t dflt) {
+    return (n == 1) ? (int8_t)v[0] : dflt;
+}
+static inline uint16_t iotdata_kvr_u16(const uint8_t *v, const uint8_t n, const uint16_t dflt) {
+    return (n == 2) ? (uint16_t)(((uint16_t)v[0] << 8) | v[1]) : dflt;
+}
+static inline uint32_t iotdata_kvr_u32(const uint8_t *v, const uint8_t n, const uint32_t dflt) {
+    return (n == 4) ? (((uint32_t)v[0] << 24) | ((uint32_t)v[1] << 16) | ((uint32_t)v[2] << 8) | v[3]) : dflt;
+}
+/* Copy a string value out with a NUL, truncating to fit. Returns the bytes written. */
+static inline size_t iotdata_kvr_str(const uint8_t *v, const uint8_t n, char *out, const size_t out_size) {
+    if (out == NULL || out_size == 0)
+        return 0;
+    const size_t c = ((size_t)n < out_size - 1) ? (size_t)n : out_size - 1;
+    if (c > 0 && v != NULL)
+        memcpy(out, v, c);
+    out[c] = '\0';
+    return c;
+}
+
+/* --- kvs: build + walk (space-delimited text; alphanumeric values only) --- */
+
+typedef struct {
+    char *buf;
+    size_t size;
+    size_t len;
+    bool overflow;
+} iotdata_kvs_t;
+
+static inline void iotdata_kvs_init(iotdata_kvs_t *kv, char *buf, const size_t size) {
+    kv->buf = buf;
+    kv->size = size;
+    kv->len = 0;
+    kv->overflow = (buf == NULL || size == 0);
+    if (!kv->overflow)
+        buf[0] = '\0';
+}
+static inline bool iotdata_kvs_add(iotdata_kvs_t *kv, const char *name, const char *value) {
+    if (kv->overflow || name == NULL || value == NULL) {
+        kv->overflow = true;
+        return false;
+    }
+    const size_t nl = strlen(name), vl = strlen(value);
+    const size_t need = (kv->len > 0 ? 1u : 0u) + nl + 1u + vl;
+    if (kv->len + need + 1u > kv->size) {
+        kv->overflow = true;
+        return false;
+    }
+    if (kv->len > 0)
+        kv->buf[kv->len++] = ' ';
+    memcpy(&kv->buf[kv->len], name, nl);
+    kv->len += nl;
+    kv->buf[kv->len++] = ' ';
+    memcpy(&kv->buf[kv->len], value, vl);
+    kv->len += vl;
+    kv->buf[kv->len] = '\0';
+    return true;
+}
+
+/* Iterate "name value" pairs in a kvs payload. `name`/`value` point into `str` and are NOT
+   NUL-terminated -- use the paired lengths. Returns false at the end or on an odd trailing token. */
+static inline bool iotdata_kvs_next(const char *str, size_t *cursor, const char **name, size_t *name_len, const char **value, size_t *value_len) {
+    if (str == NULL || cursor == NULL)
+        return false;
+    size_t i = *cursor;
+    while (str[i] == ' ')
+        i++;
+    if (str[i] == '\0')
+        return false;
+    const size_t ns = i;
+    while (str[i] != '\0' && str[i] != ' ')
+        i++;
+    const size_t ne = i;
+    while (str[i] == ' ')
+        i++;
+    if (str[i] == '\0')
+        return false; /* key without a value: malformed, stop */
+    const size_t vs = i;
+    while (str[i] != '\0' && str[i] != ' ')
+        i++;
+    if (name != NULL)
+        *name = &str[ns];
+    if (name_len != NULL)
+        *name_len = ne - ns;
+    if (value != NULL)
+        *value = &str[vs];
+    if (value_len != NULL)
+        *value_len = i - vs;
+    *cursor = i;
+    return true;
+}
+
+#endif /* IOTDATA_ENABLE_TLV */
 
 /* ---------------------------------------------------------------------------
  * Master

@@ -9,6 +9,7 @@
 #define TEST_COMMON_H
 
 #include "iotdata.h"
+#include "iotdata_node.h"
 
 #include <inttypes.h>
 #include <stdio.h>
