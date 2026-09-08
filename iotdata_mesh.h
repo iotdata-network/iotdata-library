@@ -170,12 +170,15 @@ typedef struct {
     uint16_t generation;
 } iotdata_mesh_beacon_t;
 
-static inline void iotdata_mesh_pack_beacon(uint8_t *buf, const iotdata_mesh_beacon_t *b) {
+static inline int iotdata_mesh_pack_beacon(uint8_t *buf, int len, const iotdata_mesh_beacon_t *b) {
+    if (len < IOTDATA_MESH_BEACON_SIZE)
+        return 0;
     iotdata_mesh_pack_header(buf, b->sender_station, b->sender_seq);
     iotdata_mesh_pack_4_12(&buf[4], IOTDATA_MESH_CTRL_BEACON, b->gateway_id);
     buf[6] = b->cost;
     buf[7] = (uint8_t)(((b->flags & 0x0F) << 4) | ((b->generation >> 8) & 0x0F));
     buf[8] = (uint8_t)(b->generation & 0xFF);
+    return IOTDATA_MESH_BEACON_SIZE;
 }
 
 static inline bool iotdata_mesh_unpack_beacon(const uint8_t *buf, int len, iotdata_mesh_beacon_t *b) {
@@ -249,11 +252,14 @@ typedef struct {
                                  its pending forward (retry done) or suppress an about-to-send one */
 } iotdata_mesh_ack_t;
 
-static inline void iotdata_mesh_pack_ack(uint8_t *buf, const iotdata_mesh_ack_t *a) {
+static inline int iotdata_mesh_pack_ack(uint8_t *buf, int len, const iotdata_mesh_ack_t *a) {
+    if (len < IOTDATA_MESH_ACK_SIZE)
+        return 0;
     iotdata_mesh_pack_header(buf, a->sender_station, a->sender_seq);
     iotdata_mesh_pack_4_12(&buf[4], IOTDATA_MESH_CTRL_ACK, a->origin_station);
     buf[6] = (uint8_t)(a->origin_sequence >> 8);
     buf[7] = (uint8_t)(a->origin_sequence & 0xFF);
+    return IOTDATA_MESH_ACK_SIZE;
 }
 
 static inline bool iotdata_mesh_unpack_ack(const uint8_t *buf, int len, iotdata_mesh_ack_t *a) {

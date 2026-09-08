@@ -128,16 +128,16 @@ struct iotdata_decoder_t_;
  * Header: variant(4) + station(12) + sequence(16) = 32 bits
  * -------------------------------------------------------------------------*/
 
-#define IOTDATA_VARIANT_BITS      4
-#define IOTDATA_STATION_BITS      12
-#define IOTDATA_SEQUENCE_BITS     16
-#define IOTDATA_HEADER_BITS       (IOTDATA_VARIANT_BITS + IOTDATA_STATION_BITS + IOTDATA_SEQUENCE_BITS)
+#define IOTDATA_VARIANT_BITS            4
+#define IOTDATA_STATION_BITS            12
+#define IOTDATA_SEQUENCE_BITS           16
+#define IOTDATA_HEADER_BITS             (IOTDATA_VARIANT_BITS + IOTDATA_STATION_BITS + IOTDATA_SEQUENCE_BITS)
 
-#define IOTDATA_VARIANT_MAX       14
-#define IOTDATA_VARIANT_RESERVED  15
-#define IOTDATA_VARIANT_MESH      IOTDATA_VARIANT_RESERVED
-#define IOTDATA_STATION_MAX       4095
-#define IOTDATA_SEQUENCE_MAX      65535
+#define IOTDATA_VARIANT_MAX             14
+#define IOTDATA_VARIANT_RESERVED        15
+#define IOTDATA_VARIANT_MESH            IOTDATA_VARIANT_RESERVED
+#define IOTDATA_STATION_MAX             4095
+#define IOTDATA_SEQUENCE_MAX            65535
 
 /* ---------------------------------------------------------------------------
  * Reserved header values: in each of the three fields, the all-ones value is
@@ -159,9 +159,9 @@ struct iotdata_decoder_t_;
  * derive them with iotdata_station_from_id() so every node agrees.
  * ------------------------------------------------------------------------ */
 
-#define IOTDATA_STATION_BROADCAST      IOTDATA_STATION_MAX
-#define IOTDATA_STATION_ASSIGNABLE_MAX (IOTDATA_STATION_MAX - 1)
-#define IOTDATA_SEQUENCE_DOWN          IOTDATA_SEQUENCE_MAX
+#define IOTDATA_STATION_BROADCAST       IOTDATA_STATION_MAX
+#define IOTDATA_STATION_ASSIGNABLE_MAX  (IOTDATA_STATION_MAX - 1)
+#define IOTDATA_SEQUENCE_DOWN           IOTDATA_SEQUENCE_MAX
 #define IOTDATA_SEQUENCE_ASSIGNABLE_MAX (IOTDATA_SEQUENCE_MAX - 1)
 
 /* Map an arbitrary device id (a MAC-derived word, say) onto an assignable

@@ -133,17 +133,17 @@
  * System TLV types
  * ----------------------------------------------------------------------- */
 
-#define IOTDATA_NODE_TLV_RECEIVE     0x00 /* when this node can be reached (see RECEIVE above)  */
-#define IOTDATA_NODE_TLV_VERSION     0x01 /* what this node IS: firmware, hardware, platform    */
-#define IOTDATA_NODE_TLV_VARIANT     0x02 /* which telemetry variant it is producing            */
-#define IOTDATA_NODE_TLV_CONTROL     0x03 /* commands TO a node, and its command inventory      */
-#define IOTDATA_NODE_TLV_STATUS      0x04 /* how it is DOING: uptime, restarts, supply, heap    */
-#define IOTDATA_NODE_TLV_CONFIG      0x05 /* settable operating parameters                      */
-#define IOTDATA_NODE_TLV_DIAGNOSTICS 0x06 /* recorded diagnostic data (blackbox)                */
-#define IOTDATA_NODE_TLV_CONTENT     0x07 /* bulk payload: firmware image, user data            */
+#define IOTDATA_NODE_TLV_RECEIVE                 0x00 /* when this node can be reached (see RECEIVE above)  */
+#define IOTDATA_NODE_TLV_VERSION                 0x01 /* what this node IS: firmware, hardware, platform    */
+#define IOTDATA_NODE_TLV_VARIANT                 0x02 /* which telemetry variant it is producing            */
+#define IOTDATA_NODE_TLV_CONTROL                 0x03 /* commands TO a node, and its command inventory      */
+#define IOTDATA_NODE_TLV_STATUS                  0x04 /* how it is DOING: uptime, restarts, supply, heap    */
+#define IOTDATA_NODE_TLV_CONFIG                  0x05 /* settable operating parameters                      */
+#define IOTDATA_NODE_TLV_DIAGNOSTICS             0x06 /* recorded diagnostic data (blackbox)                */
+#define IOTDATA_NODE_TLV_CONTENT                 0x07 /* bulk payload: firmware image, user data            */
 
 /* Returned by the lookups below when there is no corresponding type. Not 0: 0x00 is a type. */
-#define IOTDATA_NODE_TLV_NONE        0xFF
+#define IOTDATA_NODE_TLV_NONE                    0xFF
 
 /* -------------------------------------------------------------------------
  * RECEIVE keys (0x00)
@@ -152,20 +152,20 @@
  * you". A sender holding a frame for this node transmits it on hearing this TLV.
  * ----------------------------------------------------------------------- */
 
-#define IOTDATA_NODE_RECEIVE_DURATION 0x00 /* u16 milliseconds the receiver stays on            */
-#define IOTDATA_NODE_RECEIVE_TYPES    0x01 /* u32 bitmask, bit N = "I accept TLV type N"        */
+#define IOTDATA_NODE_RECEIVE_DURATION            0x00 /* u16 milliseconds the receiver stays on            */
+#define IOTDATA_NODE_RECEIVE_TYPES               0x01 /* u32 bitmask, bit N = "I accept TLV type N"        */
 
 /* -------------------------------------------------------------------------
  * VERSION keys (0x01) -- all values are strings (no NUL on the wire)
  * ----------------------------------------------------------------------- */
 
-#define IOTDATA_NODE_VERSION_FIRMWARE    0x00 /* application firmware version, e.g. "1.4.2"     */
-#define IOTDATA_NODE_VERSION_HARDWARE    0x01 /* board revision                                 */
-#define IOTDATA_NODE_VERSION_PLATFORM    0x02 /* chip/target, e.g. "esp32c3"                    */
-#define IOTDATA_NODE_VERSION_LIBRARY     0x03 /* iotdata library version                        */
-#define IOTDATA_NODE_VERSION_BUILD       0x04 /* build stamp: date/time or vcs hash             */
-#define IOTDATA_NODE_VERSION_APPLICATION 0x05 /* application name, e.g. "iotdata_relay"         */
-#define IOTDATA_NODE_VERSION_SERIAL      0x06 /* stable per-device id (MAC-derived, etc.)       */
+#define IOTDATA_NODE_VERSION_FIRMWARE            0x00 /* application firmware version, e.g. "1.4.2"     */
+#define IOTDATA_NODE_VERSION_HARDWARE            0x01 /* board revision                                 */
+#define IOTDATA_NODE_VERSION_PLATFORM            0x02 /* chip/target, e.g. "esp32c3"                    */
+#define IOTDATA_NODE_VERSION_LIBRARY             0x03 /* iotdata library version                        */
+#define IOTDATA_NODE_VERSION_BUILD               0x04 /* build stamp: date/time or vcs hash             */
+#define IOTDATA_NODE_VERSION_APPLICATION         0x05 /* application name, e.g. "iotdata_relay"         */
+#define IOTDATA_NODE_VERSION_SERIAL              0x06 /* stable per-device id (MAC-derived, etc.)       */
 
 /* -------------------------------------------------------------------------
  * VARIANT keys (0x02) -- the key IS the variant number
@@ -203,20 +203,20 @@
  * what they will be. 12 bits allows 4095 assignments, which should be room enough.
  * ----------------------------------------------------------------------- */
 
-#define IOTDATA_NODE_VARIANT_FIELD_BITS 12
-#define IOTDATA_NODE_VARIANT_FIELD_MAX  0x0FFEu
-#define IOTDATA_NODE_VARIANT_FIELD_NONE 0x0FFFu /* a presence slot carrying nothing              */
+#define IOTDATA_NODE_VARIANT_FIELD_BITS          12
+#define IOTDATA_NODE_VARIANT_FIELD_MAX           0x0FFEu
+#define IOTDATA_NODE_VARIANT_FIELD_NONE          0x0FFFu /* a presence slot carrying nothing              */
 
 /* The manifest: which variants this node defines, one bit per variant number. It sits above the
    variant numbers (0x00..0x0E) in the key space, and not at 0x0F, which would read as "variant 15"
    -- the mesh variant, deliberately absent here. */
-#define IOTDATA_NODE_VARIANT_MANIFEST 0x10 /* u16 bitmask, bit N = "I define variant N"          */
+#define IOTDATA_NODE_VARIANT_MANIFEST            0x10 /* u16 bitmask, bit N = "I define variant N"          */
 
 /* -------------------------------------------------------------------------
  * CONTROL keys (0x03)
  *
  * 0x00..0x0F  ask the node to send a TLV of the corresponding type. The value is an optional,
- *             command-specific argument (absent = "everything you have"). Corresponds to the 
+ *             command-specific argument (absent = "everything you have"). Corresponds to the
  *             TLV numeric value.
  * 0x10..0x1F  generic system control.
  * 0x20..0x7F  mesh management, migrated from the MANAGE control frame (iotdata_mesh.h).
@@ -238,26 +238,26 @@
  * STATUS keys (0x04)
  * ----------------------------------------------------------------------- */
 
-#define IOTDATA_NODE_STATUS_UPTIME      0x00 /* u32 seconds, this session                       */
-#define IOTDATA_NODE_STATUS_LIFETIME    0x01 /* u32 seconds, cumulative across boots            */
-#define IOTDATA_NODE_STATUS_RESTARTS    0x02 /* u16 boots                                       */
-#define IOTDATA_NODE_STATUS_REASON      0x03 /* u8, IOTDATA_NODE_REASON_*                       */
-#define IOTDATA_NODE_STATUS_TEMPERATURE 0x04 /* i8 degrees C                                    */
-#define IOTDATA_NODE_STATUS_SUPPLY      0x05 /* u16 millivolts                                  */
-#define IOTDATA_NODE_STATUS_HEAP_FREE   0x06 /* u32 bytes free now                              */
-#define IOTDATA_NODE_STATUS_HEAP_MIN    0x07 /* u32 bytes, lowest free seen                     */
-#define IOTDATA_NODE_STATUS_ACTIVE      0x08 /* u32 seconds awake this session (vs asleep)      */
+#define IOTDATA_NODE_STATUS_UPTIME               0x00 /* u32 seconds, this session                       */
+#define IOTDATA_NODE_STATUS_LIFETIME             0x01 /* u32 seconds, cumulative across boots            */
+#define IOTDATA_NODE_STATUS_RESTARTS             0x02 /* u16 boots                                       */
+#define IOTDATA_NODE_STATUS_REASON               0x03 /* u8, IOTDATA_NODE_REASON_*                       */
+#define IOTDATA_NODE_STATUS_TEMPERATURE          0x04 /* i8 degrees C                                    */
+#define IOTDATA_NODE_STATUS_SUPPLY               0x05 /* u16 millivolts                                  */
+#define IOTDATA_NODE_STATUS_HEAP_FREE            0x06 /* u32 bytes free now                              */
+#define IOTDATA_NODE_STATUS_HEAP_MIN             0x07 /* u32 bytes, lowest free seen                     */
+#define IOTDATA_NODE_STATUS_ACTIVE               0x08 /* u32 seconds awake this session (vs asleep)      */
 
 /* Reset reasons (STATUS_REASON). A node maps its platform's reason onto these. */
-#define IOTDATA_NODE_REASON_UNKNOWN   0x00
-#define IOTDATA_NODE_REASON_POWER_ON  0x01
-#define IOTDATA_NODE_REASON_SOFTWARE  0x02
-#define IOTDATA_NODE_REASON_WATCHDOG  0x03
-#define IOTDATA_NODE_REASON_BROWNOUT  0x04
-#define IOTDATA_NODE_REASON_PANIC     0x05
-#define IOTDATA_NODE_REASON_DEEPSLEEP 0x06
-#define IOTDATA_NODE_REASON_EXTERNAL  0x07
-#define IOTDATA_NODE_REASON_OTA       0x08
+#define IOTDATA_NODE_REASON_UNKNOWN              0x00
+#define IOTDATA_NODE_REASON_POWER_ON             0x01
+#define IOTDATA_NODE_REASON_SOFTWARE             0x02
+#define IOTDATA_NODE_REASON_WATCHDOG             0x03
+#define IOTDATA_NODE_REASON_BROWNOUT             0x04
+#define IOTDATA_NODE_REASON_PANIC                0x05
+#define IOTDATA_NODE_REASON_DEEPSLEEP            0x06
+#define IOTDATA_NODE_REASON_EXTERNAL             0x07
+#define IOTDATA_NODE_REASON_OTA                  0x08
 
 /* -------------------------------------------------------------------------
  * CONFIG keys (0x05)
@@ -267,20 +267,20 @@
  * Application/device settings are proprietary keys (bit 7 set) for now.
  * ----------------------------------------------------------------------- */
 
-#define IOTDATA_NODE_CONFIG_PERIOD_VERSION     0x01 /* u16 seconds                              */
-#define IOTDATA_NODE_CONFIG_PERIOD_VARIANT     0x02 /* u16 seconds                              */
-#define IOTDATA_NODE_CONFIG_PERIOD_CONTROL     0x03 /* u16 seconds                              */
-#define IOTDATA_NODE_CONFIG_PERIOD_STATUS      0x04 /* u16 seconds                              */
-#define IOTDATA_NODE_CONFIG_PERIOD_CONFIG      0x05 /* u16 seconds                              */
-#define IOTDATA_NODE_CONFIG_PERIOD_DIAGNOSTICS 0x06 /* u16 seconds                              */
-#define IOTDATA_NODE_CONFIG_STARTUP            0x10 /* u16 bitmask, IOTDATA_NODE_STARTUP_*      */
+#define IOTDATA_NODE_CONFIG_PERIOD_VERSION       0x01 /* u16 seconds                              */
+#define IOTDATA_NODE_CONFIG_PERIOD_VARIANT       0x02 /* u16 seconds                              */
+#define IOTDATA_NODE_CONFIG_PERIOD_CONTROL       0x03 /* u16 seconds                              */
+#define IOTDATA_NODE_CONFIG_PERIOD_STATUS        0x04 /* u16 seconds                              */
+#define IOTDATA_NODE_CONFIG_PERIOD_CONFIG        0x05 /* u16 seconds                              */
+#define IOTDATA_NODE_CONFIG_PERIOD_DIAGNOSTICS   0x06 /* u16 seconds                              */
+#define IOTDATA_NODE_CONFIG_STARTUP              0x10 /* u16 bitmask, IOTDATA_NODE_STARTUP_*      */
 
-#define IOTDATA_NODE_STARTUP_VERSION     0x0002
-#define IOTDATA_NODE_STARTUP_VARIANT     0x0004
-#define IOTDATA_NODE_STARTUP_CONTROL     0x0008
-#define IOTDATA_NODE_STARTUP_STATUS      0x0010
-#define IOTDATA_NODE_STARTUP_CONFIG      0x0020
-#define IOTDATA_NODE_STARTUP_DIAGNOSTICS 0x0040
+#define IOTDATA_NODE_STARTUP_VERSION             0x0002
+#define IOTDATA_NODE_STARTUP_VARIANT             0x0004
+#define IOTDATA_NODE_STARTUP_CONTROL             0x0008
+#define IOTDATA_NODE_STARTUP_STATUS              0x0010
+#define IOTDATA_NODE_STARTUP_CONFIG              0x0020
+#define IOTDATA_NODE_STARTUP_DIAGNOSTICS         0x0040
 
 /* -------------------------------------------------------------------------
  * DIAGNOSTICS keys (0x06)
@@ -290,17 +290,17 @@
  * several -- and splits across packets however suits it.
  * ----------------------------------------------------------------------- */
 
-#define IOTDATA_NODE_DIAGNOSTICS_TYPE 0x00 /* u8, IOTDATA_NODE_DIAG_* -- what DATA holds        */
-#define IOTDATA_NODE_DIAGNOSTICS_DATA 0x01 /* bytes: the records (blackbox CSV lines)           */
+#define IOTDATA_NODE_DIAGNOSTICS_TYPE            0x00 /* u8, IOTDATA_NODE_DIAG_* -- what DATA holds        */
+#define IOTDATA_NODE_DIAGNOSTICS_DATA            0x01 /* bytes: the records (blackbox CSV lines)           */
 
-#define IOTDATA_NODE_DIAG_BLACKBOX 0x00 /* blackbox records, CSV as stored                      */
+#define IOTDATA_NODE_DIAG_BLACKBOX               0x00 /* blackbox records, CSV as stored                      */
 
 /* -------------------------------------------------------------------------
  * CONTENT keys (0x07)
  * ----------------------------------------------------------------------- */
 
-#define IOTDATA_NODE_CONTENT_FIRMWARE 0x00 /* bytes: OTA image data                             */
-#define IOTDATA_NODE_CONTENT_USERDATA 0x01 /* bytes: free-form application data                 */
+#define IOTDATA_NODE_CONTENT_FIRMWARE            0x00 /* bytes: OTA image data                             */
+#define IOTDATA_NODE_CONTENT_USERDATA            0x01 /* bytes: free-form application data                 */
 
 /* -------------------------------------------------------------------------
  * Naming and widths
@@ -311,7 +311,7 @@
  * ----------------------------------------------------------------------- */
 
 /* Expected value width in bytes; 0 means variable (string or opaque bytes). */
-#define IOTDATA_NODE_WIDTH_VARIABLE 0
+#define IOTDATA_NODE_WIDTH_VARIABLE              0
 
 typedef struct {
     uint8_t key;
@@ -325,48 +325,30 @@ static const iotdata_node_keydef_t iotdata_node_tlv_keys_receive[] = {
 };
 
 static const iotdata_node_keydef_t iotdata_node_tlv_keys_version[] = {
-    { IOTDATA_NODE_VERSION_FIRMWARE, IOTDATA_NODE_WIDTH_VARIABLE, "firmware" },
-    { IOTDATA_NODE_VERSION_HARDWARE, IOTDATA_NODE_WIDTH_VARIABLE, "hardware" },
-    { IOTDATA_NODE_VERSION_PLATFORM, IOTDATA_NODE_WIDTH_VARIABLE, "platform" },
-    { IOTDATA_NODE_VERSION_LIBRARY, IOTDATA_NODE_WIDTH_VARIABLE, "library" },
-    { IOTDATA_NODE_VERSION_BUILD, IOTDATA_NODE_WIDTH_VARIABLE, "build" },
-    { IOTDATA_NODE_VERSION_APPLICATION, IOTDATA_NODE_WIDTH_VARIABLE, "application" },
+    { IOTDATA_NODE_VERSION_FIRMWARE, IOTDATA_NODE_WIDTH_VARIABLE, "firmware" }, { IOTDATA_NODE_VERSION_HARDWARE, IOTDATA_NODE_WIDTH_VARIABLE, "hardware" }, { IOTDATA_NODE_VERSION_PLATFORM, IOTDATA_NODE_WIDTH_VARIABLE, "platform" },
+    { IOTDATA_NODE_VERSION_LIBRARY, IOTDATA_NODE_WIDTH_VARIABLE, "library" },   { IOTDATA_NODE_VERSION_BUILD, IOTDATA_NODE_WIDTH_VARIABLE, "build" },       { IOTDATA_NODE_VERSION_APPLICATION, IOTDATA_NODE_WIDTH_VARIABLE, "application" },
     { IOTDATA_NODE_VERSION_SERIAL, IOTDATA_NODE_WIDTH_VARIABLE, "serial" },
 };
 
 /* One key per variant number, so this table is the variant space itself rather than a set of named
    fields. 15 is absent: it is the mesh variant and carries no telemetry. */
 static const iotdata_node_keydef_t iotdata_node_tlv_keys_variant[] = {
-    { 0, IOTDATA_NODE_WIDTH_VARIABLE, "variant_0" },   { 1, IOTDATA_NODE_WIDTH_VARIABLE, "variant_1" },
-    { 2, IOTDATA_NODE_WIDTH_VARIABLE, "variant_2" },   { 3, IOTDATA_NODE_WIDTH_VARIABLE, "variant_3" },
-    { 4, IOTDATA_NODE_WIDTH_VARIABLE, "variant_4" },   { 5, IOTDATA_NODE_WIDTH_VARIABLE, "variant_5" },
-    { 6, IOTDATA_NODE_WIDTH_VARIABLE, "variant_6" },   { 7, IOTDATA_NODE_WIDTH_VARIABLE, "variant_7" },
-    { 8, IOTDATA_NODE_WIDTH_VARIABLE, "variant_8" },   { 9, IOTDATA_NODE_WIDTH_VARIABLE, "variant_9" },
-    { 10, IOTDATA_NODE_WIDTH_VARIABLE, "variant_10" }, { 11, IOTDATA_NODE_WIDTH_VARIABLE, "variant_11" },
-    { 12, IOTDATA_NODE_WIDTH_VARIABLE, "variant_12" }, { 13, IOTDATA_NODE_WIDTH_VARIABLE, "variant_13" },
-    { 14, IOTDATA_NODE_WIDTH_VARIABLE, "variant_14" }, { IOTDATA_NODE_VARIANT_MANIFEST, 2, "manifest" },
+    { 0, IOTDATA_NODE_WIDTH_VARIABLE, "variant_0" },   { 1, IOTDATA_NODE_WIDTH_VARIABLE, "variant_1" },   { 2, IOTDATA_NODE_WIDTH_VARIABLE, "variant_2" },   { 3, IOTDATA_NODE_WIDTH_VARIABLE, "variant_3" },
+    { 4, IOTDATA_NODE_WIDTH_VARIABLE, "variant_4" },   { 5, IOTDATA_NODE_WIDTH_VARIABLE, "variant_5" },   { 6, IOTDATA_NODE_WIDTH_VARIABLE, "variant_6" },   { 7, IOTDATA_NODE_WIDTH_VARIABLE, "variant_7" },
+    { 8, IOTDATA_NODE_WIDTH_VARIABLE, "variant_8" },   { 9, IOTDATA_NODE_WIDTH_VARIABLE, "variant_9" },   { 10, IOTDATA_NODE_WIDTH_VARIABLE, "variant_10" }, { 11, IOTDATA_NODE_WIDTH_VARIABLE, "variant_11" },
+    { 12, IOTDATA_NODE_WIDTH_VARIABLE, "variant_12" }, { 13, IOTDATA_NODE_WIDTH_VARIABLE, "variant_13" }, { 14, IOTDATA_NODE_WIDTH_VARIABLE, "variant_14" }, { IOTDATA_NODE_VARIANT_MANIFEST, 2, "manifest" },
 };
 
 static const iotdata_node_keydef_t iotdata_node_tlv_keys_control[] = {
-    { IOTDATA_NODE_CONTROL_REQUEST_VERSION, IOTDATA_NODE_WIDTH_VARIABLE, "request_version" },
-    { IOTDATA_NODE_CONTROL_REQUEST_VARIANT, IOTDATA_NODE_WIDTH_VARIABLE, "request_variant" },
-    { IOTDATA_NODE_CONTROL_REQUEST_CONTROL, IOTDATA_NODE_WIDTH_VARIABLE, "request_control" },
-    { IOTDATA_NODE_CONTROL_REQUEST_STATUS, IOTDATA_NODE_WIDTH_VARIABLE, "request_status" },
-    { IOTDATA_NODE_CONTROL_REQUEST_CONFIG, IOTDATA_NODE_WIDTH_VARIABLE, "request_config" },
-    { IOTDATA_NODE_CONTROL_REQUEST_DIAGNOSTICS, IOTDATA_NODE_WIDTH_VARIABLE, "request_diagnostics" },
-    { IOTDATA_NODE_CONTROL_REQUEST_CONTENT, IOTDATA_NODE_WIDTH_VARIABLE, "request_content" },
-    { IOTDATA_NODE_CONTROL_REBOOT, IOTDATA_NODE_WIDTH_VARIABLE, "reboot" },
+    { IOTDATA_NODE_CONTROL_REQUEST_VERSION, IOTDATA_NODE_WIDTH_VARIABLE, "request_version" }, { IOTDATA_NODE_CONTROL_REQUEST_VARIANT, IOTDATA_NODE_WIDTH_VARIABLE, "request_variant" },
+    { IOTDATA_NODE_CONTROL_REQUEST_CONTROL, IOTDATA_NODE_WIDTH_VARIABLE, "request_control" }, { IOTDATA_NODE_CONTROL_REQUEST_STATUS, IOTDATA_NODE_WIDTH_VARIABLE, "request_status" },
+    { IOTDATA_NODE_CONTROL_REQUEST_CONFIG, IOTDATA_NODE_WIDTH_VARIABLE, "request_config" },   { IOTDATA_NODE_CONTROL_REQUEST_DIAGNOSTICS, IOTDATA_NODE_WIDTH_VARIABLE, "request_diagnostics" },
+    { IOTDATA_NODE_CONTROL_REQUEST_CONTENT, IOTDATA_NODE_WIDTH_VARIABLE, "request_content" }, { IOTDATA_NODE_CONTROL_REBOOT, IOTDATA_NODE_WIDTH_VARIABLE, "reboot" },
 };
 static const iotdata_node_keydef_t iotdata_node_tlv_keys_status[] = {
-    { IOTDATA_NODE_STATUS_UPTIME, 4, "uptime" },
-    { IOTDATA_NODE_STATUS_LIFETIME, 4, "lifetime" },
-    { IOTDATA_NODE_STATUS_RESTARTS, 2, "restarts" },
-    { IOTDATA_NODE_STATUS_REASON, 1, "reason" },
-    { IOTDATA_NODE_STATUS_TEMPERATURE, 1, "temperature" },
-    { IOTDATA_NODE_STATUS_SUPPLY, 2, "supply" },
-    { IOTDATA_NODE_STATUS_HEAP_FREE, 4, "heap_free" },
-    { IOTDATA_NODE_STATUS_HEAP_MIN, 4, "heap_min" },
-    { IOTDATA_NODE_STATUS_ACTIVE, 4, "active" },
+    { IOTDATA_NODE_STATUS_UPTIME, 4, "uptime" },       { IOTDATA_NODE_STATUS_LIFETIME, 4, "lifetime" },       { IOTDATA_NODE_STATUS_RESTARTS, 2, "restarts" },
+    { IOTDATA_NODE_STATUS_REASON, 1, "reason" },       { IOTDATA_NODE_STATUS_TEMPERATURE, 1, "temperature" }, { IOTDATA_NODE_STATUS_SUPPLY, 2, "supply" },
+    { IOTDATA_NODE_STATUS_HEAP_FREE, 4, "heap_free" }, { IOTDATA_NODE_STATUS_HEAP_MIN, 4, "heap_min" },       { IOTDATA_NODE_STATUS_ACTIVE, 4, "active" },
 };
 
 static const iotdata_node_keydef_t iotdata_node_tlv_keys_config[] = {
@@ -546,8 +528,7 @@ typedef struct {
     bool has_duration, has_types;
 } iotdata_node_receive_t;
 
-static inline void iotdata_node_receive_parse(const uint8_t *const kv, const size_t kvlen,
-                                              iotdata_node_receive_t *const out) {
+static inline void iotdata_node_receive_parse(const uint8_t *const kv, const size_t kvlen, iotdata_node_receive_t *const out) {
     out->duration_ms = 0;
     out->types = 0;
     out->has_duration = false;
@@ -568,8 +549,7 @@ static inline void iotdata_node_receive_parse(const uint8_t *const kv, const siz
 
 /* Build a RECEIVE payload. duration_ms 0 and types 0 are both "unstated", and an unstated pair
    leaves the payload empty -- which is the complete message "listening, for anything". */
-static inline size_t iotdata_node_receive_build(uint8_t *const buf, const size_t size, const uint16_t duration_ms,
-                                                const uint32_t types) {
+static inline size_t iotdata_node_receive_build(uint8_t *const buf, const size_t size, const uint16_t duration_ms, const uint32_t types) {
     iotdata_kvr_t kv;
     iotdata_kvr_init(&kv, buf, size);
     if (duration_ms != 0)
@@ -609,8 +589,7 @@ static inline bool iotdata_node_receive_accepts(const iotdata_node_receive_t *co
 
 /* Is a window of `duration_ms` long enough to be worth transmitting `bytes` into, at `bps` on air?
    An unstated duration means the node is taking responsibility, so we always try. */
-static inline bool iotdata_node_receive_fits(const iotdata_node_receive_t *const r, const size_t bytes,
-                                             const uint32_t bps) {
+static inline bool iotdata_node_receive_fits(const iotdata_node_receive_t *const r, const size_t bytes, const uint32_t bps) {
     if (!r->has_duration || r->duration_ms == 0 || bps == 0)
         return true;
     return ((bytes * 8u * 1000u) / bps) <= (size_t)r->duration_ms;
@@ -627,9 +606,7 @@ static inline bool iotdata_node_receive_fits(const iotdata_node_receive_t *const
 /* Presence slots addressed by a definition with this many presence bytes: the first byte spends
    two bits on the extension and TLV flags, every later byte only one. */
 static inline size_t iotdata_node_variant_slots(const uint8_t num_pres_bytes) {
-    return (num_pres_bytes == 0) ? 0u
-                                 : (size_t)IOTDATA_PRES0_DATA_FIELDS +
-                                       (size_t)IOTDATA_PRESN_DATA_FIELDS * (size_t)(num_pres_bytes - 1u);
+    return (num_pres_bytes == 0) ? 0u : (size_t)IOTDATA_PRES0_DATA_FIELDS + (size_t)IOTDATA_PRESN_DATA_FIELDS * (size_t)(num_pres_bytes - 1u);
 }
 
 static inline size_t iotdata_node_variant_field_bytes(const size_t count) {
@@ -692,8 +669,7 @@ static inline uint8_t iotdata_node_variant_manifest_count(const uint16_t manifes
 }
 
 /* Encode one variant definition. Returns the value length, or 0 if it does not fit. */
-static inline size_t iotdata_node_variant_encode(const iotdata_variant_def_t *const def, uint8_t *const buf,
-                                                 const size_t size) {
+static inline size_t iotdata_node_variant_encode(const iotdata_variant_def_t *const def, uint8_t *const buf, const size_t size) {
     if (def == NULL || buf == NULL)
         return 0;
     const char *const name = (def->name != NULL) ? def->name : "";
@@ -715,8 +691,7 @@ static inline size_t iotdata_node_variant_encode(const iotdata_variant_def_t *co
 
 /* Decode one variant value. Returns the field count, and points name/fields into the value itself
    (the name is NOT NUL-terminated -- namelen bounds it). Returns 0 on a malformed value. */
-static inline size_t iotdata_node_variant_decode(const uint8_t *const v, const size_t vlen, const char **const name,
-                                                 size_t *const namelen, const uint8_t **const fields) {
+static inline size_t iotdata_node_variant_decode(const uint8_t *const v, const size_t vlen, const char **const name, size_t *const namelen, const uint8_t **const fields) {
     if (v == NULL || vlen < 1u)
         return 0;
     const size_t nlen = v[0];

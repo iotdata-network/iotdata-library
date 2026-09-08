@@ -675,9 +675,7 @@ static void test_kv_string_round_trip(void) {
 static void test_node_definitions(void) {
     TEST("Node system TLV definitions");
 
-    const uint8_t types[] = { IOTDATA_NODE_TLV_VERSION, IOTDATA_NODE_TLV_VARIANT, IOTDATA_NODE_TLV_CONTROL,
-                              IOTDATA_NODE_TLV_STATUS,  IOTDATA_NODE_TLV_CONFIG,  IOTDATA_NODE_TLV_DIAGNOSTICS,
-                              IOTDATA_NODE_TLV_CONTENT };
+    const uint8_t types[] = { IOTDATA_NODE_TLV_VERSION, IOTDATA_NODE_TLV_VARIANT, IOTDATA_NODE_TLV_CONTROL, IOTDATA_NODE_TLV_STATUS, IOTDATA_NODE_TLV_CONFIG, IOTDATA_NODE_TLV_DIAGNOSTICS, IOTDATA_NODE_TLV_CONTENT };
     for (size_t i = 0; i < sizeof(types) / sizeof(types[0]); i++) {
         ASSERT_TRUE(iotdata_tlv_type_is_system(types[i]), "type is system");
         ASSERT_TRUE(iotdata_node_tlv_name(types[i]) != NULL, "type is named");
@@ -783,8 +781,7 @@ static void test_node_receive_tlv(void) {
     iotdata_kvr_t kv;
     iotdata_kvr_init(&kv, kvbuf, sizeof(kvbuf));
     iotdata_kvr_add_u16(&kv, IOTDATA_NODE_RECEIVE_DURATION, 500);
-    iotdata_kvr_add_u32(&kv, IOTDATA_NODE_RECEIVE_TYPES,
-                        (1u << IOTDATA_NODE_TLV_CONTROL) | (1u << IOTDATA_NODE_TLV_CONFIG));
+    iotdata_kvr_add_u32(&kv, IOTDATA_NODE_RECEIVE_TYPES, (1u << IOTDATA_NODE_TLV_CONTROL) | (1u << IOTDATA_NODE_TLV_CONFIG));
     ASSERT_TRUE(!kv.overflow, "built");
     ASSERT_OK(iotdata_encode_tlv(&enc, IOTDATA_NODE_TLV_RECEIVE, kvbuf, (uint8_t)kv.len), "encode");
     finish();
@@ -835,8 +832,7 @@ static void test_node_variant_tlv(void) {
 
     /* every slot comes back as the field it went in as, in the same position */
     for (size_t i = 0; i < slots; i++)
-        ASSERT_EQ(iotdata_node_variant_field_get(fields, i), iotdata_node_variant_field_id(def->fields[i].type),
-                  "field id at its slot");
+        ASSERT_EQ(iotdata_node_variant_field_get(fields, i), iotdata_node_variant_field_id(def->fields[i].type), "field id at its slot");
 
     /* the packing straddles bytes, so prove neighbours do not bleed into each other */
     uint8_t packed[8];

@@ -224,7 +224,7 @@ tests: test-suites test-versions test-example
 ################################################################################
 
 format:
-	clang-format --verbose -i $$(find . -name build -prune -o \( -name '*.c' -o -name '*.h' \) -print)
+	clang-format-19 --verbose -i $$(find . -name build -prune -o \( -name '*.c' -o -name '*.h' \) -print)
 
 prettier:
 	prettier --write $$(find . -name build -prune -o \( -name '*.md' \) -print)
