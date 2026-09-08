@@ -500,8 +500,7 @@ static inline void iotdata_mesh_dedup_init(iotdata_mesh_dedup_ring_t *ring) {
     memset(ring, 0, sizeof(*ring));
 }
 
-/* returns true if this is a NEW packet (not a duplicate) */
-static inline bool iotdata_mesh_dedup_check_and_add(iotdata_mesh_dedup_ring_t *ring, uint16_t station_id, uint16_t sequence) {
+static inline bool iotdata_mesh_dedup_insert(iotdata_mesh_dedup_ring_t *ring, uint16_t station_id, uint16_t sequence) {
     /* scan for duplicate */
     for (int i = 0; i < (ring->size < IOTDATA_MESH_DEDUP_RING_SIZE ? ring->size : IOTDATA_MESH_DEDUP_RING_SIZE); i++)
         if (ring->entries[i].station_id == station_id && ring->entries[i].sequence == sequence)
