@@ -213,11 +213,14 @@ typedef struct {
     uint16_t origin_sequence;
 } iotdata_mesh_forward_t;
 
-static inline void iotdata_mesh_pack_forward(uint8_t *buf, uint16_t sender_station, uint16_t sender_seq, uint8_t ttl, const uint8_t *inner, int inner_len) {
+static inline int iotdata_mesh_pack_forward(uint8_t *buf, int len, uint16_t sender_station, uint16_t sender_seq, uint8_t ttl, const uint8_t *inner, int inner_len) {
+    if (len < (6 + inner_len))
+        return 0;
     iotdata_mesh_pack_header(buf, sender_station, sender_seq);
     buf[4] = (uint8_t)((IOTDATA_MESH_CTRL_FORWARD << 4) | ((ttl >> 4) & 0x0F));
     buf[5] = (uint8_t)((ttl & 0x0F) << 4);
     memcpy(&buf[6], inner, (size_t)inner_len);
+    return 6 + inner_len;
 }
 
 static inline bool iotdata_mesh_unpack_forward(const uint8_t *buf, int len, iotdata_mesh_forward_t *f) {
@@ -319,11 +322,13 @@ static inline int iotdata_mesh_rssi_from_q4(uint8_t q4) {
 }
 
 /* Pack a full report from `count` entries. Returns the frame length. Clamps count to what fits. */
-static inline int iotdata_mesh_pack_neighbour_report(uint8_t *buf, uint16_t sender_station, uint16_t sender_seq, uint16_t parent_id, uint8_t my_cost, uint16_t gateway_id, const iotdata_mesh_nbr_entry_t *entries, int count) {
+static inline int iotdata_mesh_pack_neighbour_report(uint8_t *buf, int len, uint16_t sender_station, uint16_t sender_seq, uint16_t parent_id, uint8_t my_cost, uint16_t gateway_id, const iotdata_mesh_nbr_entry_t *entries, int count) {
     if (count < 0)
         count = 0;
     if (count > IOTDATA_MESH_NBR_MAX)
         count = IOTDATA_MESH_NBR_MAX;
+    if (10 + (count * IOTDATA_MESH_NBR_ENTRY_SIZE) < len)
+        return 0;
     iotdata_mesh_pack_header(buf, sender_station, sender_seq);
     iotdata_mesh_pack_4_12(&buf[4], IOTDATA_MESH_CTRL_NEIGHBOUR_RPT, parent_id);
     buf[6] = my_cost;
@@ -376,9 +381,12 @@ typedef struct {
     uint8_t reason;
 } iotdata_mesh_route_error_t;
 
-static inline void iotdata_mesh_pack_route_error(uint8_t *buf, uint16_t sender_station, uint16_t sender_seq, uint8_t reason) {
+static inline int iotdata_mesh_pack_route_error(uint8_t *buf, int len, uint16_t sender_station, uint16_t sender_seq, uint8_t reason) {
+    if (len < IOTDATA_MESH_ROUTE_ERROR_SIZE)
+        return 0;
     iotdata_mesh_pack_header(buf, sender_station, sender_seq);
     buf[4] = (uint8_t)((IOTDATA_MESH_CTRL_ROUTE_ERROR << 4) | (reason & 0x0F));
+    return IOTDATA_MESH_ROUTE_ERROR_SIZE;
 }
 
 static inline bool iotdata_mesh_unpack_route_error(const uint8_t *buf, int len, iotdata_mesh_route_error_t *r) {
