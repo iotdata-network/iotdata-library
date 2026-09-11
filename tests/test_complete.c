@@ -675,7 +675,9 @@ static void test_kv_string_round_trip(void) {
 static void test_node_definitions(void) {
     TEST("Node system TLV definitions");
 
-    const uint8_t types[] = { IOTDATA_NODE_TLV_VERSION, IOTDATA_NODE_TLV_VARIANT, IOTDATA_NODE_TLV_CONTROL, IOTDATA_NODE_TLV_STATUS, IOTDATA_NODE_TLV_CONFIG, IOTDATA_NODE_TLV_DIAGNOSTICS, IOTDATA_NODE_TLV_CONTENT };
+    const uint8_t types[] = { IOTDATA_NODE_TLV_VERSION,     IOTDATA_NODE_TLV_VARIANT,       IOTDATA_NODE_TLV_CONTROL,    IOTDATA_NODE_TLV_STATUS,
+                              IOTDATA_NODE_TLV_CONFIG,      IOTDATA_NODE_TLV_DIAGNOSTICS,   IOTDATA_NODE_TLV_CONTENT,    IOTDATA_NODE_TLV_MESH_STATIONS,
+                              IOTDATA_NODE_TLV_MESH_PEERS,  IOTDATA_NODE_TLV_MESH_FILTERS };
     for (size_t i = 0; i < sizeof(types) / sizeof(types[0]); i++) {
         ASSERT_TRUE(iotdata_tlv_type_is_system(types[i]), "type is system");
         ASSERT_TRUE(iotdata_node_tlv_name(types[i]) != NULL, "type is named");
@@ -684,10 +686,52 @@ static void test_node_definitions(void) {
         ASSERT_TRUE(tbl != NULL && n > 0, "type has keys");
         for (size_t k = 0; k < n; k++)
             ASSERT_TRUE(iotdata_tlv_key_is_system(tbl[k].key), "system keys have bit7 clear");
-        /* asking for a type is the same identifier as the type itself */
-        ASSERT_EQ(iotdata_node_tlv_control_key(types[i]), types[i], "request key == type");
-        ASSERT_EQ(iotdata_node_tlv_control_type(types[i]), types[i], "and back again");
+        /* A request key is the TLV type shifted up, leaving eight commands per subject -- the
+           request itself is always the first of them. The two directions must round-trip. */
+        const uint8_t key = iotdata_node_tlv_control_key(types[i]);
+        ASSERT_EQ(key, (uint8_t)(types[i] << IOTDATA_NODE_CONTROL_SUBJECT_SHIFT), "request key == type << 3");
+        ASSERT_EQ(key & IOTDATA_NODE_CONTROL_SUBJECT_MASK, 0, "a request is the subject's command 0");
+        ASSERT_EQ(iotdata_node_tlv_control_type(key), types[i], "and back again");
+        /* the other seven in the subject are commands, not requests, so they do not map to a type */
+        for (uint8_t c = 1; c <= IOTDATA_NODE_CONTROL_SUBJECT_MASK; c++)
+            ASSERT_EQ(iotdata_node_tlv_control_type((uint8_t)(key + c)), IOTDATA_NODE_TLV_NONE, "a command is not a request");
     }
+    /* SYSTEM_COUNT has to span exactly the named types: one short and a node sizing per-type state
+       from it indexes off the end, one long and it reserves a slot for a type that does not exist.
+       Adding a type without moving SYSTEM_LAST is the mistake this catches. */
+    ASSERT_EQ(IOTDATA_NODE_TLV_SYSTEM_COUNT, IOTDATA_NODE_TLV_SYSTEM_LAST + 1, "count spans the last type");
+    ASSERT_TRUE(iotdata_node_tlv_name(IOTDATA_NODE_TLV_SYSTEM_COUNT - 1) != NULL, "the last type is named");
+    ASSERT_TRUE(iotdata_node_tlv_name(IOTDATA_NODE_TLV_SYSTEM_COUNT) == NULL, "and nothing beyond it is");
+    for (uint8_t t = 0; t < IOTDATA_NODE_TLV_SYSTEM_COUNT; t++)
+        ASSERT_TRUE(iotdata_node_tlv_name(t) != NULL, "every type inside the count is named");
+
+    /* The mesh tables are types, and the proof is that their request keys are the ones already
+       published as MESH_*_REQUEST -- if the numbering rule and those constants ever disagree, a
+       manager asking for a table would silently ask for something else. */
+    ASSERT_EQ(iotdata_node_tlv_control_key(IOTDATA_NODE_TLV_MESH_STATIONS), IOTDATA_NODE_CONTROL_MESH_STATIONS_REQUEST, "stations request key");
+    ASSERT_EQ(iotdata_node_tlv_control_key(IOTDATA_NODE_TLV_MESH_PEERS), IOTDATA_NODE_CONTROL_MESH_PEERS_REQUEST, "peers request key");
+    ASSERT_EQ(iotdata_node_tlv_control_key(IOTDATA_NODE_TLV_MESH_FILTERS), IOTDATA_NODE_CONTROL_MESH_FILTERS_REQUEST, "filters request key");
+    ASSERT_EQ(iotdata_node_tlv_control_type(IOTDATA_NODE_CONTROL_MESH_STATIONS_REQUEST), IOTDATA_NODE_TLV_MESH_STATIONS, "and back again");
+    ASSERT_EQ(iotdata_node_tlv_control_type(IOTDATA_NODE_CONTROL_MESH_PEERS_REQUEST), IOTDATA_NODE_TLV_MESH_PEERS, "and back again");
+    ASSERT_EQ(iotdata_node_tlv_control_type(IOTDATA_NODE_CONTROL_MESH_FILTERS_REQUEST), IOTDATA_NODE_TLV_MESH_FILTERS, "and back again");
+
+    /* a DUMP is a command, not a request: it must never resolve to a type */
+    ASSERT_EQ(iotdata_node_tlv_control_type(IOTDATA_NODE_CONTROL_MESH_STATIONS_DUMP), IOTDATA_NODE_TLV_NONE, "stations dump is a command");
+    ASSERT_EQ(iotdata_node_tlv_control_type(IOTDATA_NODE_CONTROL_MESH_PEERS_DUMP), IOTDATA_NODE_TLV_NONE, "peers dump is a command");
+    ASSERT_EQ(iotdata_node_tlv_control_type(IOTDATA_NODE_CONTROL_MESH_FILTERS_DUMP), IOTDATA_NODE_TLV_NONE, "filters dump is a command");
+
+    /* only the three tables are tables, and each declares a row width */
+    ASSERT_TRUE(iotdata_node_tlv_is_table(IOTDATA_NODE_TLV_MESH_STATIONS) && iotdata_node_tlv_is_table(IOTDATA_NODE_TLV_MESH_PEERS) && iotdata_node_tlv_is_table(IOTDATA_NODE_TLV_MESH_FILTERS), "tables are tables");
+    ASSERT_TRUE(!iotdata_node_tlv_is_table(IOTDATA_NODE_TLV_STATUS) && !iotdata_node_tlv_is_table(IOTDATA_NODE_TLV_CONTENT), "and nothing else is");
+
+    /* the row accessors must round-trip, since a builder and a reader share only this */
+    uint8_t row[IOTDATA_NODE_TABLE_STATIONS_ROW_SIZE] = { 0 };
+    iotdata_node_table_put_u16(row, 0, 0x05BF);
+    iotdata_node_table_put_u32(row, 7, 0xDEADBEEFu);
+    ASSERT_EQ(iotdata_node_table_get_u16(row, 0), 0x05BF, "u16 round-trips");
+    ASSERT_EQ(iotdata_node_table_get_u32(row, 7), 0xDEADBEEFu, "u32 round-trips");
+    ASSERT_EQ(row[0], 0x05, "and is big-endian on the wire");
+
     /* proprietary space is neither system nor named -- the split is on the type field's top bit,
        which is 0x20 because the field is 6 bits wide (the key field is 8, so its bit is 0x80) */
     ASSERT_TRUE(iotdata_tlv_type_is_system(0x1F), "0x1F is the last system type");
