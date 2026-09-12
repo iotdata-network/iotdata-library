@@ -168,16 +168,43 @@
 #define IOTDATA_NODE_RECEIVE_TYPES               0x01 /* u32 bitmask, bit N = "I accept TLV type N"        */
 
 /* -------------------------------------------------------------------------
- * VERSION keys (0x01) -- all values are strings (no NUL on the wire)
+ * VERSION keys (0x01)
+ *
+ * FOUR BUCKETS AND AN INVENTORY. The split is the one every device-information standard arrives
+ * at -- BLE's Device Information Service, LwM2M's Device object, Matter's Basic Information all
+ * carry a hardware revision, the software beneath the application, the application itself, and an
+ * identity -- because those four change independently. Reflashing the SDK does not change the
+ * board; swapping the board does not change the SDK; neither touches the serial.
+ *
+ * The grammars are fixed, because these strings are parsed and compared, not just displayed:
+ *
+ *   hardware      board/arch            "esp32c3/riscv32"  "pizero/armv6l"  "pc/x86_64"
+ *   firmware      stack/version[+low]   "idf/6.1+bl1.20"   "linux/6.12.96"
+ *   software      app/semver/stamp      "gateway/1.0.0/202609231743"
+ *   serial        hex, no separators    "DC326291ACF3"
+ *   capabilities  16-bit entries        see iotdata_version.h
+ *
+ * THE STAMP IS THE ORDERING KEY. `stamp` is yyyymmddhhmm, fixed width, so a plain string compare
+ * of two `software` values from the SAME app orders them by build time -- which is why there is no
+ * separate numeric version field of the kind Matter and ESP-IDF carry for exactly that purpose.
+ * The SEMVER is normative and says which release line a build tracks; it is NOT the ordering key
+ * and must never be compared as one (`rc10` sorts below `rc9`, and a dev build off 1.4.3 is not
+ * "newer" than 1.4.3). Compare stamps; display semvers.
+ *
+ * No library version. It would say nothing the stamp does not: the library compiles from the same
+ * tree as the application, so one stamp identifies both. And the protocol does not need one --
+ * unknown TLV types and unknown keys are skipped and counted rather than fatal, and evolution is
+ * by reservation, so there is no version gate for a peer to fail.
+ *
+ * Everything is built by iotdata_version.h, which owns the per-platform detection and the
+ * encoding. An application should not assemble these itself.
  * ----------------------------------------------------------------------- */
 
-#define IOTDATA_NODE_VERSION_FIRMWARE            0x00 /* application firmware version, e.g. "1.4.2"     */
-#define IOTDATA_NODE_VERSION_HARDWARE            0x01 /* board revision                                 */
-#define IOTDATA_NODE_VERSION_PLATFORM            0x02 /* chip/target, e.g. "esp32c3"                    */
-#define IOTDATA_NODE_VERSION_LIBRARY             0x03 /* iotdata library version                        */
-#define IOTDATA_NODE_VERSION_BUILD               0x04 /* build stamp: date/time or vcs hash             */
-#define IOTDATA_NODE_VERSION_APPLICATION         0x05 /* application name, e.g. "iotdata_relay"         */
-#define IOTDATA_NODE_VERSION_SERIAL              0x06 /* stable per-device id (MAC-derived, etc.)       */
+#define IOTDATA_NODE_VERSION_HARDWARE            0x00 /* "board/arch"                                   */
+#define IOTDATA_NODE_VERSION_FIRMWARE            0x01 /* "stack[+low]": what runs beneath the app       */
+#define IOTDATA_NODE_VERSION_SOFTWARE            0x02 /* "app/semver/stamp"                             */
+#define IOTDATA_NODE_VERSION_SERIAL              0x03 /* stable per-device id, never a removable NIC    */
+#define IOTDATA_NODE_VERSION_CAPABILITIES        0x04 /* 16-bit entries: [key:4][mask:12], big-endian   */
 
 /* -------------------------------------------------------------------------
  * VARIANT keys (0x02) -- the key IS the variant number
@@ -630,9 +657,9 @@ static const iotdata_node_keydef_t iotdata_node_tlv_keys_receive[] = {
 };
 
 static const iotdata_node_keydef_t iotdata_node_tlv_keys_version[] = {
-    { IOTDATA_NODE_VERSION_FIRMWARE, IOTDATA_NODE_WIDTH_VARIABLE, "firmware" }, { IOTDATA_NODE_VERSION_HARDWARE, IOTDATA_NODE_WIDTH_VARIABLE, "hardware" }, { IOTDATA_NODE_VERSION_PLATFORM, IOTDATA_NODE_WIDTH_VARIABLE, "platform" },
-    { IOTDATA_NODE_VERSION_LIBRARY, IOTDATA_NODE_WIDTH_VARIABLE, "library" },   { IOTDATA_NODE_VERSION_BUILD, IOTDATA_NODE_WIDTH_VARIABLE, "build" },       { IOTDATA_NODE_VERSION_APPLICATION, IOTDATA_NODE_WIDTH_VARIABLE, "application" },
-    { IOTDATA_NODE_VERSION_SERIAL, IOTDATA_NODE_WIDTH_VARIABLE, "serial" },
+    { IOTDATA_NODE_VERSION_HARDWARE, IOTDATA_NODE_WIDTH_VARIABLE, "hardware" }, { IOTDATA_NODE_VERSION_FIRMWARE, IOTDATA_NODE_WIDTH_VARIABLE, "firmware" },
+    { IOTDATA_NODE_VERSION_SOFTWARE, IOTDATA_NODE_WIDTH_VARIABLE, "software" }, { IOTDATA_NODE_VERSION_SERIAL, IOTDATA_NODE_WIDTH_VARIABLE, "serial" },
+    { IOTDATA_NODE_VERSION_CAPABILITIES, IOTDATA_NODE_WIDTH_VARIABLE, "capabilities" },
 };
 
 /* One key per variant number, so this table is the variant space itself rather than a set of named
