@@ -448,59 +448,11 @@
 #define IOTDATA_NODE_STATUS_MESH_STATE_GATEWAY   0x04 /* we ARE the root; cost 0                         */
 
 /*
- * The mesh group, as a struct plus one emitter.
- *
- * Every station that takes part in the mesh answers these -- a gateway (the root), a relay, and
- * in due course a combined relay/sensor. They differ in what they can say, not in how they say
- * it: a root has no parent and never reparents, a relay has both. So the shape lives here, once,
- * next to the keys, and each implementation fills in what is true of it. `present` is why the
- * struct is not simply zeroed and emitted: a node with no mesh at all (a plain sensor) must omit
- * the group rather than report a mesh it is not in.
- *
- * Field names follow the relay's mesh engine, which is where the values originate.
+ * The mesh group's SHAPE, the scope predicate and the encoder are not here: they are how a report
+ * is built, which belongs with the rest of the building, in iotdata-common's
+ * iotdata_node_status.h. What stays here is the key space above, and the names of the values a
+ * decoder meets (see iotdata_node_tlv_status_reason_str / _mesh_state_str below).
  */
-typedef struct {
-    bool present; /* false on a node with no mesh: omit the group entirely */
-    uint8_t state; /* IOTDATA_NODE_STATUS_MESH_STATE_* */
-    uint16_t parent;
-    uint8_t cost;
-    uint16_t generation;
-    int8_t parent_rssi;
-    uint8_t peers;
-    bool accepting;
-    uint32_t beacon_rx, beacon_tx;
-    uint32_t peer_new, reparent, failover, orphan;
-    uint32_t rerr_rx, rerr_tx;
-    uint32_t forwards, duplicates;
-} iotdata_node_status_mesh_t;
-
-/* STATUS_REQUEST's value is a bitmask of the groups wanted; absent (0) means all of them, so a
-   periodic report -- which asks for nothing -- carries everything. */
-static inline bool iotdata_node_status_scope_wants(const uint8_t scope, const uint8_t group) {
-    return scope == 0 || (scope & group) != 0;
-}
-
-static inline void iotdata_node_status_mesh_emit(iotdata_kvr_t *const kv, const iotdata_node_status_mesh_t *const m) {
-    if (!m->present)
-        return;
-    iotdata_kvr_add_u8(kv, IOTDATA_NODE_STATUS_MESH_STATE, m->state);
-    iotdata_kvr_add_u16(kv, IOTDATA_NODE_STATUS_MESH_PARENT, m->parent);
-    iotdata_kvr_add_u8(kv, IOTDATA_NODE_STATUS_MESH_COST, m->cost);
-    iotdata_kvr_add_u16(kv, IOTDATA_NODE_STATUS_MESH_GENERATION, m->generation);
-    iotdata_kvr_add_i8(kv, IOTDATA_NODE_STATUS_MESH_PARENT_RSSI, m->parent_rssi);
-    iotdata_kvr_add_u8(kv, IOTDATA_NODE_STATUS_MESH_PEERS, m->peers);
-    iotdata_kvr_add_u8(kv, IOTDATA_NODE_STATUS_MESH_ACCEPTING, m->accepting ? 1u : 0u);
-    iotdata_kvr_add_u32(kv, IOTDATA_NODE_STATUS_MESH_BEACON_RX, m->beacon_rx);
-    iotdata_kvr_add_u32(kv, IOTDATA_NODE_STATUS_MESH_BEACON_TX, m->beacon_tx);
-    iotdata_kvr_add_u32(kv, IOTDATA_NODE_STATUS_MESH_PEER_NEW, m->peer_new);
-    iotdata_kvr_add_u32(kv, IOTDATA_NODE_STATUS_MESH_REPARENT, m->reparent);
-    iotdata_kvr_add_u32(kv, IOTDATA_NODE_STATUS_MESH_FAILOVER, m->failover);
-    iotdata_kvr_add_u32(kv, IOTDATA_NODE_STATUS_MESH_ORPHAN, m->orphan);
-    iotdata_kvr_add_u32(kv, IOTDATA_NODE_STATUS_MESH_RERR_RX, m->rerr_rx);
-    iotdata_kvr_add_u32(kv, IOTDATA_NODE_STATUS_MESH_RERR_TX, m->rerr_tx);
-    iotdata_kvr_add_u32(kv, IOTDATA_NODE_STATUS_MESH_FORWARDS, m->forwards);
-    iotdata_kvr_add_u32(kv, IOTDATA_NODE_STATUS_MESH_DUPLICATES, m->duplicates);
-}
 
 /* -------------------------------------------------------------------------
  * The mesh table reports (types 0x08, 0x09, 0x0A)
@@ -854,6 +806,23 @@ static inline const char *iotdata_node_tlv_status_reason_str(const uint8_t reaso
         return "external";
     case IOTDATA_NODE_REASON_OTA:
         return "ota";
+    default:
+        return "unknown";
+    }
+}
+
+static inline const char *iotdata_node_tlv_status_mesh_state_str(const uint8_t state) {
+    switch (state) {
+    case IOTDATA_NODE_STATUS_MESH_STATE_DETACHED:
+        return "detached";
+    case IOTDATA_NODE_STATUS_MESH_STATE_SEARCHING:
+        return "searching";
+    case IOTDATA_NODE_STATUS_MESH_STATE_JOINED:
+        return "joined";
+    case IOTDATA_NODE_STATUS_MESH_STATE_ORPHANED:
+        return "orphaned";
+    case IOTDATA_NODE_STATUS_MESH_STATE_GATEWAY:
+        return "gateway";
     default:
         return "unknown";
     }
