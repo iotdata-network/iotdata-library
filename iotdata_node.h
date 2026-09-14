@@ -155,6 +155,7 @@
    (Distinct from IOTDATA_TLV_TYPE_SYSTEM_MAX, which is how much room the type FIELD has: 0x1F.
    This is how much of that room is assigned.) */
 #define IOTDATA_NODE_TLV_SYSTEM_COUNT            (IOTDATA_NODE_TLV_SYSTEM_LAST + 1)
+#define IOTDATA_NODE_TLV_PARTIAL                 0x1F
 #define IOTDATA_NODE_TLV_NONE                    0xFF
 
 /* -------------------------------------------------------------------------
@@ -710,6 +711,8 @@ static inline const char *iotdata_node_tlv_name(const uint8_t type) {
         return "mesh_peers";
     case IOTDATA_NODE_TLV_MESH_FILTERS:
         return "mesh_filters";
+    case IOTDATA_NODE_TLV_PARTIAL:
+        return "partial";
     default:
         return NULL; /* proprietary or unassigned */
     }
