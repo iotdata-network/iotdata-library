@@ -52,6 +52,7 @@ const iotdata_variant_def_t *iotdata_get_variant(uint8_t variant) {
 
 #elif !defined(IOTDATA_ENABLE_SELECTIVE)
 
+#define IOTDATA_VARIANT_MAPS_DEFAULT_INSTALLED
 #define IOTDATA_VARIANT_MAPS_DEFAULT_COUNT 1
 
 static const iotdata_variant_def_t IOTDATA_DEFAULT_VARIANTS[IOTDATA_VARIANT_MAPS_DEFAULT_COUNT] = {
