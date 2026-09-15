@@ -136,9 +136,9 @@
 #define IOTDATA_NODE_TLV_RECEIVE                 0x00 /* when this node can be reached (see RECEIVE above)  */
 #define IOTDATA_NODE_TLV_VERSION                 0x01 /* what this node IS: firmware, hardware, platform    */
 #define IOTDATA_NODE_TLV_VARIANT                 0x02 /* which telemetry variant it is producing            */
-#define IOTDATA_NODE_TLV_CONTROL                 0x03 /* commands TO a node, and its command inventory      */
 #define IOTDATA_NODE_TLV_STATUS                  0x04 /* how it is DOING: uptime, restarts, supply, heap    */
 #define IOTDATA_NODE_TLV_CONFIG                  0x05 /* settable operating parameters                      */
+#define IOTDATA_NODE_TLV_CONTROL                 0x03 /* commands TO a node, and its command inventory      */
 #define IOTDATA_NODE_TLV_DIAGNOSTICS             0x06 /* recorded diagnostic data (blackbox)                */
 #define IOTDATA_NODE_TLV_CONTENT                 0x07 /* bulk payload: firmware image, user data            */
 /* The mesh tables. These are types, not a special case: the numbering rule already put their
