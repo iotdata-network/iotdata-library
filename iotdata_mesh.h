@@ -24,49 +24,48 @@
  * Constants
  * ----------------------------------------------------------------------- */
 
-#define IOTDATA_MESH_VARIANT                             0x0F
+#define IOTDATA_MESH_VARIANT            0x0F
 
 /* Control types (upper nibble of byte 4) */
-#define IOTDATA_MESH_CTRL_BEACON                         0x0
-#define IOTDATA_MESH_CTRL_FORWARD                        0x1
-#define IOTDATA_MESH_CTRL_ACK                            0x2
-#define IOTDATA_MESH_CTRL_ROUTE_ERROR                    0x3
-#define IOTDATA_MESH_CTRL_NEIGHBOUR_RPT                  0x4
-#define IOTDATA_MESH_CTRL_PING                           0x5 /* v2 */
-#define IOTDATA_MESH_CTRL_PONG                           0x6 /* v2 */
-
+#define IOTDATA_MESH_CTRL_BEACON        0x0
+#define IOTDATA_MESH_CTRL_FORWARD       0x1
+#define IOTDATA_MESH_CTRL_ACK           0x2
+#define IOTDATA_MESH_CTRL_ROUTE_ERROR   0x3
+#define IOTDATA_MESH_CTRL_NEIGHBOUR_RPT 0x4
+#define IOTDATA_MESH_CTRL_PING          0x5 /* v2 */
+#define IOTDATA_MESH_CTRL_PONG          0x6 /* v2 */
 
 /* Route error reasons (lower nibble of byte 4) */
-#define IOTDATA_MESH_REASON_PARENT_LOST                  0x0
-#define IOTDATA_MESH_REASON_OVERLOADED                   0x1
-#define IOTDATA_MESH_REASON_SHUTDOWN                     0x2
+#define IOTDATA_MESH_REASON_PARENT_LOST 0x0
+#define IOTDATA_MESH_REASON_OVERLOADED  0x1
+#define IOTDATA_MESH_REASON_SHUTDOWN    0x2
 
 /* Beacon flags */
-#define IOTDATA_MESH_FLAG_ACCEPTING                      0x01 /* gateway is accepting forwards */
+#define IOTDATA_MESH_FLAG_ACCEPTING     0x01 /* gateway is accepting forwards */
 
 /* Special values */
-#define IOTDATA_MESH_PARENT_NONE                         0xFFF /* orphaned — no parent */
-#define IOTDATA_MESH_STATION_RESERVED                    0x000 /* do not assign to nodes */
+#define IOTDATA_MESH_PARENT_NONE        0xFFF /* orphaned — no parent */
+#define IOTDATA_MESH_STATION_RESERVED   0x000 /* do not assign to nodes */
 
 /* Protocol limits */
-#define IOTDATA_MESH_TTL_DEFAULT                         7
-#define IOTDATA_MESH_TTL_MAX                             255
-#define IOTDATA_MESH_GENERATION_HALF                     2048 /* for modular comparison */
-#define IOTDATA_MESH_GENERATION_MOD                      4096
-#define IOTDATA_MESH_MAX_NEIGHBOURS                      63
+#define IOTDATA_MESH_TTL_DEFAULT        7
+#define IOTDATA_MESH_TTL_MAX            255
+#define IOTDATA_MESH_GENERATION_HALF    2048 /* for modular comparison */
+#define IOTDATA_MESH_GENERATION_MOD     4096
+#define IOTDATA_MESH_MAX_NEIGHBOURS     63
 
 /* Packet sizes */
-#define IOTDATA_MESH_BEACON_SIZE                         9
-#define IOTDATA_MESH_FORWARD_HDR_SIZE                    6 /* + inner packet bytes */
-#define IOTDATA_MESH_ACK_SIZE                            8
-#define IOTDATA_MESH_ROUTE_ERROR_SIZE                    5
-#define IOTDATA_MESH_NEIGHBOUR_HDR_SIZE                  10 /* + 3 per entry */
-#define IOTDATA_MESH_NEIGHBOUR_ENTRY_SZ                  3
-#define IOTDATA_MESH_PING_SIZE                           8
-#define IOTDATA_MESH_PONG_SIZE                           8
+#define IOTDATA_MESH_BEACON_SIZE        9
+#define IOTDATA_MESH_FORWARD_HDR_SIZE   6 /* + inner packet bytes */
+#define IOTDATA_MESH_ACK_SIZE           8
+#define IOTDATA_MESH_ROUTE_ERROR_SIZE   5
+#define IOTDATA_MESH_NEIGHBOUR_HDR_SIZE 10 /* + 3 per entry */
+#define IOTDATA_MESH_NEIGHBOUR_ENTRY_SZ 3
+#define IOTDATA_MESH_PING_SIZE          8
+#define IOTDATA_MESH_PONG_SIZE          8
 
 /* Dedup ring default size */
-#define IOTDATA_MESH_DEDUP_RING_SIZE                     64
+#define IOTDATA_MESH_DEDUP_RING_SIZE    64
 
 /* -------------------------------------------------------------------------
  * iotdata header peek — extract fields from the standard 4-byte header

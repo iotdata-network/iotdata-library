@@ -675,9 +675,9 @@ static void test_kv_string_round_trip(void) {
 static void test_node_definitions(void) {
     TEST("Node system TLV definitions");
 
-    const uint8_t types[] = { IOTDATA_NODE_TLV_VERSION,     IOTDATA_NODE_TLV_VARIANT,       IOTDATA_NODE_TLV_CONTROL,    IOTDATA_NODE_TLV_STATUS,
-                              IOTDATA_NODE_TLV_CONFIG,      IOTDATA_NODE_TLV_DIAGNOSTICS,   IOTDATA_NODE_TLV_CONTENT,    IOTDATA_NODE_TLV_MESH_STATIONS,
-                              IOTDATA_NODE_TLV_MESH_PEERS,  IOTDATA_NODE_TLV_MESH_FILTERS };
+    /* CONTENT is absent on purpose: it is the one system type that is NOT a kvr, so it has no
+       keydef to check. It is asserted separately below. */
+    const uint8_t types[] = { IOTDATA_NODE_TLV_VERSION, IOTDATA_NODE_TLV_VARIANT, IOTDATA_NODE_TLV_CONTROL, IOTDATA_NODE_TLV_STATUS, IOTDATA_NODE_TLV_CONFIG, IOTDATA_NODE_TLV_DIAGNOSTICS };
     for (size_t i = 0; i < sizeof(types) / sizeof(types[0]); i++) {
         ASSERT_TRUE(iotdata_tlv_type_is_system(types[i]), "type is system");
         ASSERT_TRUE(iotdata_node_tlv_name(types[i]) != NULL, "type is named");
@@ -686,15 +686,9 @@ static void test_node_definitions(void) {
         ASSERT_TRUE(tbl != NULL && n > 0, "type has keys");
         for (size_t k = 0; k < n; k++)
             ASSERT_TRUE(iotdata_tlv_key_is_system(tbl[k].key), "system keys have bit7 clear");
-        /* A request key is the TLV type shifted up, leaving eight commands per subject -- the
-           request itself is always the first of them. The two directions must round-trip. */
-        const uint8_t key = iotdata_node_tlv_control_key(types[i]);
-        ASSERT_EQ(key, (uint8_t)(types[i] << IOTDATA_NODE_CONTROL_SUBJECT_SHIFT), "request key == type << 3");
-        ASSERT_EQ(key & IOTDATA_NODE_CONTROL_SUBJECT_MASK, 0, "a request is the subject's command 0");
-        ASSERT_EQ(iotdata_node_tlv_control_type(key), types[i], "and back again");
-        /* the other seven in the subject are commands, not requests, so they do not map to a type */
-        for (uint8_t c = 1; c <= IOTDATA_NODE_CONTROL_SUBJECT_MASK; c++)
-            ASSERT_EQ(iotdata_node_tlv_control_type((uint8_t)(key + c)), IOTDATA_NODE_TLV_NONE, "a command is not a request");
+        /* Every TLV type is a SUBJECT, addressed by its own number rather than by arithmetic on
+           it. That is what makes the proprietary half reachable too. */
+        ASSERT_TRUE(iotdata_node_subject_is_type(types[i]), "a type is a subject");
     }
     /* SYSTEM_COUNT has to span exactly the named types: one short and a node sizing per-type state
        from it indexes off the end, one long and it reserves a slot for a type that does not exist.
@@ -702,34 +696,40 @@ static void test_node_definitions(void) {
     ASSERT_EQ(IOTDATA_NODE_TLV_SYSTEM_COUNT, IOTDATA_NODE_TLV_SYSTEM_LAST + 1, "count spans the last type");
     ASSERT_TRUE(iotdata_node_tlv_name(IOTDATA_NODE_TLV_SYSTEM_COUNT - 1) != NULL, "the last type is named");
     ASSERT_TRUE(iotdata_node_tlv_name(IOTDATA_NODE_TLV_SYSTEM_COUNT) == NULL, "and nothing beyond it is");
+    /* The keyless types: named and system, but packed or opaque rather than a kvr. */
+    size_t nk = 1;
+    ASSERT_TRUE(iotdata_node_tlv_name(IOTDATA_NODE_TLV_CONTENT) != NULL && iotdata_node_tlv_keys(IOTDATA_NODE_TLV_CONTENT, &nk) == NULL && nk == 0, "CONTENT is packed, not a kvr");
+    nk = 1;
+    ASSERT_TRUE(iotdata_node_tlv_name(IOTDATA_NODE_TLV_DISCRIMINATOR) != NULL && iotdata_node_tlv_keys(IOTDATA_NODE_TLV_DISCRIMINATOR, &nk) == NULL && nk == 0, "DISCRIMINATOR is opaque");
+    /* The type space is CONTIGUOUS: every number inside the count is a type. The mesh tables left
+       holes at 0x08..0x0A when they became STATUS keys, and DISCRIMINATOR moved down to close
+       them, so a hole reappearing means a type was retired without the count being closed up. */
     for (uint8_t t = 0; t < IOTDATA_NODE_TLV_SYSTEM_COUNT; t++)
         ASSERT_TRUE(iotdata_node_tlv_name(t) != NULL, "every type inside the count is named");
+    ASSERT_EQ(IOTDATA_NODE_TLV_SYSTEM_COUNT, 0x0A, "ten types, packed from zero");
 
-    /* The mesh tables are types, and the proof is that their request keys are the ones already
-       published as MESH_*_REQUEST -- if the numbering rule and those constants ever disagree, a
-       manager asking for a table would silently ask for something else. */
-    ASSERT_EQ(iotdata_node_tlv_control_key(IOTDATA_NODE_TLV_MESH_STATIONS), IOTDATA_NODE_CONTROL_MESH_STATIONS_REQUEST, "stations request key");
-    ASSERT_EQ(iotdata_node_tlv_control_key(IOTDATA_NODE_TLV_MESH_PEERS), IOTDATA_NODE_CONTROL_MESH_PEERS_REQUEST, "peers request key");
-    ASSERT_EQ(iotdata_node_tlv_control_key(IOTDATA_NODE_TLV_MESH_FILTERS), IOTDATA_NODE_CONTROL_MESH_FILTERS_REQUEST, "filters request key");
-    ASSERT_EQ(iotdata_node_tlv_control_type(IOTDATA_NODE_CONTROL_MESH_STATIONS_REQUEST), IOTDATA_NODE_TLV_MESH_STATIONS, "and back again");
-    ASSERT_EQ(iotdata_node_tlv_control_type(IOTDATA_NODE_CONTROL_MESH_PEERS_REQUEST), IOTDATA_NODE_TLV_MESH_PEERS, "and back again");
-    ASSERT_EQ(iotdata_node_tlv_control_type(IOTDATA_NODE_CONTROL_MESH_FILTERS_REQUEST), IOTDATA_NODE_TLV_MESH_FILTERS, "and back again");
+    /* CONTROL has exactly two keys, and both are variable: everything else is vocabulary */
+    size_t nc = 0;
+    const iotdata_node_keydef_t *const ctl = iotdata_node_tlv_keys(IOTDATA_NODE_TLV_CONTROL, &nc);
+    ASSERT_TRUE(ctl != NULL && nc == 2, "two control keys");
+    ASSERT_TRUE(ctl[0].key == IOTDATA_NODE_CONTROL_REQUEST && ctl[1].key == IOTDATA_NODE_CONTROL_CONTROL, "request and control");
 
-    /* a DUMP is a command, not a request: it must never resolve to a type */
-    ASSERT_EQ(iotdata_node_tlv_control_type(IOTDATA_NODE_CONTROL_MESH_STATIONS_DUMP), IOTDATA_NODE_TLV_NONE, "stations dump is a command");
-    ASSERT_EQ(iotdata_node_tlv_control_type(IOTDATA_NODE_CONTROL_MESH_PEERS_DUMP), IOTDATA_NODE_TLV_NONE, "peers dump is a command");
-    ASSERT_EQ(iotdata_node_tlv_control_type(IOTDATA_NODE_CONTROL_MESH_FILTERS_DUMP), IOTDATA_NODE_TLV_NONE, "filters dump is a command");
+    /* subjects reach PAST the type space, which is the point: a station id is about no type */
+    ASSERT_TRUE(!iotdata_node_subject_is_type(IOTDATA_NODE_SUBJECT_NODE), "NODE is not a type");
+    ASSERT_TRUE(!iotdata_node_subject_is_type(IOTDATA_NODE_SUBJECT_MESH), "MESH is not a type");
+    ASSERT_TRUE(iotdata_node_subject_is_type(0x2A), "a PROPRIETARY type is still a subject");
 
-    /* only the three tables are tables, and each declares a row width */
-    ASSERT_TRUE(iotdata_node_tlv_is_table(IOTDATA_NODE_TLV_MESH_STATIONS) && iotdata_node_tlv_is_table(IOTDATA_NODE_TLV_MESH_PEERS) && iotdata_node_tlv_is_table(IOTDATA_NODE_TLV_MESH_FILTERS), "tables are tables");
-    ASSERT_TRUE(!iotdata_node_tlv_is_table(IOTDATA_NODE_TLV_STATUS) && !iotdata_node_tlv_is_table(IOTDATA_NODE_TLV_CONTENT), "and nothing else is");
+    /* the tables are STATUS keys now, and each declares its entry width as an ordinary keydef */
+    ASSERT_EQ(iotdata_node_tlv_key_width(IOTDATA_NODE_TLV_STATUS, IOTDATA_NODE_STATUS_STATIONS_ENTRY), IOTDATA_NODE_STATUS_STATIONS_ENTRY_SIZE, "stations entry width");
+    ASSERT_EQ(iotdata_node_tlv_key_width(IOTDATA_NODE_TLV_STATUS, IOTDATA_NODE_STATUS_FILTERS_ENTRY), IOTDATA_NODE_STATUS_FILTERS_ENTRY_SIZE, "filters entry width");
+    ASSERT_EQ(iotdata_node_tlv_key_width(IOTDATA_NODE_TLV_STATUS, IOTDATA_NODE_STATUS_MESH_PEERS_ENTRY), IOTDATA_NODE_STATUS_MESH_PEERS_ENTRY_SIZE, "peers entry width");
 
-    /* the row accessors must round-trip, since a builder and a reader share only this */
-    uint8_t row[IOTDATA_NODE_TABLE_STATIONS_ROW_SIZE] = { 0 };
-    iotdata_node_table_put_u16(row, 0, 0x05BF);
-    iotdata_node_table_put_u32(row, 7, 0xDEADBEEFu);
-    ASSERT_EQ(iotdata_node_table_get_u16(row, 0), 0x05BF, "u16 round-trips");
-    ASSERT_EQ(iotdata_node_table_get_u32(row, 7), 0xDEADBEEFu, "u32 round-trips");
+    /* the entry accessors must round-trip, since a builder and a reader share only this */
+    uint8_t row[IOTDATA_NODE_STATUS_STATIONS_ENTRY_SIZE] = { 0 };
+    iotdata_node_entry_put_u16(row, 0, 0x05BF);
+    iotdata_node_entry_put_u32(row, 7, 0xDEADBEEFu);
+    ASSERT_EQ(iotdata_node_entry_get_u16(row, 0), 0x05BF, "u16 round-trips");
+    ASSERT_EQ(iotdata_node_entry_get_u32(row, 7), 0xDEADBEEFu, "u32 round-trips");
     ASSERT_EQ(row[0], 0x05, "and is big-endian on the wire");
 
     /* proprietary space is neither system nor named -- the split is on the type field's top bit,
@@ -739,15 +739,27 @@ static void test_node_definitions(void) {
     ASSERT_TRUE(iotdata_node_tlv_name(0x20) == NULL, "proprietary type unnamed");
     ASSERT_TRUE(!iotdata_tlv_key_is_system(0x80), "0x80 is a proprietary key");
     ASSERT_TRUE(iotdata_node_tlv_key_name(IOTDATA_NODE_TLV_STATUS, 0x80) == NULL, "proprietary key unnamed");
-    /* a non-request control command does not map to a type. the sentinel must not be 0, because
-       0x00 is RECEIVE -- a real type */
-    ASSERT_EQ(iotdata_node_tlv_control_type(IOTDATA_NODE_CONTROL_REBOOT), IOTDATA_NODE_TLV_NONE, "reboot is not a request");
     ASSERT_TRUE(IOTDATA_NODE_TLV_NONE != IOTDATA_NODE_TLV_RECEIVE, "sentinel is not a valid type");
 
-    /* RECEIVE is a system type with keys, but it is volunteered, never requested */
+    /* RECEIVE is a system type with keys, and IS now requestable -- under the old scheme its
+       derived key was 0x00, which REBOOT had already taken, so it could not be asked for at all */
     ASSERT_TRUE(iotdata_tlv_type_is_system(IOTDATA_NODE_TLV_RECEIVE), "receive is a system type");
     ASSERT_TRUE(iotdata_node_tlv_name(IOTDATA_NODE_TLV_RECEIVE) != NULL, "receive is named");
-    ASSERT_EQ(iotdata_node_tlv_control_key(IOTDATA_NODE_TLV_RECEIVE), IOTDATA_NODE_TLV_NONE, "receive cannot be requested");
+    ASSERT_TRUE(iotdata_node_subject_is_type(IOTDATA_NODE_TLV_RECEIVE), "and is a subject like any other");
+
+    /* Every action is a VERB: there is no action that assigns a value, because a write belongs to
+       a mutable TYPE. Two subjects may reuse a number precisely because the spaces are separate. */
+    ASSERT_EQ(IOTDATA_NODE_ACTION_NODE_REBOOT, IOTDATA_NODE_ACTION_DIAGNOSTICS_ENABLE, "numbers are per-subject and may collide");
+    ASSERT_TRUE(IOTDATA_NODE_ACTION_MESH_PEERS_DUMP < IOTDATA_NODE_ACTION_PROPRIETARY, "system actions are the lower half");
+
+    /* SETTINGS is a reportable, mutable type: the protocol's own values, with the station id the
+       one that makes a node commissionable */
+    ASSERT_TRUE(iotdata_node_tlv_is_reportable(IOTDATA_NODE_TLV_SETTINGS), "settings can be asked for");
+    ASSERT_EQ(iotdata_node_tlv_key_width(IOTDATA_NODE_TLV_SETTINGS, IOTDATA_NODE_SETTINGS_STATION), 2, "a station is a u16");
+    ASSERT_EQ(iotdata_node_tlv_key_width(IOTDATA_NODE_TLV_SETTINGS, IOTDATA_NODE_SETTINGS_REPORT), IOTDATA_NODE_SETTINGS_REPORT_SIZE, "a report entry is fixed width");
+    ASSERT_EQ(iotdata_node_tlv_key_width(IOTDATA_NODE_TLV_SETTINGS, IOTDATA_NODE_SETTINGS_RECEIVE), IOTDATA_NODE_SETTINGS_RECEIVE_SIZE, "a receive triple likewise");
+    /* one sentinel across every field, so there is one rule rather than a value per key */
+    ASSERT_TRUE(IOTDATA_NODE_SETTINGS_UNSET != 0, "and zero is never it: a zero interval means something");
     PASS();
 }
 
@@ -850,8 +862,9 @@ static void test_node_receive_tlv(void) {
     PASS();
 }
 
-/* VARIANT carries a whole variant suite: key = variant number, value = name plus one 12-bit field
-   id per presence slot. Round-trip the suite this build was compiled against. */
+/* VARIANT carries a whole variant suite as two repeated keys: ENTRY is the variant number then one
+   u16 field id per presence slot, NAMES is the same variant's descriptive labels. Round-trip the
+   suite this build was compiled against. */
 static void test_node_variant_tlv(void) {
     TEST("Node VARIANT TLV, suite encode/decode");
 
@@ -860,51 +873,58 @@ static void test_node_variant_tlv(void) {
 
     const size_t slots = iotdata_node_variant_slots(def->num_pres_bytes);
     ASSERT_TRUE(slots > 0 && slots <= IOTDATA_MAX_DATA_FIELDS, "slot count derived from presence bytes");
+    const size_t stated = iotdata_node_variant_stated_slots(def);
+    ASSERT_TRUE(stated <= slots, "trailing empty slots are trimmed");
 
-    uint8_t val[128];
-    const size_t vlen = iotdata_node_variant_encode(def, val, sizeof(val));
-    ASSERT_TRUE(vlen > 0, "encoded");
-    ASSERT_EQ(vlen, 1u + strlen(def->name) + iotdata_node_variant_field_bytes(slots), "length is name + packed fields");
+    uint8_t val[256];
+    const size_t vlen = iotdata_node_variant_encode(def, 0, val, sizeof(val));
+    ASSERT_TRUE(vlen > 0 && ((vlen - 1u) % 2u) == 0, "encoded: a variant byte, then two a slot");
+    ASSERT_EQ(iotdata_node_variant_of(val, vlen), 0, "the value says which variant it is");
+    ASSERT_EQ(iotdata_node_variant_decode(val, vlen), stated, "the count is what was stated");
 
-    const char *name = NULL;
-    const uint8_t *fields = NULL;
-    size_t namelen = 0;
-    const size_t count = iotdata_node_variant_decode(val, vlen, &name, &namelen, &fields);
-    ASSERT_EQ(namelen, strlen(def->name), "name length");
-    ASSERT_EQ(memcmp(name, def->name, namelen), 0, "name bytes");
-    ASSERT_TRUE(count >= slots, "every slot survives (the last byte may hold a spare nibble)");
-
-    /* every slot comes back as the field it went in as, in the same position */
+    /* every slot comes back as the field it went in as, in the same position -- including the
+       trimmed tail, which must read as NONE rather than as something else */
     for (size_t i = 0; i < slots; i++)
-        ASSERT_EQ(iotdata_node_variant_field_get(fields, i), iotdata_node_variant_field_id(def->fields[i].type), "field id at its slot");
+        ASSERT_EQ(iotdata_node_variant_field_at(val, vlen, i), iotdata_node_variant_field_id(def->fields[i].type), "field id at its slot");
+    ASSERT_EQ(iotdata_node_variant_field_at(val, vlen, slots + 5u), IOTDATA_NODE_VARIANT_FIELD_NONE, "past the end is NONE");
 
-    /* the packing straddles bytes, so prove neighbours do not bleed into each other */
-    uint8_t packed[8];
-    memset(packed, 0, sizeof(packed));
-    const uint16_t probe[] = { 0x000u, 0xFFFu, 0xABCu, 0x123u, 0xFFFu };
-    for (size_t i = 0; i < 5; i++)
-        iotdata_node_variant_field_set(packed, i, probe[i]);
-    for (size_t i = 0; i < 5; i++)
-        ASSERT_EQ(iotdata_node_variant_field_get(packed, i), probe[i], "adjacent 12-bit ids stay distinct");
-
-    /* a value too small to hold the name it claims is rejected rather than read past */
-    const uint8_t bad[] = { 0x40, 'x' };
-    ASSERT_EQ(iotdata_node_variant_decode(bad, sizeof(bad), NULL, NULL, NULL), 0, "overlong name rejected");
-    ASSERT_EQ(iotdata_node_variant_encode(def, val, 4), 0, "no room, no encode");
-
-    /* the manifest names exactly the variants that exist, so a receiver collecting chunks knows
-       when it has them all -- and never claims the mesh variant */
-    const uint16_t manifest = iotdata_node_variant_manifest();
-    ASSERT_TRUE(iotdata_node_variant_manifest_has(manifest, 0), "variant 0 is in the manifest");
-    ASSERT_TRUE(!iotdata_node_variant_manifest_has(manifest, IOTDATA_VARIANT_RESERVED), "mesh variant never named");
-    ASSERT_EQ(manifest & (1u << IOTDATA_VARIANT_RESERVED), 0, "bit 15 clear");
-    uint8_t defined = 0;
-    for (uint8_t v = 0; v <= IOTDATA_VARIANT_MAX; v++) {
-        ASSERT_EQ(iotdata_node_variant_manifest_has(manifest, v), iotdata_get_variant(v) != NULL, "bit tracks definition");
-        if (iotdata_get_variant(v) != NULL)
-            defined++;
+    /* big-endian on the wire, so a builder and a reader cannot disagree */
+    if (vlen >= 3) {
+        const uint16_t first = iotdata_node_variant_field_at(val, vlen, 0);
+        ASSERT_EQ(val[1], (uint8_t)(first >> 8), "high byte first");
+        ASSERT_EQ(val[2], (uint8_t)first, "then the low");
     }
-    ASSERT_EQ(iotdata_node_variant_manifest_count(manifest), defined, "count is the population count");
+
+    /* a value whose slot bytes do not pair up cannot be an array of u16 */
+    const uint8_t odd[] = { 0x00, 0x00, 0x01, 0x02 };
+    ASSERT_EQ(iotdata_node_variant_decode(odd, sizeof(odd)), 0, "odd remainder rejected");
+    /* and a variant number out of range is not a variant at all */
+    const uint8_t bad[] = { IOTDATA_VARIANT_RESERVED, 0x00, 0x01 };
+    ASSERT_EQ(iotdata_node_variant_of(bad, sizeof(bad)), IOTDATA_NODE_VARIANT_NONE, "the mesh variant is never a definition");
+    ASSERT_EQ(iotdata_node_variant_encode(def, 0, val, 1), 0, "no room, no encode");
+
+    /* NAMES: the variant's own name, then one per slot, each NUL-terminated */
+    uint8_t nm[256];
+    const size_t nlen = iotdata_node_variant_encode_names(def, 0, nm, sizeof(nm));
+    ASSERT_TRUE(nlen > 0, "names encoded");
+    ASSERT_EQ(iotdata_node_variant_of(nm, nlen), 0, "and say which variant they are for");
+    const char *const vname = iotdata_node_variant_name_at(nm, nlen, 0);
+    ASSERT_TRUE(vname != NULL && strcmp(vname, def->name ? def->name : "") == 0, "index 0 is the variant's own name");
+    for (size_t i = 0; i < stated; i++) {
+        const char *const f = iotdata_node_variant_name_at(nm, nlen, i + 1u);
+        const char *const want = (def->fields[i].label != NULL) ? def->fields[i].label : "";
+        ASSERT_TRUE(f != NULL && strcmp(f, want) == 0, "then one name per slot, in slot order");
+    }
+    ASSERT_TRUE(iotdata_node_variant_name_at(nm, nlen, stated + 9u) == NULL, "past the end is not stated");
+
+    /* a tail that does not fit is DROPPED rather than failing the value: names are descriptive */
+    const size_t tight = iotdata_node_variant_encode_names(def, 0, nm, 1u + strlen(def->name ? def->name : "") + 1u);
+    ASSERT_TRUE(tight > 0, "the variant name alone still encodes");
+    ASSERT_TRUE(iotdata_node_variant_name_at(nm, tight, 1) == NULL, "and the field names are simply absent");
+    ASSERT_EQ(iotdata_node_variant_encode_names(def, 0, nm, 1), 0, "but no room at all is no value");
+
+    /* the implementer's half is not a usable id for a compiled-in field */
+    ASSERT_EQ(iotdata_node_variant_field_id((iotdata_field_type_t)IOTDATA_NODE_VARIANT_FIELD_PROPRIETARY), IOTDATA_NODE_VARIANT_FIELD_NONE, "proprietary ids are not minted here");
     PASS();
 }
 

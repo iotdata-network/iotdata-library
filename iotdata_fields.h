@@ -884,15 +884,21 @@ typedef struct {
 #else
 #define IOTDATA_FIELDS_DAT_TLV_DECODE
 #endif
-#define IOTDATA_TLV_FMT_BITS    1
-#define IOTDATA_TLV_TYPE_BITS   6
-#define IOTDATA_TLV_TYPE_MAX    63
-#define IOTDATA_TLV_MORE_BITS   1
-#define IOTDATA_TLV_LENGTH_BITS 8
-#define IOTDATA_TLV_HEADER_BITS (IOTDATA_TLV_FMT_BITS + IOTDATA_TLV_TYPE_BITS + IOTDATA_TLV_MORE_BITS + IOTDATA_TLV_LENGTH_BITS)
-#define IOTDATA_TLV_FMT_RAW     0
-#define IOTDATA_TLV_FMT_STRING  1
-#define IOTDATA_TLV_CHAR_BITS   6
+#define IOTDATA_TLV_FMT_BITS     1
+#define IOTDATA_TLV_TYPE_BITS    6
+#define IOTDATA_TLV_TYPE_MAX     63
+#define IOTDATA_TLV_MORE_BITS    1
+#define IOTDATA_TLV_LENGTH_BITS  8
+#define IOTDATA_TLV_HEADER_BITS  (IOTDATA_TLV_FMT_BITS + IOTDATA_TLV_TYPE_BITS + IOTDATA_TLV_MORE_BITS + IOTDATA_TLV_LENGTH_BITS)
+/* What the TLV's OWN framing costs and permits, derived from the fields above rather than written
+   out again. The packet budget -- how much of a frame is left for a value once the iotdata header
+   and the presence map have taken their share -- is IOTDATA_TLV_VALUE_MAX in iotdata.h, because
+   those constants do not exist yet at this point in the include order. */
+#define IOTDATA_TLV_HEADER_BYTES ((IOTDATA_TLV_HEADER_BITS + 7u) / 8u)
+#define IOTDATA_TLV_LENGTH_MAX   ((1u << IOTDATA_TLV_LENGTH_BITS) - 1u)
+#define IOTDATA_TLV_FMT_RAW      0
+#define IOTDATA_TLV_FMT_STRING   1
+#define IOTDATA_TLV_CHAR_BITS    6
 static inline bool iotdata_issixbit(const char c) {
     return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || (c == ' ');
 }
@@ -954,36 +960,47 @@ static inline bool iotdata_issixbit(const char c) {
 #endif
 
 /* ---------------------------------------------------------------------------
- * TLV key-value payloads (KV)
+ * TLV key-value payloads (KV) -- OFFERED encodings, not what a TLV MEANS
  *
- * A TLV payload may carry a sequence of key-value pairs. There are two framings, selected by
- * the TLV's existing FMT bit -- they are the same idea in two presentations:
+ * THE BASE PROTOCOL PUTS NO STRUCTURE INSIDE A TLV. Its two formats say only how the bytes are
+ * packed on the wire:
  *
- *   FMT_RAW    "kvr"  [K u8][L u8][V ...L bytes] repeated. K is a byte; V is opaque bytes whose
- *                     width/meaning belong to the key. The length makes every pair skippable, so
- *                     a reader can walk past keys it does not know -- which is what lets
- *                     proprietary keys coexist with system ones, and lets a mixed-vintage fleet
- *                     interoperate.
+ *   FMT_RAW     opaque binary. Whatever the type's owner puts there.
+ *   FMT_STRING  6-bit packed characters, alphabet [A-Za-z0-9 ].
  *
- *   FMT_STRING "kvs"  "name value name value ..." space-delimited, 6-bit packed. Compact for bulk
- *                     text, and readable on the wire. NOTE the 6-bit alphabet is [A-Za-z0-9 ] --
- *                     no punctuation -- so kvs cannot carry "1.4.2", "-5", or CSV. Anything with
- *                     punctuation, a negative number, or binary must use kvr.
+ * The TLV mechanism is available to any implementation to carry anything at all, and nothing here
+ * requires a payload to be key-value shaped.
  *
- * Key space (kvr): bit 7 clear = SYSTEM, assigned in iotdata_node.h; bit 7 set = PROPRIETARY,
- * free for a vendor/application. Type space: 0x00..0x07 = SYSTEM (iotdata_node.h), above free.
+ * What follows are two OFFERED conventions for structuring those bytes -- available to anyone,
+ * used by no one automatically. The NODE protocol (iotdata_node.h) standardises on them, which is
+ * a decision of that layer and not of this one:
+ *
+ *   kvr, inside FMT_RAW      [K u8][L u8][V ...L bytes] repeated. K is a byte; V is opaque bytes
+ *                            whose width and meaning belong to the key. The length makes every
+ *                            pair skippable, so a reader can walk past keys it does not know --
+ *                            which is what lets proprietary keys coexist with system ones, and a
+ *                            mixed-vintage fleet interoperate.
+ *
+ *   kvs, inside FMT_STRING   "name value name value ..." space-delimited. Compact for bulk text
+ *                            and readable on the wire. NOTE the 6-bit alphabet has NO PUNCTUATION,
+ *                            so kvs cannot carry "1.4.2", "-5", or CSV; anything with punctuation,
+ *                            a negative number, or binary must use kvr. The node protocol uses kvr
+ *                            throughout for exactly that reason, and kvs is currently unused.
+ *
+ * Key space (kvr): bit 7 clear = SYSTEM, assigned by whoever owns the type; bit 7 set =
+ * PROPRIETARY, free for a vendor or application. Type space: 0x00..0x1F = SYSTEM (assigned in
+ * iotdata_node.h), 0x20..0x3F free.
  *
  * This file deliberately knows nothing about WHICH types or keys exist, only how a pair is framed.
  * -------------------------------------------------------------------------*/
 
 #if defined(IOTDATA_ENABLE_TLV)
 
-/* Types and keys split the same way: the top bit of the field marks proprietary. The type field is
-   6 bits, so its top bit is 0x20 and the split is 32 system / 32 proprietary; the key field is a
-   full byte, so its top bit is 0x80 and the split is 128 / 128. One rule, two field widths. */
 #define IOTDATA_TLV_TYPE_PROPRIETARY 0x20
 #define IOTDATA_TLV_TYPE_SYSTEM_MAX  0x1F
 #define IOTDATA_TLV_KEY_PROPRIETARY  0x80
+
+#define IOTDATA_TLV_TYPE_PARTIAL     IOTDATA_TLV_TYPE_MAX
 
 static inline bool iotdata_tlv_type_is_system(const uint8_t type) {
     return (type & IOTDATA_TLV_TYPE_PROPRIETARY) == 0;
