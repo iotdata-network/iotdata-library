@@ -837,9 +837,30 @@ enum iotdata_status_t_ iotdata_encode_bits32(struct iotdata_encoder_t_ *enc, uin
  * -------------------------------------------------------------------------*/
 
 #if defined(IOTDATA_ENABLE_TLV)
-#define IOTDATA_TLV_MAX         8
-#define IOTDATA_TLV_DATA_MAX    255
-#define IOTDATA_TLV_STR_LEN_MAX 255
+
+/* The wire format first, because the in-memory shapes below are sized from it. */
+#define IOTDATA_TLV_FMT_BITS     1
+#define IOTDATA_TLV_TYPE_BITS    6
+#define IOTDATA_TLV_TYPE_MAX     63
+#define IOTDATA_TLV_MORE_BITS    1
+#define IOTDATA_TLV_LENGTH_BITS  8
+#define IOTDATA_TLV_HEADER_BITS  (IOTDATA_TLV_FMT_BITS + IOTDATA_TLV_TYPE_BITS + IOTDATA_TLV_MORE_BITS + IOTDATA_TLV_LENGTH_BITS)
+/* What the TLV's OWN framing costs and permits, derived from the fields above rather than written
+   out again. The packet budget -- how much of a frame is left for a value once the iotdata header
+   and the presence map have taken their share -- is IOTDATA_TLV_VALUE_MAX in iotdata.h, because
+   those constants do not exist yet at this point in the include order. */
+#define IOTDATA_TLV_HEADER_BYTES ((IOTDATA_TLV_HEADER_BITS + 7u) / 8u)
+#define IOTDATA_TLV_LENGTH_MAX   ((1u << IOTDATA_TLV_LENGTH_BITS) - 1u)
+#define IOTDATA_TLV_FMT_RAW      0
+#define IOTDATA_TLV_FMT_STRING   1
+
+/* How many TLVs one packet may carry, and how long a DECODED string may be. The string limit is
+   deliberately its own number and not IOTDATA_TLV_LENGTH_MAX: the length field counts BYTES, so
+   under 6-bit packing a 255-byte value yields more characters than that, and the two would have
+   to part company the day that packing is used. A raw value needs no constant of its own -- it is
+   the length field, exactly. */
+#define IOTDATA_TLV_MAX          8
+#define IOTDATA_TLV_STR_LEN_MAX  255
 #if !defined(IOTDATA_NO_ENCODE)
 typedef struct {
     uint8_t format;
@@ -850,7 +871,7 @@ typedef struct {
 } iotdata_encoder_tlv_t;
 typedef struct {
     union {
-        uint8_t raw[IOTDATA_TLV_MAX][IOTDATA_TLV_DATA_MAX];
+        uint8_t raw[IOTDATA_TLV_MAX][IOTDATA_TLV_LENGTH_MAX];
         char str[IOTDATA_TLV_MAX][IOTDATA_TLV_STR_LEN_MAX + 1];
     };
 } iotdata_encode_from_json_scratch_tlv_t;
@@ -868,13 +889,13 @@ typedef struct {
     uint8_t type;
     uint8_t length;
     union {
-        uint8_t raw[IOTDATA_TLV_DATA_MAX];
+        uint8_t raw[IOTDATA_TLV_LENGTH_MAX];
         char str[IOTDATA_TLV_STR_LEN_MAX + 1];
     };
 } iotdata_decoder_tlv_t;
 typedef struct {
     union {
-        char b64[((IOTDATA_TLV_DATA_MAX + 2) / 3) * 4 + 1];
+        char b64[((IOTDATA_TLV_LENGTH_MAX + 2) / 3) * 4 + 1];
         char str[IOTDATA_TLV_STR_LEN_MAX + 1];
     };
 } iotdata_decode_to_json_scratch_tlv_t;
@@ -884,21 +905,7 @@ typedef struct {
 #else
 #define IOTDATA_FIELDS_DAT_TLV_DECODE
 #endif
-#define IOTDATA_TLV_FMT_BITS     1
-#define IOTDATA_TLV_TYPE_BITS    6
-#define IOTDATA_TLV_TYPE_MAX     63
-#define IOTDATA_TLV_MORE_BITS    1
-#define IOTDATA_TLV_LENGTH_BITS  8
-#define IOTDATA_TLV_HEADER_BITS  (IOTDATA_TLV_FMT_BITS + IOTDATA_TLV_TYPE_BITS + IOTDATA_TLV_MORE_BITS + IOTDATA_TLV_LENGTH_BITS)
-/* What the TLV's OWN framing costs and permits, derived from the fields above rather than written
-   out again. The packet budget -- how much of a frame is left for a value once the iotdata header
-   and the presence map have taken their share -- is IOTDATA_TLV_VALUE_MAX in iotdata.h, because
-   those constants do not exist yet at this point in the include order. */
-#define IOTDATA_TLV_HEADER_BYTES ((IOTDATA_TLV_HEADER_BITS + 7u) / 8u)
-#define IOTDATA_TLV_LENGTH_MAX   ((1u << IOTDATA_TLV_LENGTH_BITS) - 1u)
-#define IOTDATA_TLV_FMT_RAW      0
-#define IOTDATA_TLV_FMT_STRING   1
-#define IOTDATA_TLV_CHAR_BITS    6
+#define IOTDATA_TLV_CHAR_BITS 6
 static inline bool iotdata_issixbit(const char c) {
     return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || (c == ' ');
 }

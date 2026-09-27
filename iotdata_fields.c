@@ -3098,7 +3098,7 @@ iotdata_status_t iotdata_encode_tlv(iotdata_encoder_t *enc, uint8_t type, const 
        -- and the packer never dereferences data when length is 0, so NULL is allowed there */
     if (!data && length > 0)
         return IOTDATA_ERR_TLV_DATA_NULL;
-    /* length is uint8_t, max 255 == IOTDATA_TLV_DATA_MAX, always in range */
+    /* length is uint8_t, and IOTDATA_TLV_LENGTH_MAX is what that field holds, so always in range */
 #endif
     if (enc->tlv_count >= IOTDATA_TLV_MAX)
         return IOTDATA_ERR_TLV_FULL;
@@ -3216,7 +3216,7 @@ static iotdata_status_t _json_get_tlv_generic(cJSON *item, iotdata_encoder_t *en
         snprintf(scratch->str[tidx], IOTDATA_TLV_STR_LEN_MAX + 1, "%s", data->valuestring);
         return iotdata_encode_tlv_string(enc, type, scratch->str[tidx]);
     } else
-        return iotdata_encode_tlv(enc, type, scratch->raw[tidx], (uint8_t)_b64_decode(data->valuestring, scratch->raw[tidx], IOTDATA_TLV_DATA_MAX));
+        return iotdata_encode_tlv(enc, type, scratch->raw[tidx], (uint8_t)_b64_decode(data->valuestring, scratch->raw[tidx], IOTDATA_TLV_LENGTH_MAX));
 }
 static iotdata_status_t json_get_tlv(cJSON *root, iotdata_encoder_t *enc, const char *label, iotdata_encode_from_json_scratch_tlv_t *scratch) {
     cJSON *j = cJSON_GetObjectItem(root, label);
