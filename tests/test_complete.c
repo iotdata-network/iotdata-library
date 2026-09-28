@@ -758,8 +758,11 @@ static void test_node_definitions(void) {
     ASSERT_EQ(iotdata_node_tlv_key_width(IOTDATA_NODE_TLV_SETTINGS, IOTDATA_NODE_SETTINGS_STATION), 2, "a station is a u16");
     ASSERT_EQ(iotdata_node_tlv_key_width(IOTDATA_NODE_TLV_SETTINGS, IOTDATA_NODE_SETTINGS_REPORT), IOTDATA_NODE_SETTINGS_REPORT_SIZE, "a report entry is fixed width");
     ASSERT_EQ(iotdata_node_tlv_key_width(IOTDATA_NODE_TLV_SETTINGS, IOTDATA_NODE_SETTINGS_RECEIVE), IOTDATA_NODE_SETTINGS_RECEIVE_SIZE, "a receive triple likewise");
-    /* one sentinel across every field, so there is one rule rather than a value per key */
-    ASSERT_TRUE(IOTDATA_NODE_SETTINGS_UNSET != 0, "and zero is never it: a zero interval means something");
+    /* and no sentinel anywhere in it: a settings field always holds a value, so there is nothing
+       for "unset" to mean and nothing a reader has to fall back to */
+#ifdef IOTDATA_NODE_SETTINGS_UNSET
+    ASSERT_TRUE(false, "SETTINGS has no unset sentinel: a setting is always a value");
+#endif
     PASS();
 }
 

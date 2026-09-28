@@ -696,11 +696,6 @@ static inline uint32_t iotdata_node_entry_get_u32(const uint8_t *const row, cons
 #define IOTDATA_NODE_SETTINGS_REPORT       0x01 /* repeated, one per subject -- see below           */
 #define IOTDATA_NODE_SETTINGS_RECEIVE      0x02 /* [window:u16][interval:u16][offset:u16]           */
 
-/* All ones, the sentinel convention: this field is not set, and the system default applies. It is
-   spelled the same in every SETTINGS field so there is one rule rather than a value per key -- and
-   zero is never it, because a zero window, interval or offset each mean something real. */
-#define IOTDATA_NODE_SETTINGS_UNSET        0xFFFFu
-
 /*
  * REPORT entry, 9 bytes: WHEN this node emits one subject, and nothing about what it emits.
  *

@@ -49,6 +49,7 @@
 
 /* Protocol limits */
 #define IOTDATA_MESH_TTL_DEFAULT        7
+#define IOTDATA_MESH_TTL_INFINITY       (IOTDATA_MESH_TTL_DEFAULT + 1)
 #define IOTDATA_MESH_TTL_MAX            255
 #define IOTDATA_MESH_GENERATION_HALF    2048 /* for modular comparison */
 #define IOTDATA_MESH_GENERATION_MOD     4096
@@ -286,7 +287,7 @@ static inline int iotdata_mesh_pack_neighbour_report(uint8_t *buf, int len, uint
         count = 0;
     if (count > IOTDATA_MESH_NBR_MAX)
         count = IOTDATA_MESH_NBR_MAX;
-    if (10 + (count * IOTDATA_MESH_NBR_ENTRY_SIZE) < len)
+    if (len < IOTDATA_MESH_NBR_HDR_SIZE + (count * IOTDATA_MESH_NBR_ENTRY_SIZE))
         return 0;
     iotdata_mesh_pack_header(buf, sender_station, sender_seq);
     iotdata_mesh_pack_4_12(&buf[4], IOTDATA_MESH_CTRL_NEIGHBOUR_RPT, parent_id);
