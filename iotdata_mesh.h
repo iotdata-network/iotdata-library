@@ -56,7 +56,7 @@
 #define IOTDATA_MESH_MAX_NEIGHBOURS     63
 
 /* Packet sizes */
-#define IOTDATA_MESH_BEACON_SIZE        9
+#define IOTDATA_MESH_BEACON_SIZE        11
 #define IOTDATA_MESH_FORWARD_HDR_SIZE   6 /* + inner packet bytes */
 #define IOTDATA_MESH_ACK_SIZE           8
 #define IOTDATA_MESH_ROUTE_ERROR_SIZE   5
@@ -113,12 +113,13 @@ static inline void iotdata_mesh_pack_header(uint8_t *buf, uint16_t sender_statio
 }
 
 /* -------------------------------------------------------------------------
- * BEACON (ctrl_type 0x0) — 9 bytes
+ * BEACON (ctrl_type 0x0) — 11 bytes
  *
- * byte 4-5: ctrl(4) | gateway_id(12)
- * byte 6:   cost(8)
- * byte 7:   flags(4) | generation[11:8](4)
- * byte 8:   generation[7:0](8)
+ * byte 4-5:  ctrl(4) | gateway_id(12)
+ * byte 6:    cost(8)
+ * byte 7:    flags(4) | generation[11:8](4)
+ * byte 8:    generation[7:0](8)
+ * byte 9-10: interval_s(16)
  * ----------------------------------------------------------------------- */
 
 typedef struct {
@@ -128,6 +129,7 @@ typedef struct {
     uint8_t cost;
     uint8_t flags;
     uint16_t generation;
+    uint16_t interval_s;
 } iotdata_mesh_beacon_t;
 
 static inline int iotdata_mesh_pack_beacon(uint8_t *buf, int len, const iotdata_mesh_beacon_t *b) {
@@ -138,6 +140,8 @@ static inline int iotdata_mesh_pack_beacon(uint8_t *buf, int len, const iotdata_
     buf[6] = b->cost;
     buf[7] = (uint8_t)(((b->flags & 0x0F) << 4) | ((b->generation >> 8) & 0x0F));
     buf[8] = (uint8_t)(b->generation & 0xFF);
+    buf[9] = (uint8_t)(b->interval_s >> 8);
+    buf[10] = (uint8_t)(b->interval_s & 0xFF);
     return IOTDATA_MESH_BEACON_SIZE;
 }
 
@@ -151,6 +155,7 @@ static inline bool iotdata_mesh_unpack_beacon(const uint8_t *buf, int len, iotda
     b->cost = buf[6];
     b->flags = (buf[7] >> 4) & 0x0F;
     b->generation = ((uint16_t)(buf[7] & 0x0F) << 8) | buf[8];
+    b->interval_s = (uint16_t)(((uint16_t)buf[9] << 8) | buf[10]);
     return true;
 }
 
