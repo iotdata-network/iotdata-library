@@ -393,9 +393,6 @@ static inline bool iotdata_mesh_unpack_route_error(const uint8_t *buf, int len, 
 #define IOTDATA_MESH_DIAG_OP_CANCEL       0x3
 #define IOTDATA_MESH_DIAG_OP_CANCEL_ALL   0x4
 
-/* Diagnostic error reasons (ERROR body, byte 7). Sent rather than staying silent: on a SURVEY,
-   silence is a legitimate result ("nothing here hears that station") and must not be confused
-   with "I could not take the directive". */
 #define IOTDATA_MESH_DIAG_ERR_UNSUPPORTED 0x0 /* kind not implemented here */
 #define IOTDATA_MESH_DIAG_ERR_FULL        0x1 /* no room for another directive */
 #define IOTDATA_MESH_DIAG_ERR_MALFORMED   0x2 /* body did not parse */
@@ -476,43 +473,105 @@ static inline int iotdata_mesh_pack_diag_cancel_all(uint8_t *buf, int len, uint1
  * carried in the radio's own quarter-dB units.
  * ----------------------------------------------------------------------- */
 
-#define IOTDATA_MESH_DIAG_SURVEY_REQ_SIZE  (IOTDATA_MESH_DIAG_HDR_SIZE + 5) /* + 2 per station */
-#define IOTDATA_MESH_DIAG_SURVEY_REQ_ENTRY 2
-#define IOTDATA_MESH_DIAG_SURVEY_RSP_SIZE  (IOTDATA_MESH_DIAG_HDR_SIZE + 1) /* + 6 per entry */
-#define IOTDATA_MESH_DIAG_SURVEY_RSP_ENTRY 6
-#define IOTDATA_MESH_DIAG_SURVEY_MAX       128 /* 8-bit count; the frame runs out long before this */
-#define IOTDATA_MESH_DIAG_SURVEY_RSSI_OFF  160 /* -160..+95 dBm in 1 dBm steps */
-/* Not every radio reports SNR — a UART LoRa module typically appends RSSI and nothing else. The
+#define IOTDATA_MESH_DIAG_SURVEY_RSSI_OFF 160 /* dBm + 160, so -159..-1 lands in 1..159 */
+
+/* THREE STATES, NOT ONE NUMBER. A receiver can give a reading, say it has none, or give one that
+   ran off the top of its scale -- and a survey that renders the last two AS numbers invents
+   measurements. Both ends of the byte are free to say so: no LoRa receiver reads -160 dBm and none
+   reads +95, so neither sentinel can collide with a real value.
+   In dBm space the convention is the RADIO DRIVER'S OWN (<= 0 is a reading, 0 means saturated, a
+   positive value is not a dBm at all), so a caller hands the driver's value straight in and has
+   nothing to translate -- which is exactly where it was got wrong. */
+#define IOTDATA_MESH_DIAG_RSSI_WIRE_NONE  0x00u
+#define IOTDATA_MESH_DIAG_RSSI_WIRE_SAT   0xFFu
+#define IOTDATA_MESH_DIAG_RSSI_NONE       1 /* positive: not a dBm value -- no reading available */
+#define IOTDATA_MESH_DIAG_RSSI_SAT        0 /* at least this strong; the reading wrapped */
+
+/* Not every radio reports SNR -- a UART LoRa module typically appends RSSI and nothing else. The
    field is still carried, because the radios that DO report it give the better reading at the
    edge; a receiver that cannot must say so rather than send a plausible-looking 0 dB. */
-#define IOTDATA_MESH_DIAG_SNR_NONE         (-128) /* no SNR available from this radio */
+#define IOTDATA_MESH_DIAG_SNR_NONE        (-128)
 
 /* 1 dBm steps across the whole range a LoRa receiver can report, unlike the 4-bit routing
-   quantisation above which floors at -120 dBm. */
+   quantisation above which floors at -120 dBm. Real readings are clamped INSIDE the sentinels, so
+   an extreme measurement can never be mistaken for an absent one. */
 static inline uint8_t iotdata_mesh_rssi_dbm_encode(int rssi_dbm) {
+    if (rssi_dbm > 0)
+        return IOTDATA_MESH_DIAG_RSSI_WIRE_NONE;
+    if (rssi_dbm == 0)
+        return IOTDATA_MESH_DIAG_RSSI_WIRE_SAT;
     const int v = rssi_dbm + IOTDATA_MESH_DIAG_SURVEY_RSSI_OFF;
-    return (uint8_t)(v < 0 ? 0 : (v > 255 ? 255 : v));
+    return (uint8_t)(v < 1 ? 1 : (v > 254 ? 254 : v));
 }
 
 static inline int iotdata_mesh_rssi_dbm_decode(uint8_t e) {
+    if (e == IOTDATA_MESH_DIAG_RSSI_WIRE_NONE)
+        return IOTDATA_MESH_DIAG_RSSI_NONE;
+    if (e == IOTDATA_MESH_DIAG_RSSI_WIRE_SAT)
+        return IOTDATA_MESH_DIAG_RSSI_SAT;
     return (int)e - IOTDATA_MESH_DIAG_SURVEY_RSSI_OFF;
 }
 
+/* The only test a consumer should apply before treating it as a number. */
+static inline bool iotdata_mesh_rssi_is_reading(int rssi_dbm) {
+    return rssi_dbm < 0;
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------------
+
+#define IOTDATA_MESH_DIAG_SURVEY_REQ_SIZE  (IOTDATA_MESH_DIAG_HDR_SIZE + 4) /* + 2 per station */
+#define IOTDATA_MESH_DIAG_SURVEY_REQ_ENTRY 2
+#define IOTDATA_MESH_DIAG_SURVEY_RSP_SIZE  IOTDATA_MESH_DIAG_HDR_SIZE /* + records, to the end */
+#define IOTDATA_MESH_DIAG_SURVEY_RSP_ENTRY 6
+#define IOTDATA_MESH_DIAG_SURVEY_POS_SIZE  12  /* an extension record: two entry slots */
+#define IOTDATA_MESH_DIAG_SURVEY_MAX       128 /* a packer's sanity limit; the frame runs out first */
+
+/* THE EXTENSION RECORD. A response body is a run of 6-byte observations, except that station
+   0x000 -- IOTDATA_MESH_STATION_RESERVED, already "do not assign to nodes" -- is not a station at
+   all. It marks a record that is something else, and a reader that meets one consumes that record's
+   own length instead of six.
+   Today there is one: the OBSERVER'S POSITION, which is why a relay that knows where it stands can
+   turn a column of numbers into a map, and why a surveying node can report what IT heard from
+   somewhere identifiable. It appears at most once, because there is one observer.
+   It is a door rather than a hole: an antenna height, a timestamp, whatever the next question
+   wants, arrives the same way and needs no flag, no count and no new op. */
+typedef struct {
+    int32_t latitude_e7;  /* degrees x 1e-7; +-900000000 inside a +-2.1e9 range */
+    int32_t longitude_e7; /* degrees x 1e-7; +-1800000000 */
+    int16_t altitude_m;
+} iotdata_mesh_diag_position_t;
+
+static inline void _iotdata_mesh_wr_i32(uint8_t *const b, const int32_t v) {
+    const uint32_t u = (uint32_t)v;
+    b[0] = (uint8_t)(u >> 24);
+    b[1] = (uint8_t)(u >> 16);
+    b[2] = (uint8_t)(u >> 8);
+    b[3] = (uint8_t)(u);
+}
+
+static inline int32_t _iotdata_mesh_rd_i32(const uint8_t *const b) {
+    return (int32_t)(((uint32_t)b[0] << 24) | ((uint32_t)b[1] << 16) | ((uint32_t)b[2] << 8) | (uint32_t)b[3]);
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------------
+
 typedef struct {
     uint16_t station;  /* the station that was heard */
-    uint16_t sequence; /* its sequence — the key the gateway joins the payload on */
-    int rssi_dbm;
-    int8_t snr_q4; /* quarter-dB, as the radio reports it */
+    uint16_t sequence; /* its sequence -- the key the gateway joins the payload on */
+    int rssi_dbm;      /* < 0 a reading; 0 saturated; > 0 none -- iotdata_mesh_rssi_is_reading() */
+    int8_t snr_q4;     /* quarter-dB, as the radio reports it */
 } iotdata_mesh_diag_survey_entry_t;
 
 typedef struct {
     uint16_t duration_m; /* how long the directive lives */
     uint16_t batch_s;    /* how often a response goes out, empty or not */
-    int count;           /* stations named */
+    int count;           /* stations named -- DERIVED from the frame, not carried in it */
 } iotdata_mesh_diag_survey_request_t;
 
+// -----------------------------------------------------------------------------------------------------------------------------------------
+
 static inline int iotdata_mesh_pack_diag_survey_request(uint8_t *buf, int len, uint16_t sender_station, uint16_t sender_seq, uint16_t directive_id, uint16_t duration_m, uint16_t batch_s, const uint16_t *stations, int count) {
-    if (count < 0 || count > IOTDATA_MESH_DIAG_SURVEY_MAX)
+    if (count < 0 || count > IOTDATA_MESH_DIAG_SURVEY_MAX || (count > 0 && stations == NULL))
         return 0;
     const int need = IOTDATA_MESH_DIAG_SURVEY_REQ_SIZE + count * IOTDATA_MESH_DIAG_SURVEY_REQ_ENTRY;
     if (len < need)
@@ -522,7 +581,6 @@ static inline int iotdata_mesh_pack_diag_survey_request(uint8_t *buf, int len, u
     buf[8] = (uint8_t)(duration_m & 0xFFu);
     buf[9] = (uint8_t)(batch_s >> 8);
     buf[10] = (uint8_t)(batch_s & 0xFFu);
-    buf[11] = (uint8_t)count;
     int off = IOTDATA_MESH_DIAG_SURVEY_REQ_SIZE;
     for (int i = 0; i < count; i++) {
         buf[off] = (uint8_t)(stations[i] >> 8);
@@ -532,13 +590,17 @@ static inline int iotdata_mesh_pack_diag_survey_request(uint8_t *buf, int len, u
     return need;
 }
 
+/* count comes out of the LENGTH. A body that is not a whole number of stations is refused. */
 static inline bool iotdata_mesh_unpack_diag_survey_request(const uint8_t *buf, int len, iotdata_mesh_diag_survey_request_t *r) {
     if (len < IOTDATA_MESH_DIAG_SURVEY_REQ_SIZE)
         return false;
+    const int body = len - IOTDATA_MESH_DIAG_SURVEY_REQ_SIZE;
+    if ((body % IOTDATA_MESH_DIAG_SURVEY_REQ_ENTRY) != 0)
+        return false;
     r->duration_m = (uint16_t)(((uint16_t)buf[7] << 8) | buf[8]);
     r->batch_s = (uint16_t)(((uint16_t)buf[9] << 8) | buf[10]);
-    r->count = (int)buf[11];
-    return len >= IOTDATA_MESH_DIAG_SURVEY_REQ_SIZE + r->count * IOTDATA_MESH_DIAG_SURVEY_REQ_ENTRY;
+    r->count = body / IOTDATA_MESH_DIAG_SURVEY_REQ_ENTRY;
+    return true;
 }
 
 static inline bool iotdata_mesh_diag_survey_request_station(const uint8_t *buf, int len, int index, uint16_t *station) {
@@ -549,16 +611,31 @@ static inline bool iotdata_mesh_diag_survey_request_station(const uint8_t *buf, 
     return true;
 }
 
-/* count == 0 is a legitimate, and required, response — see the note above. */
-static inline int iotdata_mesh_pack_diag_survey_response(uint8_t *buf, int len, uint16_t sender_station, uint16_t sender_seq, uint16_t directive_id, const iotdata_mesh_diag_survey_entry_t *entries, int count) {
+// -----------------------------------------------------------------------------------------------------------------------------------------
+
+/* An empty body is a legitimate, and REQUIRED, response: it states that the directive is live here
+   and that nothing was heard in the window. Without it, a lost REQUEST and a genuine hole in
+   coverage are indistinguishable, and a survey that invents coverage holes is worse than none.
+   `position` is optional: NULL from a node that does not know where it stands. */
+static inline int iotdata_mesh_pack_diag_survey_response(uint8_t *buf, int len, uint16_t sender_station, uint16_t sender_seq, uint16_t directive_id, const iotdata_mesh_diag_survey_entry_t *entries, int count,
+                                                         const iotdata_mesh_diag_position_t *position) {
     if (count < 0 || count > IOTDATA_MESH_DIAG_SURVEY_MAX || (count > 0 && entries == NULL))
         return 0;
-    const int need = IOTDATA_MESH_DIAG_SURVEY_RSP_SIZE + count * IOTDATA_MESH_DIAG_SURVEY_RSP_ENTRY;
+    const int need = IOTDATA_MESH_DIAG_SURVEY_RSP_SIZE + count * IOTDATA_MESH_DIAG_SURVEY_RSP_ENTRY + (position != NULL ? IOTDATA_MESH_DIAG_SURVEY_POS_SIZE : 0);
     if (len < need)
         return 0;
     (void)iotdata_mesh_pack_diag_header(buf, len, sender_station, sender_seq, IOTDATA_MESH_DIAG_SURVEY, IOTDATA_MESH_DIAG_OP_RESPONSE, directive_id);
-    buf[7] = (uint8_t)count;
     int off = IOTDATA_MESH_DIAG_SURVEY_RSP_SIZE;
+    /* the position FIRST, so a reader that only wants it stops after one record */
+    if (position != NULL) {
+        buf[off] = 0u;
+        buf[off + 1] = 0u; /* IOTDATA_MESH_STATION_RESERVED: not an observation */
+        _iotdata_mesh_wr_i32(&buf[off + 2], position->latitude_e7);
+        _iotdata_mesh_wr_i32(&buf[off + 6], position->longitude_e7);
+        buf[off + 10] = (uint8_t)((uint16_t)position->altitude_m >> 8);
+        buf[off + 11] = (uint8_t)((uint16_t)position->altitude_m & 0xFFu);
+        off += IOTDATA_MESH_DIAG_SURVEY_POS_SIZE;
+    }
     for (int i = 0; i < count; i++) {
         buf[off] = (uint8_t)(entries[i].station >> 8);
         buf[off + 1] = (uint8_t)(entries[i].station & 0xFFu);
@@ -571,22 +648,69 @@ static inline int iotdata_mesh_pack_diag_survey_response(uint8_t *buf, int len, 
     return need;
 }
 
-static inline bool iotdata_mesh_unpack_diag_survey_response(const uint8_t *buf, int len, int *count) {
-    if (len < IOTDATA_MESH_DIAG_SURVEY_RSP_SIZE)
-        return false;
-    *count = (int)buf[7];
-    return len >= IOTDATA_MESH_DIAG_SURVEY_RSP_SIZE + *count * IOTDATA_MESH_DIAG_SURVEY_RSP_ENTRY;
+/* Walks the body one record at a time, skipping extensions. Start with *off at
+   IOTDATA_MESH_DIAG_SURVEY_RSP_SIZE; returns false at the end, or on a tail that is not a whole
+   record -- which is the structural check the absent count would never have given. */
+static inline bool iotdata_mesh_diag_survey_entry_next(const uint8_t *buf, int len, int *off, iotdata_mesh_diag_survey_entry_t *e) {
+    while (*off + IOTDATA_MESH_DIAG_SURVEY_RSP_ENTRY <= len) {
+        const int at = *off;
+        const uint16_t station = (uint16_t)(((uint16_t)buf[at] << 8) | buf[at + 1]);
+        if (station == IOTDATA_MESH_STATION_RESERVED) { /* an extension: step over it */
+            if (at + IOTDATA_MESH_DIAG_SURVEY_POS_SIZE > len)
+                return false; /* truncated extension: stop rather than read past it */
+            *off = at + IOTDATA_MESH_DIAG_SURVEY_POS_SIZE;
+        } else {
+            *off = at + IOTDATA_MESH_DIAG_SURVEY_RSP_ENTRY;
+            e->station = station;
+            e->sequence = (uint16_t)(((uint16_t)buf[at + 2] << 8) | buf[at + 3]);
+            e->rssi_dbm = iotdata_mesh_rssi_dbm_decode(buf[at + 4]);
+            e->snr_q4 = (int8_t)buf[at + 5];
+            return true;
+        }
+    }
+    return false;
 }
 
-static inline bool iotdata_mesh_diag_survey_response_entry(const uint8_t *buf, int len, int index, iotdata_mesh_diag_survey_entry_t *e) {
-    const int off = IOTDATA_MESH_DIAG_SURVEY_RSP_SIZE + index * IOTDATA_MESH_DIAG_SURVEY_RSP_ENTRY;
-    if (index < 0 || off + IOTDATA_MESH_DIAG_SURVEY_RSP_ENTRY > len)
+/* The observer's position, if it gave one. At most one: there is one observer. */
+static inline bool iotdata_mesh_diag_survey_position(const uint8_t *buf, int len, iotdata_mesh_diag_position_t *p) {
+    for (int at = IOTDATA_MESH_DIAG_SURVEY_RSP_SIZE; at + IOTDATA_MESH_DIAG_SURVEY_RSP_ENTRY <= len;) {
+        const uint16_t station = (uint16_t)(((uint16_t)buf[at] << 8) | buf[at + 1]);
+        if (station == IOTDATA_MESH_STATION_RESERVED) {
+            if (at + IOTDATA_MESH_DIAG_SURVEY_POS_SIZE > len)
+                return false;
+            p->latitude_e7 = _iotdata_mesh_rd_i32(&buf[at + 2]);
+            p->longitude_e7 = _iotdata_mesh_rd_i32(&buf[at + 6]);
+            p->altitude_m = (int16_t)(((uint16_t)buf[at + 10] << 8) | buf[at + 11]);
+            return true;
+        } else {
+            at += IOTDATA_MESH_DIAG_SURVEY_RSP_ENTRY;
+        }
+    }
+    return false;
+}
+
+/* How many observations the body holds. For logging and for tests; a consumer should walk. */
+static inline int iotdata_mesh_diag_survey_entry_count(const uint8_t *buf, int len) {
+    int n = 0, off = IOTDATA_MESH_DIAG_SURVEY_RSP_SIZE;
+    iotdata_mesh_diag_survey_entry_t e;
+    while (iotdata_mesh_diag_survey_entry_next(buf, len, &off, &e))
+        n++;
+    return n;
+}
+
+/* True when the body is a whole number of records with nothing left over. */
+static inline bool iotdata_mesh_diag_survey_response_ok(const uint8_t *buf, int len) {
+    if (len < IOTDATA_MESH_DIAG_SURVEY_RSP_SIZE)
         return false;
-    e->station = (uint16_t)(((uint16_t)buf[off] << 8) | buf[off + 1]);
-    e->sequence = (uint16_t)(((uint16_t)buf[off + 2] << 8) | buf[off + 3]);
-    e->rssi_dbm = iotdata_mesh_rssi_dbm_decode(buf[off + 4]);
-    e->snr_q4 = (int8_t)buf[off + 5];
-    return true;
+    int off = IOTDATA_MESH_DIAG_SURVEY_RSP_SIZE;
+    while (off + IOTDATA_MESH_DIAG_SURVEY_RSP_ENTRY <= len) {
+        const uint16_t station = (uint16_t)(((uint16_t)buf[off] << 8) | buf[off + 1]);
+        const int step = (station == (uint16_t)IOTDATA_MESH_STATION_RESERVED) ? IOTDATA_MESH_DIAG_SURVEY_POS_SIZE : IOTDATA_MESH_DIAG_SURVEY_RSP_ENTRY;
+        if (off + step > len)
+            return false;
+        off += step;
+    }
+    return off == len;
 }
 
 /* -------------------------------------------------------------------------
