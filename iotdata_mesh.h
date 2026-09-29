@@ -244,7 +244,56 @@ static inline bool iotdata_mesh_unpack_ack(const uint8_t *buf, int len, iotdata_
 }
 
 /* -------------------------------------------------------------------------
- * NEIGHBOUR_REPORT (ctrl_type 0x4) — 10-byte header + 3N bytes (spec G.4.7)
+ * RSSI on the wire -- shared by NEIGHBOUR_REPORT and by DIAG SURVEY, because a measured RSSI
+ * should mean one thing in this protocol rather than two.
+ * ----------------------------------------------------------------------- */
+
+#define IOTDATA_MESH_DIAG_SURVEY_RSSI_OFF 160 /* dBm + 160, so -159..-1 lands in 1..159 */
+
+/* THREE STATES, NOT ONE NUMBER. A receiver can give a reading, say it has none, or give one that
+   ran off the top of its scale -- and a survey that renders the last two AS numbers invents
+   measurements. Both ends of the byte are free to say so: no LoRa receiver reads -160 dBm and none
+   reads +95, so neither sentinel can collide with a real value.
+   In dBm space the convention is the RADIO DRIVER'S OWN (<= 0 is a reading, 0 means saturated, a
+   positive value is not a dBm at all), so a caller hands the driver's value straight in and has
+   nothing to translate -- which is exactly where it was got wrong. */
+#define IOTDATA_MESH_DIAG_RSSI_WIRE_NONE  0x00u
+#define IOTDATA_MESH_DIAG_RSSI_WIRE_SAT   0xFFu
+#define IOTDATA_MESH_DIAG_RSSI_NONE       1 /* positive: not a dBm value -- no reading available */
+#define IOTDATA_MESH_DIAG_RSSI_SAT        0 /* at least this strong; the reading wrapped */
+
+/* Not every radio reports SNR -- a UART LoRa module typically appends RSSI and nothing else. The
+   field is still carried, because the radios that DO report it give the better reading at the
+   edge; a receiver that cannot must say so rather than send a plausible-looking 0 dB. */
+#define IOTDATA_MESH_DIAG_SNR_NONE        (-128)
+
+/* 1 dBm steps across the whole range a LoRa receiver can report, unlike the 4-bit routing
+   quantisation above which floors at -120 dBm. Real readings are clamped INSIDE the sentinels, so
+   an extreme measurement can never be mistaken for an absent one. */
+static inline uint8_t iotdata_mesh_rssi_dbm_encode(int rssi_dbm) {
+    if (rssi_dbm > 0)
+        return IOTDATA_MESH_DIAG_RSSI_WIRE_NONE;
+    if (rssi_dbm == 0)
+        return IOTDATA_MESH_DIAG_RSSI_WIRE_SAT;
+    const int v = rssi_dbm + IOTDATA_MESH_DIAG_SURVEY_RSSI_OFF;
+    return (uint8_t)(v < 1 ? 1 : (v > 254 ? 254 : v));
+}
+
+static inline int iotdata_mesh_rssi_dbm_decode(uint8_t e) {
+    if (e == IOTDATA_MESH_DIAG_RSSI_WIRE_NONE)
+        return IOTDATA_MESH_DIAG_RSSI_NONE;
+    if (e == IOTDATA_MESH_DIAG_RSSI_WIRE_SAT)
+        return IOTDATA_MESH_DIAG_RSSI_SAT;
+    return (int)e - IOTDATA_MESH_DIAG_SURVEY_RSSI_OFF;
+}
+
+/* The only test a consumer should apply before treating it as a number. */
+static inline bool iotdata_mesh_rssi_is_reading(int rssi_dbm) {
+    return rssi_dbm < 0;
+}
+
+/* -------------------------------------------------------------------------
+ * NEIGHBOUR_REPORT (ctrl_type 0x4) — 10-byte header + 4N bytes (spec G.4.7)
  *
  * A relay's periodic topology snapshot: its parent/cost/gateway + the stations it hears.
  * Extended here to carry SENSOR neighbours too (cost = 0xFF sentinel); the gateway reads
@@ -253,17 +302,25 @@ static inline bool iotdata_mesh_unpack_ack(const uint8_t *buf, int len, iotdata_
  * byte 0-1: 0xF | sender_station(12)     byte 4-5: ctrl=0x4 | parent_id(12)
  * byte 2-3: sender_seq(16)               byte 6:   my_cost(8)
  * byte 7:   num_neighbours(6) | gateway_id[11:10]   byte 8: gateway_id[9:2]   byte 9: gateway_id[1:0]
- * byte 10+: entries, each { cost(8), rssi_q4(4) | station_id(12) }
+ * byte 10+: entries, each { cost(8), rssi(8), station_id(16) }
+ *
+ * THE RSSI IS A FULL BYTE, offset-encoded, the same encoding the survey frame uses -- not the 4-bit
+ * quantisation this once carried. That quantisation was built for CHOOSING A ROUTE, where 5 dBm
+ * steps and a floor at -120 dBm are ample: nothing sensible routes over a link that weak. It is the
+ * wrong instrument for MEASURING one. LoRa works down to about -137 dBm, so the old encoding was
+ * blind across the last 17 dB of usable range -- a link sitting at -128 and slowly degrading looked
+ * perfectly static right up until it died, which is precisely the failure a topology record exists
+ * to see coming. It also inherits the three states: a reading, a saturated reading, and none.
  * ----------------------------------------------------------------------- */
 
 #define IOTDATA_MESH_NBR_HDR_SIZE    10
-#define IOTDATA_MESH_NBR_ENTRY_SIZE  3
+#define IOTDATA_MESH_NBR_ENTRY_SIZE  4
 #define IOTDATA_MESH_NBR_MAX         63 /* 6-bit count */
 #define IOTDATA_MESH_NBR_COST_SENSOR 0xFF
 
 typedef struct {
     uint8_t cost;     /* neighbour's advertised cost; 0xFF = sensor (no cost) */
-    uint8_t rssi_q4;  /* RSSI quantised to 4 bits (5 dBm steps from -120) */
+    int rssi_dbm;     /* < 0 a reading; 0 saturated; > 0 none -- iotdata_mesh_rssi_is_reading() */
     uint16_t station; /* the heard station */
 } iotdata_mesh_nbr_entry_t;
 
@@ -276,26 +333,20 @@ typedef struct {
     uint16_t gateway_id;
 } iotdata_mesh_neighbour_report_t;
 
-static inline uint8_t iotdata_mesh_rssi_to_q4(int rssi_dbm) {
-    int q = (rssi_dbm + 120) / 5;
-    if (q < 0)
-        q = 0;
-    else if (q > 15)
-        q = 15;
-    return (uint8_t)q;
-}
-static inline int iotdata_mesh_rssi_from_q4(uint8_t q4) {
-    return (int)q4 * 5 - 120;
-}
-
 /* Pack a full report from `count` entries. Returns the frame length. Clamps count to what fits. */
 static inline int iotdata_mesh_pack_neighbour_report(uint8_t *buf, int len, uint16_t sender_station, uint16_t sender_seq, uint16_t parent_id, uint8_t my_cost, uint16_t gateway_id, const iotdata_mesh_nbr_entry_t *entries, int count) {
     if (count < 0)
         count = 0;
     if (count > IOTDATA_MESH_NBR_MAX)
         count = IOTDATA_MESH_NBR_MAX;
-    if (len < IOTDATA_MESH_NBR_HDR_SIZE + (count * IOTDATA_MESH_NBR_ENTRY_SIZE))
+    /* Clamp to what the FRAME holds, not just to the field width. A relay in a dense spot has more
+       neighbours than 255 bytes can carry, and a report listing most of them beats no report at
+       all -- which is what returning 0 here used to mean. */
+    const int room = (len - IOTDATA_MESH_NBR_HDR_SIZE) / IOTDATA_MESH_NBR_ENTRY_SIZE;
+    if (room <= 0)
         return 0;
+    if (count > room)
+        count = room;
     iotdata_mesh_pack_header(buf, sender_station, sender_seq);
     iotdata_mesh_pack_4_12(&buf[4], IOTDATA_MESH_CTRL_NEIGHBOUR_RPT, parent_id);
     buf[6] = my_cost;
@@ -305,8 +356,9 @@ static inline int iotdata_mesh_pack_neighbour_report(uint8_t *buf, int len, uint
     int off = IOTDATA_MESH_NBR_HDR_SIZE;
     for (int i = 0; i < count; i++) {
         buf[off + 0] = entries[i].cost;
-        buf[off + 1] = (uint8_t)(((entries[i].rssi_q4 & 0x0Fu) << 4) | (uint8_t)((entries[i].station >> 8) & 0x0Fu));
-        buf[off + 2] = (uint8_t)(entries[i].station & 0xFFu);
+        buf[off + 1] = iotdata_mesh_rssi_dbm_encode(entries[i].rssi_dbm);
+        buf[off + 2] = (uint8_t)((entries[i].station >> 8) & 0xFFu);
+        buf[off + 3] = (uint8_t)(entries[i].station & 0xFFu);
         off += IOTDATA_MESH_NBR_ENTRY_SIZE;
     }
     return off;
@@ -331,8 +383,8 @@ static inline bool iotdata_mesh_neighbour_report_entry(const uint8_t *buf, int l
     if (index < 0 || off + IOTDATA_MESH_NBR_ENTRY_SIZE > len)
         return false;
     e->cost = buf[off];
-    e->rssi_q4 = (uint8_t)((buf[off + 1] >> 4) & 0x0Fu);
-    e->station = (uint16_t)(((uint16_t)(buf[off + 1] & 0x0Fu) << 8) | buf[off + 2]);
+    e->rssi_dbm = iotdata_mesh_rssi_dbm_decode(buf[off + 1]);
+    e->station = (uint16_t)(((uint16_t)buf[off + 2] << 8) | buf[off + 3]);
     return true;
 }
 
@@ -466,56 +518,13 @@ static inline int iotdata_mesh_pack_diag_cancel_all(uint8_t *buf, int len, uint1
  * and I heard nothing". Without it, a lost REQUEST and a genuine coverage hole look identical —
  * and inventing coverage holes is precisely the failure a survey must not have.
  *
- * NOT rssi_q4 HERE. The 4-bit quantisation floors at -120 dBm, which is fine for choosing a
- * route and useless for a survey: -120 to -137 is where the interesting edge is, and all of it
- * would read as zero. Full 1 dBm steps, offset-encoded. SNR earns its byte too — below the noise
- * floor RSSI flattens out while SNR keeps falling, so it is the better edge discriminator; it is
- * carried in the radio's own quarter-dB units.
+ * FULL RESOLUTION, 1 dBm steps, offset-encoded -- the same encoding NEIGHBOUR_REPORT now uses, so
+ * every measured RSSI in this protocol means the same thing. The 4-bit quantisation both once
+ * carried floored at -120 dBm, which was ample for CHOOSING a route and useless for MEASURING one:
+ * -120 to -137 is where the interesting edge lives. SNR earns its byte too -- below the noise floor
+ * RSSI flattens out while SNR keeps falling, so it is the better edge discriminator; it is carried
+ * in the radio's own quarter-dB units.
  * ----------------------------------------------------------------------- */
-
-#define IOTDATA_MESH_DIAG_SURVEY_RSSI_OFF 160 /* dBm + 160, so -159..-1 lands in 1..159 */
-
-/* THREE STATES, NOT ONE NUMBER. A receiver can give a reading, say it has none, or give one that
-   ran off the top of its scale -- and a survey that renders the last two AS numbers invents
-   measurements. Both ends of the byte are free to say so: no LoRa receiver reads -160 dBm and none
-   reads +95, so neither sentinel can collide with a real value.
-   In dBm space the convention is the RADIO DRIVER'S OWN (<= 0 is a reading, 0 means saturated, a
-   positive value is not a dBm at all), so a caller hands the driver's value straight in and has
-   nothing to translate -- which is exactly where it was got wrong. */
-#define IOTDATA_MESH_DIAG_RSSI_WIRE_NONE  0x00u
-#define IOTDATA_MESH_DIAG_RSSI_WIRE_SAT   0xFFu
-#define IOTDATA_MESH_DIAG_RSSI_NONE       1 /* positive: not a dBm value -- no reading available */
-#define IOTDATA_MESH_DIAG_RSSI_SAT        0 /* at least this strong; the reading wrapped */
-
-/* Not every radio reports SNR -- a UART LoRa module typically appends RSSI and nothing else. The
-   field is still carried, because the radios that DO report it give the better reading at the
-   edge; a receiver that cannot must say so rather than send a plausible-looking 0 dB. */
-#define IOTDATA_MESH_DIAG_SNR_NONE        (-128)
-
-/* 1 dBm steps across the whole range a LoRa receiver can report, unlike the 4-bit routing
-   quantisation above which floors at -120 dBm. Real readings are clamped INSIDE the sentinels, so
-   an extreme measurement can never be mistaken for an absent one. */
-static inline uint8_t iotdata_mesh_rssi_dbm_encode(int rssi_dbm) {
-    if (rssi_dbm > 0)
-        return IOTDATA_MESH_DIAG_RSSI_WIRE_NONE;
-    if (rssi_dbm == 0)
-        return IOTDATA_MESH_DIAG_RSSI_WIRE_SAT;
-    const int v = rssi_dbm + IOTDATA_MESH_DIAG_SURVEY_RSSI_OFF;
-    return (uint8_t)(v < 1 ? 1 : (v > 254 ? 254 : v));
-}
-
-static inline int iotdata_mesh_rssi_dbm_decode(uint8_t e) {
-    if (e == IOTDATA_MESH_DIAG_RSSI_WIRE_NONE)
-        return IOTDATA_MESH_DIAG_RSSI_NONE;
-    if (e == IOTDATA_MESH_DIAG_RSSI_WIRE_SAT)
-        return IOTDATA_MESH_DIAG_RSSI_SAT;
-    return (int)e - IOTDATA_MESH_DIAG_SURVEY_RSSI_OFF;
-}
-
-/* The only test a consumer should apply before treating it as a number. */
-static inline bool iotdata_mesh_rssi_is_reading(int rssi_dbm) {
-    return rssi_dbm < 0;
-}
 
 // -----------------------------------------------------------------------------------------------------------------------------------------
 
@@ -754,19 +763,6 @@ static inline bool iotdata_mesh_dedup_insert(iotdata_mesh_dedup_ring_t *ring, ui
 static inline bool iotdata_mesh_generation_newer(uint16_t gen_a, uint16_t gen_b) {
     const uint16_t diff = (gen_a - gen_b) & (IOTDATA_MESH_GENERATION_MOD - 1);
     return diff > 0 && diff < IOTDATA_MESH_GENERATION_HALF;
-}
-
-/* -------------------------------------------------------------------------
- * RSSI quantisation (4-bit, 5 dBm steps from -120 dBm floor)
- * ----------------------------------------------------------------------- */
-
-static inline uint8_t iotdata_mesh_rssi_encode(int rssi_dbm) {
-    const int q = (rssi_dbm + 120) / 5;
-    return (uint8_t)(q < 0 ? 0 : (q > 15 ? 15 : q));
-}
-
-static inline int iotdata_mesh_rssi_decode(uint8_t q) {
-    return (int)q * 5 - 120;
 }
 
 /* -------------------------------------------------------------------------
