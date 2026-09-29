@@ -32,8 +32,9 @@
 #define IOTDATA_MESH_CTRL_ACK           0x2
 #define IOTDATA_MESH_CTRL_ROUTE_ERROR   0x3
 #define IOTDATA_MESH_CTRL_NEIGHBOUR_RPT 0x4
-#define IOTDATA_MESH_CTRL_PING          0x5 /* v2 */
-#define IOTDATA_MESH_CTRL_PONG          0x6 /* v2 */
+#define IOTDATA_MESH_CTRL_DIAG          0x5
+#define IOTDATA_MESH_CTRL_PING          0x6 /* v2 */
+#define IOTDATA_MESH_CTRL_PONG          0x7 /* v2 */
 
 /* Route error reasons (lower nibble of byte 4) */
 #define IOTDATA_MESH_REASON_PARENT_LOST 0x0
@@ -64,6 +65,7 @@
 #define IOTDATA_MESH_NEIGHBOUR_ENTRY_SZ 3
 #define IOTDATA_MESH_PING_SIZE          8
 #define IOTDATA_MESH_PONG_SIZE          8
+#define IOTDATA_MESH_DIAG_HDR_SIZE      7 /* + op-specific body */
 
 /* Dedup ring default size */
 #define IOTDATA_MESH_DEDUP_RING_SIZE    64
@@ -365,6 +367,229 @@ static inline bool iotdata_mesh_unpack_route_error(const uint8_t *buf, int len, 
 }
 
 /* -------------------------------------------------------------------------
+ * DIAG (ctrl_type 0x5) — the protocol's own diagnostics.
+ *
+ * WHY IT LIVES HERE. "Did the mesh catch and relay that packet" is the protocol auditing the
+ * contract it signed up to. A deployment using iotdata_mesh.h WITHOUT the node framework must
+ * still be able to ask, so the question belongs to the protocol, not to a layer above it.
+ *
+ * byte 4:   ctrl(5) | kind(4)          — WHAT is being asked about (SURVEY, ...)
+ * byte 5-6: op(4) | directive_id(12)   — what this frame DOES about it
+ * byte 7+:  op-specific body
+ *
+ * THE DIRECTIVE ID is what makes a re-issue safe. A node already holding an id re-broadcasts the
+ * frame — so a node that missed it the first time still gets it — but does NOT restart its own
+ * window. "Send it again for whoever did not hear it" therefore cannot slide everybody else's
+ * windows, and needs no targeting logic. CANCEL_ALL carries no meaningful id.
+ * ----------------------------------------------------------------------- */
+
+/* Diagnostic kinds (lower nibble of byte 4) */
+#define IOTDATA_MESH_DIAG_SURVEY          0x0
+
+/* Diagnostic ops (upper nibble of byte 5) */
+#define IOTDATA_MESH_DIAG_OP_REQUEST      0x0
+#define IOTDATA_MESH_DIAG_OP_RESPONSE     0x1
+#define IOTDATA_MESH_DIAG_OP_ERROR        0x2
+#define IOTDATA_MESH_DIAG_OP_CANCEL       0x3
+#define IOTDATA_MESH_DIAG_OP_CANCEL_ALL   0x4
+
+/* Diagnostic error reasons (ERROR body, byte 7). Sent rather than staying silent: on a SURVEY,
+   silence is a legitimate result ("nothing here hears that station") and must not be confused
+   with "I could not take the directive". */
+#define IOTDATA_MESH_DIAG_ERR_UNSUPPORTED 0x0 /* kind not implemented here */
+#define IOTDATA_MESH_DIAG_ERR_FULL        0x1 /* no room for another directive */
+#define IOTDATA_MESH_DIAG_ERR_MALFORMED   0x2 /* body did not parse */
+
+#define IOTDATA_MESH_DIAG_ERROR_SIZE      (IOTDATA_MESH_DIAG_HDR_SIZE + 1)
+#define IOTDATA_MESH_DIAG_CANCEL_SIZE     IOTDATA_MESH_DIAG_HDR_SIZE
+
+typedef struct {
+    uint16_t sender_station;
+    uint16_t sender_seq;
+    uint8_t kind;
+    uint8_t op;
+    uint16_t directive_id;
+} iotdata_mesh_diag_t;
+
+static inline int iotdata_mesh_pack_diag_header(uint8_t *buf, int len, uint16_t sender_station, uint16_t sender_seq, uint8_t kind, uint8_t op, uint16_t directive_id) {
+    if (len < IOTDATA_MESH_DIAG_HDR_SIZE)
+        return 0;
+    iotdata_mesh_pack_header(buf, sender_station, sender_seq);
+    buf[4] = (uint8_t)((IOTDATA_MESH_CTRL_DIAG << 4) | (kind & 0x0F));
+    iotdata_mesh_pack_4_12(&buf[5], op, directive_id);
+    return IOTDATA_MESH_DIAG_HDR_SIZE;
+}
+
+/* Unpacks the ENVELOPE only — kind and op say which body accessor to use next. */
+static inline bool iotdata_mesh_unpack_diag(const uint8_t *buf, int len, iotdata_mesh_diag_t *d) {
+    if (len < IOTDATA_MESH_DIAG_HDR_SIZE)
+        return false;
+    uint8_t ctrl;
+    iotdata_mesh_unpack_4_12(&buf[0], &ctrl, &d->sender_station);
+    d->sender_seq = (uint16_t)(((uint16_t)buf[2] << 8) | buf[3]);
+    d->kind = (uint8_t)(buf[4] & 0x0F);
+    iotdata_mesh_unpack_4_12(&buf[5], &d->op, &d->directive_id);
+    return true;
+}
+
+static inline int iotdata_mesh_pack_diag_error(uint8_t *buf, int len, uint16_t sender_station, uint16_t sender_seq, uint8_t kind, uint16_t directive_id, uint8_t reason) {
+    if (len < IOTDATA_MESH_DIAG_ERROR_SIZE)
+        return 0;
+    (void)iotdata_mesh_pack_diag_header(buf, len, sender_station, sender_seq, kind, IOTDATA_MESH_DIAG_OP_ERROR, directive_id);
+    buf[7] = reason;
+    return IOTDATA_MESH_DIAG_ERROR_SIZE;
+}
+
+static inline int iotdata_mesh_pack_diag_cancel(uint8_t *buf, int len, uint16_t sender_station, uint16_t sender_seq, uint8_t kind, uint16_t directive_id) {
+    return iotdata_mesh_pack_diag_header(buf, len, sender_station, sender_seq, kind, IOTDATA_MESH_DIAG_OP_CANCEL, directive_id);
+}
+
+static inline int iotdata_mesh_pack_diag_cancel_all(uint8_t *buf, int len, uint16_t sender_station, uint16_t sender_seq, uint8_t kind) {
+    return iotdata_mesh_pack_diag_header(buf, len, sender_station, sender_seq, kind, IOTDATA_MESH_DIAG_OP_CANCEL_ALL, 0u);
+}
+
+/* -------------------------------------------------------------------------
+ * DIAG / SURVEY (kind 0x0) — who hears a station, and how well.
+ *
+ * REQUEST  (op 0x0): byte 7-8 duration_m(16), byte 9-10 batch_s(16), byte 11 count(8),
+ *                    byte 12+ station(16) x count
+ * RESPONSE (op 0x1): byte 7 count(8), byte 8+ entry(6) x count
+ *   entry: station(16) | sequence(16) | rssi(8, offset) | snr_q4(int8)
+ *
+ * ONLY THE FIRST HOP IS THE MEASUREMENT. A node records a reception only when it hears the
+ * station DIRECTLY — a bare packet, not one arriving inside a FORWARD. An RSSI taken off a
+ * relayed copy is the relay-to-relay link, which the protocol already reports elsewhere.
+ *
+ * DURATION IS TIME, NOT A PACKET COUNT. "The next N packets from station X" never expires if X
+ * is dead, and the whole point of a timebox is that a forgotten directive stops by itself.
+ * Minutes, so a directive can outlive a working day; batch in seconds, so a walked survey can
+ * report every few seconds while a background watch reports every half hour.
+ *
+ * AN EMPTY RESPONSE IS THE POINT, NOT AN OMISSION. count == 0 says "this directive is live here
+ * and I heard nothing". Without it, a lost REQUEST and a genuine coverage hole look identical —
+ * and inventing coverage holes is precisely the failure a survey must not have.
+ *
+ * NOT rssi_q4 HERE. The 4-bit quantisation floors at -120 dBm, which is fine for choosing a
+ * route and useless for a survey: -120 to -137 is where the interesting edge is, and all of it
+ * would read as zero. Full 1 dBm steps, offset-encoded. SNR earns its byte too — below the noise
+ * floor RSSI flattens out while SNR keeps falling, so it is the better edge discriminator; it is
+ * carried in the radio's own quarter-dB units.
+ * ----------------------------------------------------------------------- */
+
+#define IOTDATA_MESH_DIAG_SURVEY_REQ_SIZE  (IOTDATA_MESH_DIAG_HDR_SIZE + 5) /* + 2 per station */
+#define IOTDATA_MESH_DIAG_SURVEY_REQ_ENTRY 2
+#define IOTDATA_MESH_DIAG_SURVEY_RSP_SIZE  (IOTDATA_MESH_DIAG_HDR_SIZE + 1) /* + 6 per entry */
+#define IOTDATA_MESH_DIAG_SURVEY_RSP_ENTRY 6
+#define IOTDATA_MESH_DIAG_SURVEY_MAX       128 /* 8-bit count; the frame runs out long before this */
+#define IOTDATA_MESH_DIAG_SURVEY_RSSI_OFF  160 /* -160..+95 dBm in 1 dBm steps */
+/* Not every radio reports SNR — a UART LoRa module typically appends RSSI and nothing else. The
+   field is still carried, because the radios that DO report it give the better reading at the
+   edge; a receiver that cannot must say so rather than send a plausible-looking 0 dB. */
+#define IOTDATA_MESH_DIAG_SNR_NONE         (-128) /* no SNR available from this radio */
+
+/* 1 dBm steps across the whole range a LoRa receiver can report, unlike the 4-bit routing
+   quantisation above which floors at -120 dBm. */
+static inline uint8_t iotdata_mesh_rssi_dbm_encode(int rssi_dbm) {
+    const int v = rssi_dbm + IOTDATA_MESH_DIAG_SURVEY_RSSI_OFF;
+    return (uint8_t)(v < 0 ? 0 : (v > 255 ? 255 : v));
+}
+
+static inline int iotdata_mesh_rssi_dbm_decode(uint8_t e) {
+    return (int)e - IOTDATA_MESH_DIAG_SURVEY_RSSI_OFF;
+}
+
+typedef struct {
+    uint16_t station;  /* the station that was heard */
+    uint16_t sequence; /* its sequence — the key the gateway joins the payload on */
+    int rssi_dbm;
+    int8_t snr_q4; /* quarter-dB, as the radio reports it */
+} iotdata_mesh_diag_survey_entry_t;
+
+typedef struct {
+    uint16_t duration_m; /* how long the directive lives */
+    uint16_t batch_s;    /* how often a response goes out, empty or not */
+    int count;           /* stations named */
+} iotdata_mesh_diag_survey_request_t;
+
+static inline int iotdata_mesh_pack_diag_survey_request(uint8_t *buf, int len, uint16_t sender_station, uint16_t sender_seq, uint16_t directive_id, uint16_t duration_m, uint16_t batch_s, const uint16_t *stations, int count) {
+    if (count < 0 || count > IOTDATA_MESH_DIAG_SURVEY_MAX)
+        return 0;
+    const int need = IOTDATA_MESH_DIAG_SURVEY_REQ_SIZE + count * IOTDATA_MESH_DIAG_SURVEY_REQ_ENTRY;
+    if (len < need)
+        return 0;
+    (void)iotdata_mesh_pack_diag_header(buf, len, sender_station, sender_seq, IOTDATA_MESH_DIAG_SURVEY, IOTDATA_MESH_DIAG_OP_REQUEST, directive_id);
+    buf[7] = (uint8_t)(duration_m >> 8);
+    buf[8] = (uint8_t)(duration_m & 0xFFu);
+    buf[9] = (uint8_t)(batch_s >> 8);
+    buf[10] = (uint8_t)(batch_s & 0xFFu);
+    buf[11] = (uint8_t)count;
+    int off = IOTDATA_MESH_DIAG_SURVEY_REQ_SIZE;
+    for (int i = 0; i < count; i++) {
+        buf[off] = (uint8_t)(stations[i] >> 8);
+        buf[off + 1] = (uint8_t)(stations[i] & 0xFFu);
+        off += IOTDATA_MESH_DIAG_SURVEY_REQ_ENTRY;
+    }
+    return need;
+}
+
+static inline bool iotdata_mesh_unpack_diag_survey_request(const uint8_t *buf, int len, iotdata_mesh_diag_survey_request_t *r) {
+    if (len < IOTDATA_MESH_DIAG_SURVEY_REQ_SIZE)
+        return false;
+    r->duration_m = (uint16_t)(((uint16_t)buf[7] << 8) | buf[8]);
+    r->batch_s = (uint16_t)(((uint16_t)buf[9] << 8) | buf[10]);
+    r->count = (int)buf[11];
+    return len >= IOTDATA_MESH_DIAG_SURVEY_REQ_SIZE + r->count * IOTDATA_MESH_DIAG_SURVEY_REQ_ENTRY;
+}
+
+static inline bool iotdata_mesh_diag_survey_request_station(const uint8_t *buf, int len, int index, uint16_t *station) {
+    const int off = IOTDATA_MESH_DIAG_SURVEY_REQ_SIZE + index * IOTDATA_MESH_DIAG_SURVEY_REQ_ENTRY;
+    if (index < 0 || off + IOTDATA_MESH_DIAG_SURVEY_REQ_ENTRY > len)
+        return false;
+    *station = (uint16_t)(((uint16_t)buf[off] << 8) | buf[off + 1]);
+    return true;
+}
+
+/* count == 0 is a legitimate, and required, response — see the note above. */
+static inline int iotdata_mesh_pack_diag_survey_response(uint8_t *buf, int len, uint16_t sender_station, uint16_t sender_seq, uint16_t directive_id, const iotdata_mesh_diag_survey_entry_t *entries, int count) {
+    if (count < 0 || count > IOTDATA_MESH_DIAG_SURVEY_MAX || (count > 0 && entries == NULL))
+        return 0;
+    const int need = IOTDATA_MESH_DIAG_SURVEY_RSP_SIZE + count * IOTDATA_MESH_DIAG_SURVEY_RSP_ENTRY;
+    if (len < need)
+        return 0;
+    (void)iotdata_mesh_pack_diag_header(buf, len, sender_station, sender_seq, IOTDATA_MESH_DIAG_SURVEY, IOTDATA_MESH_DIAG_OP_RESPONSE, directive_id);
+    buf[7] = (uint8_t)count;
+    int off = IOTDATA_MESH_DIAG_SURVEY_RSP_SIZE;
+    for (int i = 0; i < count; i++) {
+        buf[off] = (uint8_t)(entries[i].station >> 8);
+        buf[off + 1] = (uint8_t)(entries[i].station & 0xFFu);
+        buf[off + 2] = (uint8_t)(entries[i].sequence >> 8);
+        buf[off + 3] = (uint8_t)(entries[i].sequence & 0xFFu);
+        buf[off + 4] = iotdata_mesh_rssi_dbm_encode(entries[i].rssi_dbm);
+        buf[off + 5] = (uint8_t)entries[i].snr_q4;
+        off += IOTDATA_MESH_DIAG_SURVEY_RSP_ENTRY;
+    }
+    return need;
+}
+
+static inline bool iotdata_mesh_unpack_diag_survey_response(const uint8_t *buf, int len, int *count) {
+    if (len < IOTDATA_MESH_DIAG_SURVEY_RSP_SIZE)
+        return false;
+    *count = (int)buf[7];
+    return len >= IOTDATA_MESH_DIAG_SURVEY_RSP_SIZE + *count * IOTDATA_MESH_DIAG_SURVEY_RSP_ENTRY;
+}
+
+static inline bool iotdata_mesh_diag_survey_response_entry(const uint8_t *buf, int len, int index, iotdata_mesh_diag_survey_entry_t *e) {
+    const int off = IOTDATA_MESH_DIAG_SURVEY_RSP_SIZE + index * IOTDATA_MESH_DIAG_SURVEY_RSP_ENTRY;
+    if (index < 0 || off + IOTDATA_MESH_DIAG_SURVEY_RSP_ENTRY > len)
+        return false;
+    e->station = (uint16_t)(((uint16_t)buf[off] << 8) | buf[off + 1]);
+    e->sequence = (uint16_t)(((uint16_t)buf[off + 2] << 8) | buf[off + 3]);
+    e->rssi_dbm = iotdata_mesh_rssi_dbm_decode(buf[off + 4]);
+    e->snr_q4 = (int8_t)buf[off + 5];
+    return true;
+}
+
+/* -------------------------------------------------------------------------
  * Duplicate suppression ring buffer
  * ----------------------------------------------------------------------- */
 
@@ -440,8 +665,36 @@ static inline const char *iotdata_mesh_ctrl_name(uint8_t ctrl_type) {
         return "PING";
     case IOTDATA_MESH_CTRL_PONG:
         return "PONG";
+    case IOTDATA_MESH_CTRL_DIAG:
+        return "DIAG";
     default:
         return "UNKNOWN";
+    }
+}
+
+static inline const char *iotdata_mesh_diag_kind_name(uint8_t kind) {
+    switch (kind) {
+    case IOTDATA_MESH_DIAG_SURVEY:
+        return "survey";
+    default:
+        return "unknown";
+    }
+}
+
+static inline const char *iotdata_mesh_diag_op_name(uint8_t op) {
+    switch (op) {
+    case IOTDATA_MESH_DIAG_OP_REQUEST:
+        return "request";
+    case IOTDATA_MESH_DIAG_OP_RESPONSE:
+        return "response";
+    case IOTDATA_MESH_DIAG_OP_ERROR:
+        return "error";
+    case IOTDATA_MESH_DIAG_OP_CANCEL:
+        return "cancel";
+    case IOTDATA_MESH_DIAG_OP_CANCEL_ALL:
+        return "cancel_all";
+    default:
+        return "unknown";
     }
 }
 
