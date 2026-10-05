@@ -33,8 +33,6 @@
 #define IOTDATA_MESH_CTRL_ROUTE_ERROR   0x3
 #define IOTDATA_MESH_CTRL_NEIGHBOUR_RPT 0x4
 #define IOTDATA_MESH_CTRL_DIAG          0x5
-#define IOTDATA_MESH_CTRL_PING          0x6 /* v2 */
-#define IOTDATA_MESH_CTRL_PONG          0x7 /* v2 */
 
 /* Route error reasons (lower nibble of byte 4) */
 #define IOTDATA_MESH_REASON_PARENT_LOST 0x0
@@ -63,8 +61,6 @@
 #define IOTDATA_MESH_ROUTE_ERROR_SIZE   5
 #define IOTDATA_MESH_NEIGHBOUR_HDR_SIZE 10 /* + 3 per entry */
 #define IOTDATA_MESH_NEIGHBOUR_ENTRY_SZ 3
-#define IOTDATA_MESH_PING_SIZE          8
-#define IOTDATA_MESH_PONG_SIZE          8
 #define IOTDATA_MESH_DIAG_HDR_SIZE      7 /* + op-specific body */
 
 /* Dedup ring default size */
@@ -425,7 +421,7 @@ static inline bool iotdata_mesh_unpack_route_error(const uint8_t *buf, int len, 
  * contract it signed up to. A deployment using iotdata_mesh.h WITHOUT the node framework must
  * still be able to ask, so the question belongs to the protocol, not to a layer above it.
  *
- * byte 4:   ctrl(5) | kind(4)          — WHAT is being asked about (SURVEY, ...)
+ * byte 4:   ctrl(4) | kind(4)          — WHAT is being asked about (SURVEY, TRACE, ...)
  * byte 5-6: op(4) | directive_id(12)   — what this frame DOES about it
  * byte 7+:  op-specific body
  *
@@ -437,6 +433,7 @@ static inline bool iotdata_mesh_unpack_route_error(const uint8_t *buf, int len, 
 
 /* Diagnostic kinds (lower nibble of byte 4) */
 #define IOTDATA_MESH_DIAG_SURVEY          0x0
+#define IOTDATA_MESH_DIAG_TRACE           0x1
 
 /* Diagnostic ops (upper nibble of byte 5) */
 #define IOTDATA_MESH_DIAG_OP_REQUEST      0x0
@@ -444,6 +441,7 @@ static inline bool iotdata_mesh_unpack_route_error(const uint8_t *buf, int len, 
 #define IOTDATA_MESH_DIAG_OP_ERROR        0x2
 #define IOTDATA_MESH_DIAG_OP_CANCEL       0x3
 #define IOTDATA_MESH_DIAG_OP_CANCEL_ALL   0x4
+#define IOTDATA_MESH_DIAG_OP_RECORD       0x5
 
 #define IOTDATA_MESH_DIAG_ERR_UNSUPPORTED 0x0 /* kind not implemented here */
 #define IOTDATA_MESH_DIAG_ERR_FULL        0x1 /* no room for another directive */
@@ -469,7 +467,6 @@ static inline int iotdata_mesh_pack_diag_header(uint8_t *buf, int len, uint16_t 
     return IOTDATA_MESH_DIAG_HDR_SIZE;
 }
 
-/* Unpacks the ENVELOPE only — kind and op say which body accessor to use next. */
 static inline bool iotdata_mesh_unpack_diag(const uint8_t *buf, int len, iotdata_mesh_diag_t *d) {
     if (len < IOTDATA_MESH_DIAG_HDR_SIZE)
         return false;
@@ -766,6 +763,124 @@ static inline bool iotdata_mesh_generation_newer(uint16_t gen_a, uint16_t gen_b)
 }
 
 /* -------------------------------------------------------------------------
+ * DIAG kind TRACE -- the path a frame actually took, hop by hop.
+ *
+ * A FORWARD names only the relay that sent it. Each hop unwraps, re-wraps under its OWN station and
+ * discards the previous one, so by the time a frame reaches the gateway the route it took is gone.
+ * TRACE is the frame that keeps it: every hop appends what it is and what it heard the hop before
+ * it at, so the artifact that arrives IS the path, with the margin on each link.
+ *
+ * THE OP SAYS WHETHER TO APPEND, which is the whole reason RECORD is not RESPONSE. A RECORD is in
+ * flight and still collecting; a RESPONSE is a finished record being carried home. Without the
+ * distinction a relay cannot tell them apart, and would append to the completed artifact --
+ * corrupting the measurement it was asked to deliver.
+ *
+ * NO HOP COUNT. Records are fixed size against a known frame length, so the count comes out of the
+ * length, and a body that is not a whole number of records is structurally refusable. A count field
+ * could never give that, because a wrong count is still a readable number.
+ *
+ * TRUNCATED IS A FLAG, NOT A LOST FRAME. A relay with no room for another record sets the flag and
+ * forwards what it already has. Checking room BEFORE appending is what makes that work: appending
+ * first and then discovering the frame no longer fits would drop the whole trace, and the frame
+ * documenting the longest path is the one most worth keeping.
+ *
+ * ALL vs ONE SELECTS THE TRANSPORT, not the presentation. Under ALL the first hop RE-ORIGINATES the
+ * record under its own station and sequence -- as survey responses do, and for the same reason --
+ * so every relay that heard the subject climbs independently and the fan of routes survives
+ * duplicate suppression. Under ONE the first hop simply FORWARDS, so an identical
+ * {origin, sequence} collapses the siblings and exactly one path arrives: the one that won the
+ * race, which is also the route real traffic would have taken.
+ *
+ * RESPONSE_REQUIRED IS OPT-IN so that zero is the quiet state. A truncated or zeroed flags nibble
+ * then produces silence rather than an unexpected transmission. Without it the terminating node
+ * consumes the record where it lands -- the gateway publishes it, a target writes it to its own
+ * diagnostics -- and answers nobody.
+ *
+ * byte 7-8: flags(4) | subject_station(12)   -- the subject is the node being traced, which is NOT
+ *                                               hop 0: on a trace down, hop 0 is the gateway
+ * byte 9+:  hop records, 4 bytes each, to the end of the frame
+ * ----------------------------------------------------------------------- */
+
+#define IOTDATA_MESH_DIAG_TRACE_HDR_SIZE    (IOTDATA_MESH_DIAG_HDR_SIZE + 2) /* 9 */
+#define IOTDATA_MESH_DIAG_TRACE_HOP         IOTDATA_MESH_NBR_ENTRY_SIZE      /* a hop IS a neighbour entry */
+
+#define IOTDATA_MESH_DIAG_TRACE_F_DOWN      0x1u /* clear: inward to a gateway */
+#define IOTDATA_MESH_DIAG_TRACE_F_TRUNCATED 0x2u /* a hop had no room: the path is incomplete */
+#define IOTDATA_MESH_DIAG_TRACE_F_ONE       0x4u /* clear: ALL -- re-originate and keep the fan */
+#define IOTDATA_MESH_DIAG_TRACE_F_RESPOND   0x8u /* set: return a RESPONSE; clear: consume locally */
+
+typedef struct {
+    uint8_t flags;
+    uint16_t subject_station;
+    int hop_count; /* derived from the length, never stated on the wire */
+} iotdata_mesh_diag_trace_t;
+
+static inline int iotdata_mesh_pack_diag_trace(uint8_t *buf, int len, uint16_t sender_station, uint16_t sender_seq, uint8_t op, uint16_t directive_id, uint8_t flags, uint16_t subject_station, const iotdata_mesh_nbr_entry_t *hops,
+                                               int count) {
+    if (len < IOTDATA_MESH_DIAG_TRACE_HDR_SIZE)
+        return 0;
+    if (count < 0)
+        count = 0;
+    const int room = (len - IOTDATA_MESH_DIAG_TRACE_HDR_SIZE) / IOTDATA_MESH_DIAG_TRACE_HOP;
+    if (count > room) { /* say so rather than silently shortening the path */
+        count = room;
+        flags |= (uint8_t)IOTDATA_MESH_DIAG_TRACE_F_TRUNCATED;
+    }
+    (void)iotdata_mesh_pack_diag_header(buf, len, sender_station, sender_seq, IOTDATA_MESH_DIAG_TRACE, op, directive_id);
+    iotdata_mesh_pack_4_12(&buf[7], (uint8_t)(flags & 0x0Fu), subject_station);
+    int off = IOTDATA_MESH_DIAG_TRACE_HDR_SIZE;
+    for (int i = 0; i < count; i++) {
+        buf[off + 0] = hops[i].cost;
+        buf[off + 1] = iotdata_mesh_rssi_dbm_encode(hops[i].rssi_dbm);
+        buf[off + 2] = (uint8_t)((hops[i].station >> 8) & 0xFFu);
+        buf[off + 3] = (uint8_t)(hops[i].station & 0xFFu);
+        off += IOTDATA_MESH_DIAG_TRACE_HOP;
+    }
+    return off;
+}
+
+static inline int iotdata_mesh_pack_diag_trace_request(uint8_t *buf, int len, uint16_t sender_station, uint16_t sender_seq, uint16_t directive_id, uint8_t flags, uint16_t subject_station) {
+    return iotdata_mesh_pack_diag_trace(buf, len, sender_station, sender_seq, IOTDATA_MESH_DIAG_OP_REQUEST, directive_id, flags, subject_station, NULL, 0);
+}
+
+static inline bool iotdata_mesh_unpack_diag_trace(const uint8_t *buf, int len, iotdata_mesh_diag_trace_t *t) {
+    if (len < IOTDATA_MESH_DIAG_TRACE_HDR_SIZE)
+        return false;
+    const int body = len - IOTDATA_MESH_DIAG_TRACE_HDR_SIZE;
+    if ((body % IOTDATA_MESH_DIAG_TRACE_HOP) != 0)
+        return false;
+    uint8_t flags;
+    iotdata_mesh_unpack_4_12(&buf[7], &flags, &t->subject_station);
+    t->flags = (uint8_t)(flags & 0x0Fu);
+    t->hop_count = body / IOTDATA_MESH_DIAG_TRACE_HOP;
+    return true;
+}
+
+static inline bool iotdata_mesh_diag_trace_hop(const uint8_t *buf, int len, int index, iotdata_mesh_nbr_entry_t *hop) {
+    const int off = IOTDATA_MESH_DIAG_TRACE_HDR_SIZE + index * IOTDATA_MESH_DIAG_TRACE_HOP;
+    if (index < 0 || off + IOTDATA_MESH_DIAG_TRACE_HOP > len)
+        return false;
+    hop->cost = buf[off + 0];
+    hop->rssi_dbm = iotdata_mesh_rssi_dbm_decode(buf[off + 1]);
+    hop->station = (uint16_t)(((uint16_t)buf[off + 2] << 8) | buf[off + 3]);
+    return true;
+}
+
+static inline int iotdata_mesh_diag_trace_append(uint8_t *buf, int len, int room, const iotdata_mesh_nbr_entry_t *hop) {
+    if (len < IOTDATA_MESH_DIAG_TRACE_HDR_SIZE || ((len - IOTDATA_MESH_DIAG_TRACE_HDR_SIZE) % IOTDATA_MESH_DIAG_TRACE_HOP) != 0)
+        return 0; /* not a trace body: refuse rather than corrupt it */
+    if (len + IOTDATA_MESH_DIAG_TRACE_HOP > room) {
+        buf[7] = (uint8_t)(buf[7] | (uint8_t)(IOTDATA_MESH_DIAG_TRACE_F_TRUNCATED << 4));
+        return len;
+    }
+    buf[len + 0] = hop->cost;
+    buf[len + 1] = iotdata_mesh_rssi_dbm_encode(hop->rssi_dbm);
+    buf[len + 2] = (uint8_t)((hop->station >> 8) & 0xFFu);
+    buf[len + 3] = (uint8_t)(hop->station & 0xFFu);
+    return len + IOTDATA_MESH_DIAG_TRACE_HOP;
+}
+
+/* -------------------------------------------------------------------------
  * Control type name (for logging)
  * ----------------------------------------------------------------------- */
 
@@ -781,10 +896,6 @@ static inline const char *iotdata_mesh_ctrl_name(uint8_t ctrl_type) {
         return "ROUTE_ERROR";
     case IOTDATA_MESH_CTRL_NEIGHBOUR_RPT:
         return "NEIGHBOUR_RPT";
-    case IOTDATA_MESH_CTRL_PING:
-        return "PING";
-    case IOTDATA_MESH_CTRL_PONG:
-        return "PONG";
     case IOTDATA_MESH_CTRL_DIAG:
         return "DIAG";
     default:
@@ -796,6 +907,8 @@ static inline const char *iotdata_mesh_diag_kind_name(uint8_t kind) {
     switch (kind) {
     case IOTDATA_MESH_DIAG_SURVEY:
         return "survey";
+    case IOTDATA_MESH_DIAG_TRACE:
+        return "trace";
     default:
         return "unknown";
     }
