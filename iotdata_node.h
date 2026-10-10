@@ -374,18 +374,19 @@ static inline bool iotdata_node_tlv_is_reportable(const uint8_t type) {
 #define IOTDATA_NODE_RESET_FACTORY                     0x00 /* wipe everything                          */
 #define IOTDATA_NODE_RESET_DEFAULTS                    0x01 /* configuration back to default            */
 
-/* --- DIAGNOSTICS actions --------------------------------------------------------------------- */
-#define IOTDATA_NODE_ACTION_DIAGNOSTICS_ENABLE         0x00 /* args: u8 0=stop 1=start, [u8 category]   */
-#define IOTDATA_NODE_ACTION_DIAGNOSTICS_CLEAR          0x01 /* args: optional u32 stamp (idempotent)    */
-#define IOTDATA_NODE_ACTION_DIAGNOSTICS_DUMP           0x02 /* to the node's own console                */
+/* --- DIAG actions ---------------------------------------------------------------------------- */
+#define IOTDATA_NODE_ACTION_DIAG_BBOX_ENABLE           0x00 /* args: u8 0=stop 1=start, [u8 category]   */
+#define IOTDATA_NODE_ACTION_DIAG_BBOX_CLEAR            0x01 /* args: optional u32 stamp (idempotent)    */
+#define IOTDATA_NODE_ACTION_DIAG_BBOX_DUMP             0x02 /* to the node's own console                */
+#define IOTDATA_NODE_ACTION_DIAG_CART_ENABLE           0x03 /* args: u8 0=close 1=open the cart window  */
 
-/* --- STATUS actions -------------------------------------------------------------------------- */
-#define IOTDATA_NODE_ACTION_STATUS_STATIONS_DUMP       0x00
-#define IOTDATA_NODE_ACTION_STATUS_FILTERS_DUMP        0x01
-#define IOTDATA_NODE_ACTION_STATUS_FILTERS_UPDATE      0x02 /* args: N x { u16 station, u8 FILTERS_* }  */
-#define IOTDATA_NODE_ACTION_STATUS_FILTERS_CLEAR       0x03 /* args: u8 FILTERS_SCOPE_*                 */
+/* --- NODE management actions ----------------------------------------------------------------- */
+#define IOTDATA_NODE_ACTION_NODE_STATIONS_DUMP       0x00
+#define IOTDATA_NODE_ACTION_NODE_FILTERS_DUMP        0x01
+#define IOTDATA_NODE_ACTION_NODE_FILTERS_UPDATE      0x02 /* args: N x { u16 station, u8 FILTERS_* }  */
+#define IOTDATA_NODE_ACTION_NODE_FILTERS_CLEAR       0x03 /* args: u8 FILTERS_SCOPE_*                 */
 
-/* --- MESH actions ---------------------------------------------------------------------------- */
+/* --- MESH mangement action ------------------------------------------------------------------- */
 #define IOTDATA_NODE_ACTION_MESH_PEERS_UPDATE          0x00 /* args: N x { u16 station, u8 PEER_* }     */
 #define IOTDATA_NODE_ACTION_MESH_PEERS_CLEAR           0x01 /* forget all, re-discover                  */
 #define IOTDATA_NODE_ACTION_MESH_PEERS_DUMP            0x02 /* to the node's own console                */
@@ -409,17 +410,17 @@ static inline bool iotdata_node_tlv_is_reportable(const uint8_t type) {
  * FILTERS is a STATUS subject rather than a MESH one, because a filter is not a mesh concept: any
  * node that hears traffic can refuse a station, and a gateway with no mesh has a filter table.
  */
-#define IOTDATA_NODE_CONTROL_MESH_FILTERS_NONE         0x00 /* no filter: remove any entry for it      */
-#define IOTDATA_NODE_CONTROL_MESH_FILTERS_BLOCK        0x01 /* blacklist: drop this station's frames   */
-#define IOTDATA_NODE_CONTROL_MESH_FILTERS_ALLOW        0x02 /* whitelist: if any exist, only these     */
+#define IOTDATA_NODE_CONTROL_NODE_FILTERS_NONE         0x00 /* no filter: remove any entry for it      */
+#define IOTDATA_NODE_CONTROL_NODE_FILTERS_BLOCK        0x01 /* blacklist: drop this station's frames   */
+#define IOTDATA_NODE_CONTROL_NODE_FILTERS_ALLOW        0x02 /* whitelist: if any exist, only these     */
 
-#define IOTDATA_NODE_CONTROL_MESH_FILTERS_SCOPE_ALL    0x00
-#define IOTDATA_NODE_CONTROL_MESH_FILTERS_SCOPE_MANUAL 0x01 /* only entries a command put there     */
-#define IOTDATA_NODE_CONTROL_MESH_FILTERS_SCOPE_AUTO   0x02 /* only entries the node added itself    */
+#define IOTDATA_NODE_CONTROL_NODE_FILTERS_SCOPE_ALL    0x00
+#define IOTDATA_NODE_CONTROL_NODE_FILTERS_SCOPE_MANUAL 0x01 /* only entries a command put there     */
+#define IOTDATA_NODE_CONTROL_NODE_FILTERS_SCOPE_AUTO   0x02 /* only entries the node added itself    */
 
 /* One entry of any *_UPDATE argument: u16 station (big-endian) + u8 action. Shared by
    FILTERS_UPDATE and PEERS_UPDATE -- an encoder or decoder divides the argument length by this. */
-#define IOTDATA_NODE_CONTROL_MESH_UPDATE_ENTRY_SIZE    3
+#define IOTDATA_NODE_CONTROL_UPDATE_ENTRY_SIZE    3
 
 /* -------------------------------------------------------------------------
  * STATUS keys (0x04)
@@ -453,9 +454,9 @@ static inline bool iotdata_node_tlv_is_reportable(const uint8_t type) {
 
 #define IOTDATA_NODE_STATUS_SCOPE_NODE                 0x01 /* the node's scalars, counts included             */
 #define IOTDATA_NODE_STATUS_SCOPE_MESH                 0x02 /* the mesh's scalars, counts included             */
-#define IOTDATA_NODE_STATUS_SCOPE_STATIONS             0x04 /* the stations table's entries                    */
-#define IOTDATA_NODE_STATUS_SCOPE_FILTERS              0x08 /* the filters table's entries                     */
-#define IOTDATA_NODE_STATUS_SCOPE_MESH_PEERS           0x10 /* the peers table's entries                       */
+#define IOTDATA_NODE_STATUS_SCOPE_PEERS                0x04 /* the node peers table's entries                  */
+#define IOTDATA_NODE_STATUS_SCOPE_FILTERS              0x08 /* the node filters table's entries                */
+#define IOTDATA_NODE_STATUS_SCOPE_MESH_PEERS           0x10 /* the nesg peers table's entries                  */
 #define IOTDATA_NODE_STATUS_SCOPE_CONTENT              0x20 /* the content table's entries                     */
 #define IOTDATA_NODE_STATUS_SCOPE_DEFAULT              (IOTDATA_NODE_STATUS_SCOPE_NODE | IOTDATA_NODE_STATUS_SCOPE_MESH)
 
@@ -471,8 +472,8 @@ static inline bool iotdata_node_tlv_is_reportable(const uint8_t type) {
 #define IOTDATA_NODE_STATUS_HEAP_MIN                   0x07 /* u32 bytes, lowest free seen                     */
 #define IOTDATA_NODE_STATUS_ACTIVE                     0x08 /* u32 seconds awake this session (vs asleep)      */
 
-#define IOTDATA_NODE_STATUS_STATIONS_COUNT             0x09 /* u8 rows in the whole table                      */
-#define IOTDATA_NODE_STATUS_STATIONS_ENTRY             0x0A /* one row, repeated -- see below                  */
+#define IOTDATA_NODE_STATUS_STATIONS_COUNT                0x09 /* u8 rows in the whole table                      */
+#define IOTDATA_NODE_STATUS_STATIONS_ENTRY                0x0A /* one row, repeated -- see below                  */
 #define IOTDATA_NODE_STATUS_FILTERS_COUNT              0x0B /* u8 rows in the whole table                      */
 #define IOTDATA_NODE_STATUS_FILTERS_ENTRY              0x0C /* one row, repeated -- see below                  */
 #define IOTDATA_NODE_STATUS_CONTENT_COUNT              0x0D /* u8 rows in the whole table                      */
@@ -593,7 +594,7 @@ typedef struct {
 
 /* In report order, which is also the order the entries are emitted in. */
 static const iotdata_node_status_table_t iotdata_node_status_tables[IOTDATA_NODE_STATUS_TABLE_COUNT] = {
-    { IOTDATA_NODE_STATUS_STATIONS_COUNT, IOTDATA_NODE_STATUS_STATIONS_ENTRY, IOTDATA_NODE_STATUS_STATIONS_ENTRY_SIZE, IOTDATA_NODE_STATUS_SCOPE_STATIONS },
+    { IOTDATA_NODE_STATUS_STATIONS_COUNT, IOTDATA_NODE_STATUS_STATIONS_ENTRY, IOTDATA_NODE_STATUS_STATIONS_ENTRY_SIZE, IOTDATA_NODE_STATUS_SCOPE_PEERS },
     { IOTDATA_NODE_STATUS_FILTERS_COUNT, IOTDATA_NODE_STATUS_FILTERS_ENTRY, IOTDATA_NODE_STATUS_FILTERS_ENTRY_SIZE, IOTDATA_NODE_STATUS_SCOPE_FILTERS },
     { IOTDATA_NODE_STATUS_MESH_PEERS_COUNT, IOTDATA_NODE_STATUS_MESH_PEERS_ENTRY, IOTDATA_NODE_STATUS_MESH_PEERS_ENTRY_SIZE, IOTDATA_NODE_STATUS_SCOPE_MESH_PEERS },
     { IOTDATA_NODE_STATUS_CONTENT_COUNT, IOTDATA_NODE_STATUS_CONTENT_ENTRY, IOTDATA_NODE_STATUS_CONTENT_ENTRY_SIZE, IOTDATA_NODE_STATUS_SCOPE_CONTENT },
