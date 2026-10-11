@@ -380,6 +380,14 @@ static inline bool iotdata_node_tlv_is_reportable(const uint8_t type) {
 #define IOTDATA_NODE_ACTION_DIAG_BBOX_DUMP             0x02 /* to the node's own console                */
 #define IOTDATA_NODE_ACTION_DIAG_CART_ENABLE           0x03 /* args: u8 0=close 1=open the cart window  */
 
+/* --- CONTENT actions -------------------------------------------------------------------------
+ * The store's words. A content id is 24 bits (§4), so it travels as three bytes rather than
+ * borrowing the u16 a station takes -- a station is 12 bits and a content id is not one. */
+#define IOTDATA_NODE_ACTION_CONTENT_LIST               0x00 /* to the node's own console                */
+#define IOTDATA_NODE_ACTION_CONTENT_DELETE             0x01 /* args: u24 content id                     */
+#define IOTDATA_NODE_ACTION_CONTENT_INSPECT            0x02 /* args: u24 id, to the node's own console  */
+#define IOTDATA_NODE_ACTION_CONTENT_VALIDATE           0x03 /* args: u24 id, reads it back and sums it  */
+
 /* --- NODE management actions ----------------------------------------------------------------- */
 #define IOTDATA_NODE_ACTION_NODE_STATIONS_DUMP       0x00
 #define IOTDATA_NODE_ACTION_NODE_FILTERS_DUMP        0x01
