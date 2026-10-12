@@ -370,6 +370,11 @@ static inline bool iotdata_node_tlv_is_reportable(const uint8_t type) {
 /* --- NODE actions ---------------------------------------------------------------------------- */
 #define IOTDATA_NODE_ACTION_NODE_REBOOT                0x00 /* args: optional u16 delay seconds         */
 #define IOTDATA_NODE_ACTION_NODE_RESET                 0x01 /* args: identity token, then RESET_*       */
+/* GO BACK TO THE OTHER SLOT, and reboot into it. A NODE action and not a CONTENT one: nothing about
+ * it touches the store, and it is the same kind of thing as REBOOT and RESET -- something done to
+ * the node itself. It is also the only one of the three that can brick a node outright, when there
+ * is no other image to go back to, so the device half refuses rather than trying. */
+#define IOTDATA_NODE_ACTION_NODE_ROLLBACK              0x02 /* no args: the previous image, and reboot  */
 
 #define IOTDATA_NODE_RESET_FACTORY                     0x00 /* wipe everything                          */
 #define IOTDATA_NODE_RESET_DEFAULTS                    0x01 /* configuration back to default            */
@@ -387,6 +392,8 @@ static inline bool iotdata_node_tlv_is_reportable(const uint8_t type) {
 #define IOTDATA_NODE_ACTION_CONTENT_DELETE             0x01 /* args: u24 content id                     */
 #define IOTDATA_NODE_ACTION_CONTENT_INSPECT            0x02 /* args: u24 id, to the node's own console  */
 #define IOTDATA_NODE_ACTION_CONTENT_VALIDATE           0x03 /* args: u24 id, reads it back and sums it  */
+#define IOTDATA_NODE_ACTION_CONTENT_OTA_STATUS         0x04 /* what the firmware consumer is doing      */
+#define IOTDATA_NODE_ACTION_CONTENT_OTA_APPLY          0x05 /* args: u24 id, take this one NOW          */
 
 /* --- NODE management actions ----------------------------------------------------------------- */
 #define IOTDATA_NODE_ACTION_NODE_STATIONS_DUMP       0x00
