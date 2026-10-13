@@ -526,7 +526,7 @@ static inline bool iotdata_node_tlv_is_reportable(const uint8_t type) {
 
 /*
  * The mesh group's SHAPE, the scope predicate and the encoder are not here: they are how a report
- * is built, which belongs with the rest of the building, in iotdata-common's
+ * is built, which belongs with the rest of the building, in iotdata-platform's
  * iotdata_node_status.h. What stays here is the key space above, and the names of the values a
  * decoder meets (see iotdata_node_tlv_status_reason_str / _mesh_state_str below).
  */
