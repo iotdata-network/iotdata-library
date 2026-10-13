@@ -842,15 +842,15 @@ static const iotdata_node_keydef_t iotdata_node_tlv_keys_control[] = {
 };
 
 static const iotdata_node_keydef_t iotdata_node_tlv_keys_status[] = {
-    { IOTDATA_NODE_STATUS_UPTIME, 4, "uptime" },
-    { IOTDATA_NODE_STATUS_LIFETIME, 4, "lifetime" },
+    { IOTDATA_NODE_STATUS_UPTIME, 4, "uptime_secs" },
+    { IOTDATA_NODE_STATUS_LIFETIME, 4, "lifetime_secs" },
     { IOTDATA_NODE_STATUS_RESTARTS, 2, "restarts" },
     { IOTDATA_NODE_STATUS_REASON, 1, "reason" },
     { IOTDATA_NODE_STATUS_TEMPERATURE, 1, "temperature" },
     { IOTDATA_NODE_STATUS_SUPPLY, 2, "supply" },
     { IOTDATA_NODE_STATUS_HEAP_FREE, 4, "heap_free" },
     { IOTDATA_NODE_STATUS_HEAP_MIN, 4, "heap_min" },
-    { IOTDATA_NODE_STATUS_ACTIVE, 4, "active" },
+    { IOTDATA_NODE_STATUS_ACTIVE, 4, "active_secs" },
     { IOTDATA_NODE_STATUS_STATIONS_COUNT, 1, "stations_count" },
     { IOTDATA_NODE_STATUS_STATIONS_ENTRY, IOTDATA_NODE_STATUS_STATIONS_ENTRY_SIZE, "station" },
     { IOTDATA_NODE_STATUS_FILTERS_COUNT, 1, "filters_count" },
