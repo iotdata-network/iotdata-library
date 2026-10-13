@@ -174,6 +174,7 @@
  *   software      app/semver/stamp      "gateway/1.0.0/202609231743"
  *   serial        hex, no separators    "DC326291ACF3"
  *   capabilities  16-bit entries        see iotdata_node_version.h
+ *   image         16 raw bytes          truncated sha256 -- the one BINARY value in here
  *
  * THE STAMP IS THE ORDERING KEY. `stamp` is yyyymmddhhmm, fixed width, so a plain string compare
  * of two `software` values from the SAME app orders them by build time -- which is why there is no
@@ -181,6 +182,19 @@
  * The SEMVER is normative and says which release line a build tracks; it is NOT the ordering key
  * and must never be compared as one (`rc10` sorts below `rc9`, and a dev build off 1.4.3 is not
  * "newer" than 1.4.3). Compare stamps; display semvers.
+ *
+ * AND THE IMAGE HASH, BECAUSE A NUMBER CAN LIE. Everything above is DECLARED: the app name, the
+ * semver and the stamp are build inputs, so two different binaries can report the same triple --
+ * a rebuild of edited sources inside the same minute, a stamp passed by hand, a tree that was
+ * dirty. The image hash is DERIVED FROM THE BYTES THAT ARE RUNNING and cannot be any of those
+ * things. It answers three questions the triple only appears to: is this the binary I shipped,
+ * is it still intact, and is it the base this delta was cut against.
+ *
+ * It is also the integrity check falling out for free. A platform that can hash its own image
+ * generally verifies it while doing so (the ESP32's partition digest is recomputed and compared
+ * against the one the image carries), so a node that cannot produce the key is telling you
+ * something: ABSENT IS MEANINGFUL, and it means "my image did not verify, or I cannot read it".
+ * Present and unexpected means a binary nobody meant to ship. Both are better than silence.
  *
  * No library version. It would say nothing the stamp does not: the library compiles from the same
  * tree as the application, so one stamp identifies both. And the protocol does not need one --
@@ -214,6 +228,8 @@
 #define IOTDATA_NODE_VERSION_SOFTWARE          0x02 /* "app/semver/stamp"                             */
 #define IOTDATA_NODE_VERSION_SERIAL            0x03 /* stable per-device id, never a removable NIC    */
 #define IOTDATA_NODE_VERSION_CAPABILITIES      0x04 /* 16-bit entries: [key:4][mask:12], big-endian   */
+#define IOTDATA_NODE_VERSION_IMAGE             0x05 /* 16 RAW BYTES: the running image's hash         */
+#define IOTDATA_NODE_VERSION_IMAGE_BYTES       16
 
 /* -------------------------------------------------------------------------
  * VARIANT keys (0x02)
@@ -487,12 +503,25 @@ static inline bool iotdata_node_tlv_is_reportable(const uint8_t type) {
 #define IOTDATA_NODE_STATUS_HEAP_MIN                   0x07 /* u32 bytes, lowest free seen                     */
 #define IOTDATA_NODE_STATUS_ACTIVE                     0x08 /* u32 seconds awake this session (vs asleep)      */
 
-#define IOTDATA_NODE_STATUS_STATIONS_COUNT                0x09 /* u8 rows in the whole table                      */
-#define IOTDATA_NODE_STATUS_STATIONS_ENTRY                0x0A /* one row, repeated -- see below                  */
+#define IOTDATA_NODE_STATUS_STATIONS_COUNT             0x09 /* u8 rows in the whole table                      */
+#define IOTDATA_NODE_STATUS_STATIONS_ENTRY             0x0A /* one row, repeated -- see below                  */
 #define IOTDATA_NODE_STATUS_FILTERS_COUNT              0x0B /* u8 rows in the whole table                      */
 #define IOTDATA_NODE_STATUS_FILTERS_ENTRY              0x0C /* one row, repeated -- see below                  */
 #define IOTDATA_NODE_STATUS_CONTENT_COUNT              0x0D /* u8 rows in the whole table                      */
 #define IOTDATA_NODE_STATUS_CONTENT_ENTRY              0x0E /* one row, repeated -- see below                  */
+
+#define IOTDATA_NODE_STATUS_IMAGE                      0x0F /* u8 [slot:4][state:4] -- see IMAGE below         */
+#define IOTDATA_NODE_STATUS_IMAGE_STATE_UNKNOWN        0x0 /* no opinion: not slotted, or unreadable           */
+#define IOTDATA_NODE_STATUS_IMAGE_STATE_VALID          0x1 /* confirmed; this is the image to keep             */
+#define IOTDATA_NODE_STATUS_IMAGE_STATE_PENDING        0x2 /* ON PROBATION: booted, not yet confirmed          */
+#define IOTDATA_NODE_STATUS_IMAGE_STATE_NEW            0x3 /* selected for next boot, never run                */
+#define IOTDATA_NODE_STATUS_IMAGE_STATE_INVALID        0x4 /* marked bad; rolled back from                     */
+#define IOTDATA_NODE_STATUS_IMAGE_STATE_ABORTED        0x5 /* probation ended without a verdict                */
+#define IOTDATA_NODE_STATUS_IMAGE_SLOT_FACTORY         0xE
+#define IOTDATA_NODE_STATUS_IMAGE_SLOT_UNKNOWN         0xF
+#define IOTDATA_NODE_STATUS_IMAGE_PACK(slot, state)    ((uint8_t)((((uint8_t)(slot) & 0x0Fu) << 4) | ((uint8_t)(state) & 0x0Fu)))
+#define IOTDATA_NODE_STATUS_IMAGE_SLOT_OF(v)           ((uint8_t)(((uint8_t)(v) >> 4) & 0x0Fu))
+#define IOTDATA_NODE_STATUS_IMAGE_STATE_OF(v)          ((uint8_t)((uint8_t)(v) & 0x0Fu))
 
 /* --- 0x40..0x7F  the mesh ---------------------------------------------------------------------
    Was the MANAGE STATUS response. As status keys these compose with the node's own, so one STATUS
@@ -797,7 +826,7 @@ static const iotdata_node_keydef_t iotdata_node_tlv_keys_receive[] = {
 
 static const iotdata_node_keydef_t iotdata_node_tlv_keys_version[] = {
     { IOTDATA_NODE_VERSION_HARDWARE, IOTDATA_NODE_WIDTH_VARIABLE, "hardware" }, { IOTDATA_NODE_VERSION_FIRMWARE, IOTDATA_NODE_WIDTH_VARIABLE, "firmware" },         { IOTDATA_NODE_VERSION_SOFTWARE, IOTDATA_NODE_WIDTH_VARIABLE, "software" },
-    { IOTDATA_NODE_VERSION_SERIAL, IOTDATA_NODE_WIDTH_VARIABLE, "serial" },     { IOTDATA_NODE_VERSION_CAPABILITIES, IOTDATA_NODE_WIDTH_VARIABLE, "capabilities" },
+    { IOTDATA_NODE_VERSION_SERIAL, IOTDATA_NODE_WIDTH_VARIABLE, "serial" },     { IOTDATA_NODE_VERSION_CAPABILITIES, IOTDATA_NODE_WIDTH_VARIABLE, "capabilities" }, { IOTDATA_NODE_VERSION_IMAGE, IOTDATA_NODE_VERSION_IMAGE_BYTES, "image" },
 };
 
 /* One key per variant number, so this table is the variant space itself rather than a set of named
@@ -828,6 +857,7 @@ static const iotdata_node_keydef_t iotdata_node_tlv_keys_status[] = {
     { IOTDATA_NODE_STATUS_FILTERS_ENTRY, IOTDATA_NODE_STATUS_FILTERS_ENTRY_SIZE, "filter" },
     { IOTDATA_NODE_STATUS_CONTENT_COUNT, 1, "content_count" },
     { IOTDATA_NODE_STATUS_CONTENT_ENTRY, IOTDATA_NODE_STATUS_CONTENT_ENTRY_SIZE, "content" },
+    { IOTDATA_NODE_STATUS_IMAGE, 1, "image" },
     /* the mesh (0x40..0x7F) -- absent on a node that does not run one */
     { IOTDATA_NODE_STATUS_MESH_STATE, 1, "mesh_state" },
     { IOTDATA_NODE_STATUS_MESH_PARENT, 2, "mesh_parent" },
@@ -964,6 +994,23 @@ static inline const char *iotdata_node_tlv_status_reason_str(const uint8_t reaso
         return "external";
     case IOTDATA_NODE_REASON_OTA:
         return "ota";
+    default:
+        return "unknown";
+    }
+}
+
+static inline const char *iotdata_node_tlv_status_image_state_str(const uint8_t state) {
+    switch (state) {
+    case IOTDATA_NODE_STATUS_IMAGE_STATE_VALID:
+        return "valid";
+    case IOTDATA_NODE_STATUS_IMAGE_STATE_PENDING:
+        return "pending";
+    case IOTDATA_NODE_STATUS_IMAGE_STATE_NEW:
+        return "new";
+    case IOTDATA_NODE_STATUS_IMAGE_STATE_INVALID:
+        return "invalid";
+    case IOTDATA_NODE_STATUS_IMAGE_STATE_ABORTED:
+        return "aborted";
     default:
         return "unknown";
     }
