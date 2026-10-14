@@ -581,10 +581,10 @@ static inline bool iotdata_node_tlv_is_reportable(const uint8_t type) {
  * is a property of the compiler that happens to be building the node, not of the wire.
  * ----------------------------------------------------------------------- */
 
-/* STATIONS entry, 11 bytes: who this node can hear.
+/* STATIONS entry, 12 bytes: who this node can hear.
  *   [0:1] u16 station   [2] u8 kind (STATIONS_KIND_*)   [3] u8 variant   [4] i8 rssi dBm
- *   [5:6] u16 age seconds since last heard              [7:10] u32 frames received         */
-#define IOTDATA_NODE_STATUS_STATIONS_ENTRY_SIZE        11
+ *   [5:7] u24 age seconds since last heard, saturating  [8:11] u32 frames received         */
+#define IOTDATA_NODE_STATUS_STATIONS_ENTRY_SIZE        12
 #define IOTDATA_NODE_STATUS_STATIONS_KIND_UNKNOWN      0x00
 #define IOTDATA_NODE_STATUS_STATIONS_KIND_GATEWAY      0x01
 #define IOTDATA_NODE_STATUS_STATIONS_KIND_RELAY        0x02
@@ -594,10 +594,10 @@ static inline bool iotdata_node_tlv_is_reportable(const uint8_t type) {
  *   [0:1] u16 station   [2] u8 action (MESH_FILTERS_BLOCK/ALLOW)   [3] u8 source (SCOPE_MANUAL/AUTO) */
 #define IOTDATA_NODE_STATUS_FILTERS_ENTRY_SIZE         4
 
-/* MESH_PEERS entry, 11 bytes: who this node could route through.
+/* MESH_PEERS entry, 12 bytes: who this node could route through.
  *   [0:1] u16 station   [2:3] u16 gateway   [4] u8 cost   [5:6] u16 generation
- *   [7] i8 rssi dBm     [8:9] u16 age seconds            [10] u8 flags (MESH_PEERS_FLAG_*) */
-#define IOTDATA_NODE_STATUS_MESH_PEERS_ENTRY_SIZE      11
+ *   [7] i8 rssi dBm     [8:10] u24 age seconds, saturating   [11] u8 flags (MESH_PEERS_FLAG_*) */
+#define IOTDATA_NODE_STATUS_MESH_PEERS_ENTRY_SIZE      12
 #define IOTDATA_NODE_STATUS_MESH_PEERS_FLAG_ACCEPTING  0x01 /* advertises itself as a usable parent  */
 #define IOTDATA_NODE_STATUS_MESH_PEERS_FLAG_PARENT     0x02 /* the one we are currently routing via  */
 
@@ -658,6 +658,9 @@ static inline uint8_t iotdata_node_status_entry_size(const uint8_t entry_key) {
     return (t != NULL) ? t->width : 0u;
 }
 
+static inline void iotdata_node_entry_put_u8(uint8_t *const row, const size_t at, const uint8_t v) {
+    row[at] = v;
+}
 /* Big-endian field accessors, so a builder and a reader cannot disagree about the layout. */
 static inline void iotdata_node_entry_put_u16(uint8_t *const row, const size_t at, const uint16_t v) {
     row[at] = (uint8_t)(v >> 8);
@@ -674,6 +677,26 @@ static inline void iotdata_node_entry_put_u32(uint8_t *const row, const size_t a
 }
 static inline uint32_t iotdata_node_entry_get_u32(const uint8_t *const row, const size_t at) {
     return ((uint32_t)row[at] << 24) | ((uint32_t)row[at + 1] << 16) | ((uint32_t)row[at + 2] << 8) | (uint32_t)row[at + 3];
+}
+static inline void iotdata_node_entry_put_u24(uint8_t *const row, const size_t at, const uint32_t v) {
+    row[at] = (uint8_t)(v >> 16);
+    row[at + 1] = (uint8_t)(v >> 8);
+    row[at + 2] = (uint8_t)v;
+}
+static inline uint32_t iotdata_node_entry_get_u24(const uint8_t *const row, const size_t at) {
+    return ((uint32_t)row[at] << 16) | ((uint32_t)row[at + 1] << 8) | (uint32_t)row[at + 2];
+}
+
+/* AN AGE IS A u24 OF SECONDS wherever a row carries one, and every writer goes through this so the
+   saturation is decided once. It was 16 bits, which reads 18.2 hours and then wraps -- a node dark
+   for a day reported as minutes old, which is worse than saying nothing. Three bytes carry 194
+   days at one-second resolution: enough that the ceiling is reached only by something nobody is
+   still waiting for, and fine enough to see a beacon running late against a 60s cadence. Seconds
+   rather than minutes for that last reason: a peer table whose unit is the beacon interval cannot
+   show lateness at all. */
+#define IOTDATA_NODE_ENTRY_AGE_S_MAX 0xFFFFFFu
+static inline void iotdata_node_entry_put_age_s(uint8_t *const row, const size_t at, const uint32_t age_s) {
+    iotdata_node_entry_put_u24(row, at, age_s > IOTDATA_NODE_ENTRY_AGE_S_MAX ? IOTDATA_NODE_ENTRY_AGE_S_MAX : age_s);
 }
 
 /* Reset reasons (STATUS_REASON). A node maps its platform's reason onto these. */

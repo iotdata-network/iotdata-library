@@ -258,6 +258,37 @@ static void test_standalone_variant_all_fields(void) {
     PASS();
 }
 
+/* A packet is packed_bits long and the spare bits of its last byte mean NOTHING -- no reader may
+   look at them. This guards the hygiene in iotdata_encode_end(), not a promise to a reader: the
+   same content goes into two buffers of opposite prior contents, and the bits past the end come
+   out zero either way rather than carrying the buffer's history onto the air. */
+static void test_encode_clears_unused_tail_bits(void) {
+    TEST("Unused tail bits are cleared, not carried over");
+
+    uint8_t a[64], b[64];
+    size_t a_len = 0, b_len = 0, bits = 0;
+    memset(a, 0x00, sizeof(a));
+    memset(b, 0xFF, sizeof(b));
+
+    for (int pass = 0; pass < 2; pass++) {
+        iotdata_encoder_t e;
+        uint8_t *const buf = (pass == 0) ? a : b;
+        ASSERT_OK(iotdata_encode_begin(&e, buf, 64, 1, 20, 400), "begin");
+        ASSERT_OK(iotdata_encode_battery(&e, 90, true), "bat");
+        ASSERT_OK(iotdata_encode_temperature(&e, -10.0f), "temp");
+        ASSERT_OK(iotdata_encode_flags(&e, 0xAA), "flags");
+        ASSERT_OK(iotdata_encode_end(&e, (pass == 0) ? &a_len : &b_len), "end");
+        bits = e.packed_bits;
+    }
+
+    ASSERT_EQ(a_len, b_len, "len match");
+    ASSERT_TRUE((bits & 7) != 0, "this packet does not end on a byte boundary");
+    const uint8_t pad = (uint8_t)((1U << (8 - (bits & 7))) - 1);
+    ASSERT_EQ(a[a_len - 1] & pad, 0, "nothing past the end in a zeroed buffer");
+    ASSERT_EQ(b[b_len - 1] & pad, 0, "nor in one that was all ones");
+    PASS();
+}
+
 /* =========================================================================
  * Section 3: Boundary values
  * =========================================================================*/
@@ -749,7 +780,7 @@ static void test_node_definitions(void) {
 
     /* Every action is a VERB: there is no action that assigns a value, because a write belongs to
        a mutable TYPE. Two subjects may reuse a number precisely because the spaces are separate. */
-    ASSERT_EQ(IOTDATA_NODE_ACTION_NODE_REBOOT, IOTDATA_NODE_ACTION_DIAGNOSTICS_ENABLE, "numbers are per-subject and may collide");
+    ASSERT_EQ(IOTDATA_NODE_ACTION_NODE_REBOOT, IOTDATA_NODE_ACTION_DIAG_BBOX_ENABLE, "numbers are per-subject and may collide");
     ASSERT_TRUE(IOTDATA_NODE_ACTION_MESH_PEERS_DUMP < IOTDATA_NODE_ACTION_PROPRIETARY, "system actions are the lower half");
 
     /* SETTINGS is a reportable, mutable type: the protocol's own values, with the station id the
@@ -1233,6 +1264,7 @@ int main(void) {
     printf("\n--- Section 2: Full variant tests ---\n");
     test_complete_variant_all_fields();
     test_standalone_variant_all_fields();
+    test_encode_clears_unused_tail_bits();
 
     printf("\n--- Section 3: Boundary values ---\n");
     test_aq_pm_boundaries();

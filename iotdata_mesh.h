@@ -70,11 +70,11 @@
  * iotdata header peek — extract fields from the standard 4-byte header
  * ----------------------------------------------------------------------- */
 
-static inline bool iotdata_mesh_peek_header(const uint8_t *buf, int len, uint8_t *variant, uint16_t *station_id, uint16_t *sequence) {
+static inline bool iotdata_mesh_peek_header(const uint8_t *buf, int len, uint8_t *variant, uint16_t *station, uint16_t *sequence) {
     if (len < 4)
         return false;
     *variant = (buf[0] >> 4) & 0x0F;
-    *station_id = ((uint16_t)(buf[0] & 0x0F) << 8) | buf[1];
+    *station = ((uint16_t)(buf[0] & 0x0F) << 8) | buf[1];
     *sequence = ((uint16_t)buf[2] << 8) | buf[3];
     return true;
 }
@@ -298,7 +298,7 @@ static inline bool iotdata_mesh_rssi_is_reading(int rssi_dbm) {
  * byte 0-1: 0xF | sender_station(12)     byte 4-5: ctrl=0x4 | parent_id(12)
  * byte 2-3: sender_seq(16)               byte 6:   my_cost(8)
  * byte 7:   num_neighbours(6) | gateway_id[11:10]   byte 8: gateway_id[9:2]   byte 9: gateway_id[1:0]
- * byte 10+: entries, each { cost(8), rssi(8), station_id(16) }
+ * byte 10+: entries, each { cost(8), rssi(8), station(16) }
  *
  * THE RSSI IS A FULL BYTE, offset-encoded, the same encoding the survey frame uses -- not the 4-bit
  * quantisation this once carried. That quantisation was built for CHOOSING A ROUTE, where 5 dBm
@@ -724,7 +724,7 @@ static inline bool iotdata_mesh_diag_survey_response_ok(const uint8_t *buf, int 
  * ----------------------------------------------------------------------- */
 
 typedef struct {
-    uint16_t station_id;
+    uint16_t station;
     uint16_t sequence;
 } iotdata_mesh_dedup_entry_t;
 
@@ -737,13 +737,13 @@ static inline void iotdata_mesh_dedup_init(iotdata_mesh_dedup_ring_t *ring) {
     memset(ring, 0, sizeof(*ring));
 }
 
-static inline bool iotdata_mesh_dedup_insert(iotdata_mesh_dedup_ring_t *ring, uint16_t station_id, uint16_t sequence) {
+static inline bool iotdata_mesh_dedup_insert(iotdata_mesh_dedup_ring_t *ring, uint16_t station, uint16_t sequence) {
     /* scan for duplicate */
     for (int i = 0; i < (ring->size < IOTDATA_MESH_DEDUP_RING_SIZE ? ring->size : IOTDATA_MESH_DEDUP_RING_SIZE); i++)
-        if (ring->entries[i].station_id == station_id && ring->entries[i].sequence == sequence)
+        if (ring->entries[i].station == station && ring->entries[i].sequence == sequence)
             return false; /* duplicate */
     /* new — add to ring */
-    ring->entries[ring->head].station_id = station_id;
+    ring->entries[ring->head].station = station;
     ring->entries[ring->head].sequence = sequence;
     ring->head = (ring->head + 1) % IOTDATA_MESH_DEDUP_RING_SIZE;
     if (ring->size < IOTDATA_MESH_DEDUP_RING_SIZE)

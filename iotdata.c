@@ -531,6 +531,13 @@ iotdata_status_t iotdata_encode_end(iotdata_encoder_t *enc, size_t *out_bytes) {
 
     enc->packed_bits = bp;
     enc->packed_bytes = bits_to_bytes(bp);
+    /* THE UNUSED BITS OF THE LAST BYTE CARRY NO MEANING and nothing may read them: a packet is
+       packed_bits long, and anything that depends on what follows is itself the thing that is
+       wrong. They are cleared regardless because it is one AND, and because leaving them puts
+       whatever the transmit buffer last held on the air. Hygiene, not semantics -- no reader
+       gains a guarantee here. */
+    if ((bp & 7) != 0)
+        enc->buf[bp >> 3] &= (uint8_t)~(uint8_t)((1U << (8 - (bp & 7))) - 1);
     enc->state = IOTDATA_STATE_ENDED;
     if (out_bytes)
         *out_bytes = enc->packed_bytes;
