@@ -150,13 +150,22 @@
 /* -------------------------------------------------------------------------
  * RECEIVE keys (0x00)
  *
- * Both optional -- an empty RECEIVE means "listening, for anything, for a period I am not telling
+ * All optional -- an empty RECEIVE means "listening, for anything, for a period I am not telling
  * you". A sender holding a frame for this node transmits it on hearing this TLV.
+ *
+ * DELAY_S is how a node says the window is not NOW. A sensor that transmits once or twice a day can
+ * piggyback "and I will be listening this evening" onto a reading it was sending anyway, instead of
+ * waking at the chosen hour to send a bare RECEIVE for no other reason. ABSENT MEANS ZERO MEANS NOW,
+ * which is the normal case and costs nothing on the air.
+ *
+ * It is u32 because its cap does not fit u16 seconds (18.2h) -- and it is seconds, not minutes,
+ * because a countdown to a window has to resolve at least as finely as the window it precedes.
  * ----------------------------------------------------------------------- */
 
-#define IOTDATA_NODE_RECEIVE_DURATION          0x00 /* u16 milliseconds the receiver stays on            */
-#define IOTDATA_NODE_RECEIVE_TYPES             0x01 /* u32 bitmask, bit N = "I accept TLV type N"        */
-#define IOTDATA_NODE_RECEIVE_OFFSET            0x02 /* u16 seconds until the window opens                */
+#define IOTDATA_NODE_RECEIVE_DURATION_S        0x00                   /* u16 seconds the receiver stays on                 */
+#define IOTDATA_NODE_RECEIVE_TYPES             0x01                   /* u32 bitmask, bit N = "I accept TLV type N"        */
+#define IOTDATA_NODE_RECEIVE_DELAY_S           0x02                   /* u32 seconds until it opens; absent = 0 = now      */
+#define IOTDATA_NODE_RECEIVE_DELAY_S_MAX       (2u * 24u * 60u * 60u) /* safety measure */
 
 /* -------------------------------------------------------------------------
  * VERSION keys (0x01)
@@ -412,10 +421,10 @@ static inline bool iotdata_node_tlv_is_reportable(const uint8_t type) {
 #define IOTDATA_NODE_ACTION_CONTENT_OTA_APPLY          0x05 /* args: u24 id, take this one NOW          */
 
 /* --- NODE management actions ----------------------------------------------------------------- */
-#define IOTDATA_NODE_ACTION_NODE_STATIONS_DUMP       0x00
-#define IOTDATA_NODE_ACTION_NODE_FILTERS_DUMP        0x01
-#define IOTDATA_NODE_ACTION_NODE_FILTERS_UPDATE      0x02 /* args: N x { u16 station, u8 FILTERS_* }  */
-#define IOTDATA_NODE_ACTION_NODE_FILTERS_CLEAR       0x03 /* args: u8 FILTERS_SCOPE_*                 */
+#define IOTDATA_NODE_ACTION_NODE_STATIONS_DUMP         0x00
+#define IOTDATA_NODE_ACTION_NODE_FILTERS_DUMP          0x01
+#define IOTDATA_NODE_ACTION_NODE_FILTERS_UPDATE        0x02 /* args: N x { u16 station, u8 FILTERS_* }  */
+#define IOTDATA_NODE_ACTION_NODE_FILTERS_CLEAR         0x03 /* args: u8 FILTERS_SCOPE_*                 */
 
 /* --- MESH mangement action ------------------------------------------------------------------- */
 #define IOTDATA_NODE_ACTION_MESH_PEERS_UPDATE          0x00 /* args: N x { u16 station, u8 PEER_* }     */
@@ -451,7 +460,7 @@ static inline bool iotdata_node_tlv_is_reportable(const uint8_t type) {
 
 /* One entry of any *_UPDATE argument: u16 station (big-endian) + u8 action. Shared by
    FILTERS_UPDATE and PEERS_UPDATE -- an encoder or decoder divides the argument length by this. */
-#define IOTDATA_NODE_CONTROL_UPDATE_ENTRY_SIZE    3
+#define IOTDATA_NODE_CONTROL_UPDATE_ENTRY_SIZE         3
 
 /* -------------------------------------------------------------------------
  * STATUS keys (0x04)
@@ -493,15 +502,15 @@ static inline bool iotdata_node_tlv_is_reportable(const uint8_t type) {
 
 /* --- 0x00..0x3F  any node -------------------------------------------------------------------- */
 
-#define IOTDATA_NODE_STATUS_UPTIME                     0x00 /* u32 seconds, this session                       */
-#define IOTDATA_NODE_STATUS_LIFETIME                   0x01 /* u32 seconds, cumulative across boots            */
+#define IOTDATA_NODE_STATUS_UPTIME_S                   0x00 /* u32 seconds, this session                       */
+#define IOTDATA_NODE_STATUS_LIFETIME_S                 0x01 /* u32 seconds, cumulative across boots            */
 #define IOTDATA_NODE_STATUS_RESTARTS                   0x02 /* u16 boots                                       */
 #define IOTDATA_NODE_STATUS_REASON                     0x03 /* u8, IOTDATA_NODE_REASON_*                       */
-#define IOTDATA_NODE_STATUS_TEMPERATURE                0x04 /* i8 degrees C                                    */
-#define IOTDATA_NODE_STATUS_SUPPLY                     0x05 /* u16 millivolts                                  */
-#define IOTDATA_NODE_STATUS_HEAP_FREE                  0x06 /* u32 bytes free now                              */
-#define IOTDATA_NODE_STATUS_HEAP_MIN                   0x07 /* u32 bytes, lowest free seen                     */
-#define IOTDATA_NODE_STATUS_ACTIVE                     0x08 /* u32 seconds awake this session (vs asleep)      */
+#define IOTDATA_NODE_STATUS_TEMPERATURE_C              0x04 /* i8 degrees C                                    */
+#define IOTDATA_NODE_STATUS_SUPPLY_MV                  0x05 /* u16 millivolts                                  */
+#define IOTDATA_NODE_STATUS_HEAP_FREE_BYTES            0x06 /* u32 bytes free now                              */
+#define IOTDATA_NODE_STATUS_HEAP_MIN_BYTES             0x07 /* u32 bytes, lowest free seen                     */
+#define IOTDATA_NODE_STATUS_ACTIVE_S                   0x08 /* u32 seconds awake this session (vs asleep)      */
 
 #define IOTDATA_NODE_STATUS_STATIONS_COUNT             0x09 /* u8 rows in the whole table                      */
 #define IOTDATA_NODE_STATUS_STATIONS_ENTRY             0x0A /* one row, repeated -- see below                  */
@@ -511,12 +520,12 @@ static inline bool iotdata_node_tlv_is_reportable(const uint8_t type) {
 #define IOTDATA_NODE_STATUS_CONTENT_ENTRY              0x0E /* one row, repeated -- see below                  */
 
 #define IOTDATA_NODE_STATUS_IMAGE                      0x0F /* u8 [slot:4][state:4] -- see IMAGE below         */
-#define IOTDATA_NODE_STATUS_IMAGE_STATE_UNKNOWN        0x0 /* no opinion: not slotted, or unreadable           */
-#define IOTDATA_NODE_STATUS_IMAGE_STATE_VALID          0x1 /* confirmed; this is the image to keep             */
-#define IOTDATA_NODE_STATUS_IMAGE_STATE_PENDING        0x2 /* ON PROBATION: booted, not yet confirmed          */
-#define IOTDATA_NODE_STATUS_IMAGE_STATE_NEW            0x3 /* selected for next boot, never run                */
-#define IOTDATA_NODE_STATUS_IMAGE_STATE_INVALID        0x4 /* marked bad; rolled back from                     */
-#define IOTDATA_NODE_STATUS_IMAGE_STATE_ABORTED        0x5 /* probation ended without a verdict                */
+#define IOTDATA_NODE_STATUS_IMAGE_STATE_UNKNOWN        0x0  /* no opinion: not slotted, or unreadable           */
+#define IOTDATA_NODE_STATUS_IMAGE_STATE_VALID          0x1  /* confirmed; this is the image to keep             */
+#define IOTDATA_NODE_STATUS_IMAGE_STATE_PENDING        0x2  /* ON PROBATION: booted, not yet confirmed          */
+#define IOTDATA_NODE_STATUS_IMAGE_STATE_NEW            0x3  /* selected for next boot, never run                */
+#define IOTDATA_NODE_STATUS_IMAGE_STATE_INVALID        0x4  /* marked bad; rolled back from                     */
+#define IOTDATA_NODE_STATUS_IMAGE_STATE_ABORTED        0x5  /* probation ended without a verdict                */
 #define IOTDATA_NODE_STATUS_IMAGE_SLOT_FACTORY         0xE
 #define IOTDATA_NODE_STATUS_IMAGE_SLOT_UNKNOWN         0xF
 #define IOTDATA_NODE_STATUS_IMAGE_PACK(slot, state)    ((uint8_t)((((uint8_t)(slot) & 0x0Fu) << 4) | ((uint8_t)(state) & 0x0Fu)))
@@ -531,7 +540,7 @@ static inline bool iotdata_node_tlv_is_reportable(const uint8_t type) {
 #define IOTDATA_NODE_STATUS_MESH_PARENT                0x41 /* u16 station, valid iff state == JOINED          */
 #define IOTDATA_NODE_STATUS_MESH_COST                  0x42 /* u8 hops to the gateway (parent cost + 1)        */
 #define IOTDATA_NODE_STATUS_MESH_GENERATION            0x43 /* u16 beacon generation of the tree round we're in*/
-#define IOTDATA_NODE_STATUS_MESH_PARENT_RSSI           0x44 /* i8 dBm, last heard from the parent              */
+#define IOTDATA_NODE_STATUS_MESH_PARENT_RSSI_DBM       0x44 /* i8 dBm, last heard from the parent              */
 #define IOTDATA_NODE_STATUS_MESH_ACCEPTING             0x45 /* u8 bool, we advertise as a usable parent        */
 #define IOTDATA_NODE_STATUS_MESH_BEACON_RX             0x46 /* u32 beacons heard                               */
 #define IOTDATA_NODE_STATUS_MESH_BEACON_TX             0x47 /* u32 beacons sent                                */
@@ -762,7 +771,7 @@ static inline void iotdata_node_entry_put_age_s(uint8_t *const row, const size_t
 
 #define IOTDATA_NODE_SETTINGS_STATION      0x00 /* u16. MUST persist: this is commissioning.        */
 #define IOTDATA_NODE_SETTINGS_REPORT       0x01 /* repeated, one per subject -- see below           */
-#define IOTDATA_NODE_SETTINGS_RECEIVE      0x02 /* [window:u16][interval:u16][offset:u16]           */
+#define IOTDATA_NODE_SETTINGS_RECEIVE      0x02 /* [window:u16 s][interval:u16 m][offset:u16 m]     */
 
 /*
  * REPORT entry, 9 bytes: WHEN this node emits one subject, and nothing about what it emits.
@@ -843,8 +852,9 @@ typedef struct {
 } iotdata_node_keydef_t;
 
 static const iotdata_node_keydef_t iotdata_node_tlv_keys_receive[] = {
-    { IOTDATA_NODE_RECEIVE_DURATION, 2, "duration" },
+    { IOTDATA_NODE_RECEIVE_DURATION_S, 2, "duration-s" },
     { IOTDATA_NODE_RECEIVE_TYPES, 4, "types" },
+    { IOTDATA_NODE_RECEIVE_DELAY_S, 4, "delay-s" },
 };
 
 static const iotdata_node_keydef_t iotdata_node_tlv_keys_version[] = {
@@ -865,15 +875,15 @@ static const iotdata_node_keydef_t iotdata_node_tlv_keys_control[] = {
 };
 
 static const iotdata_node_keydef_t iotdata_node_tlv_keys_status[] = {
-    { IOTDATA_NODE_STATUS_UPTIME, 4, "uptime_secs" },
-    { IOTDATA_NODE_STATUS_LIFETIME, 4, "lifetime_secs" },
+    { IOTDATA_NODE_STATUS_UPTIME_S, 4, "uptime_secs" },
+    { IOTDATA_NODE_STATUS_LIFETIME_S, 4, "lifetime_secs" },
     { IOTDATA_NODE_STATUS_RESTARTS, 2, "restarts" },
     { IOTDATA_NODE_STATUS_REASON, 1, "reason" },
-    { IOTDATA_NODE_STATUS_TEMPERATURE, 1, "temperature" },
-    { IOTDATA_NODE_STATUS_SUPPLY, 2, "supply" },
-    { IOTDATA_NODE_STATUS_HEAP_FREE, 4, "heap_free" },
-    { IOTDATA_NODE_STATUS_HEAP_MIN, 4, "heap_min" },
-    { IOTDATA_NODE_STATUS_ACTIVE, 4, "active_secs" },
+    { IOTDATA_NODE_STATUS_TEMPERATURE_C, 1, "temperature_c" },
+    { IOTDATA_NODE_STATUS_SUPPLY_MV, 2, "supply_mv" },
+    { IOTDATA_NODE_STATUS_HEAP_FREE_BYTES, 4, "heap_free_bytes" },
+    { IOTDATA_NODE_STATUS_HEAP_MIN_BYTES, 4, "heap_min_bytes" },
+    { IOTDATA_NODE_STATUS_ACTIVE_S, 4, "active_secs" },
     { IOTDATA_NODE_STATUS_STATIONS_COUNT, 1, "stations_count" },
     { IOTDATA_NODE_STATUS_STATIONS_ENTRY, IOTDATA_NODE_STATUS_STATIONS_ENTRY_SIZE, "station" },
     { IOTDATA_NODE_STATUS_FILTERS_COUNT, 1, "filters_count" },
@@ -886,7 +896,7 @@ static const iotdata_node_keydef_t iotdata_node_tlv_keys_status[] = {
     { IOTDATA_NODE_STATUS_MESH_PARENT, 2, "mesh_parent" },
     { IOTDATA_NODE_STATUS_MESH_COST, 1, "mesh_cost" },
     { IOTDATA_NODE_STATUS_MESH_GENERATION, 2, "mesh_generation" },
-    { IOTDATA_NODE_STATUS_MESH_PARENT_RSSI, 1, "mesh_parent_rssi" },
+    { IOTDATA_NODE_STATUS_MESH_PARENT_RSSI_DBM, 1, "mesh_parent_rssi_dbm" },
     { IOTDATA_NODE_STATUS_MESH_ACCEPTING, 1, "mesh_accepting" },
     { IOTDATA_NODE_STATUS_MESH_BEACON_RX, 4, "mesh_beacon_rx" },
     { IOTDATA_NODE_STATUS_MESH_BEACON_TX, 4, "mesh_beacon_tx" },
@@ -1065,39 +1075,45 @@ static inline const char *iotdata_node_tlv_status_mesh_state_str(const uint8_t s
  * ----------------------------------------------------------------------- */
 
 typedef struct {
-    uint16_t duration_ms; /* 0 when unstated: assume IOTDATA_NODE_RECEIVE_WINDOW_MS_DEFAULT */
-    uint32_t types;       /* bitmask, bit N = TLV type N; meaningless unless has_types */
-    bool has_duration, has_types;
+    uint16_t duration_s; /* 0 when unstated: assume IOTDATA_NODE_RECEIVE_WINDOW_S_DEFAULT */
+    uint32_t types;      /* bitmask, bit N = TLV type N; meaningless unless has_types */
+    uint32_t delay_s;    /* until the window OPENS; 0, stated or not, means it is open now */
+    bool has_duration, has_types, has_delay;
 } iotdata_node_receive_t;
 
 static inline void iotdata_node_receive_parse(const uint8_t *const kv, const size_t kvlen, iotdata_node_receive_t *const out) {
-    out->duration_ms = 0;
-    out->types = 0;
-    out->has_duration = false;
-    out->has_types = false;
+    *out = (iotdata_node_receive_t){ 0 };
     size_t cur = 0;
     uint8_t key, vlen;
     const uint8_t *val;
     while (iotdata_kvr_next(kv, kvlen, &cur, &key, &val, &vlen)) {
-        if (key == IOTDATA_NODE_RECEIVE_DURATION) {
-            out->duration_ms = iotdata_kvr_u16(val, vlen, 0);
+        if (key == IOTDATA_NODE_RECEIVE_DURATION_S) {
+            out->duration_s = iotdata_kvr_u16(val, vlen, 0);
             out->has_duration = true;
         } else if (key == IOTDATA_NODE_RECEIVE_TYPES) {
             out->types = iotdata_kvr_u32(val, vlen, 0);
             out->has_types = true;
+        } else if (key == IOTDATA_NODE_RECEIVE_DELAY_S) {
+            const uint32_t delay_s = iotdata_kvr_u32(val, vlen, 0);
+            out->delay_s = (delay_s > IOTDATA_NODE_RECEIVE_DELAY_S_MAX) ? (uint32_t)IOTDATA_NODE_RECEIVE_DELAY_S_MAX : delay_s;
+            out->has_delay = true;
         }
     }
 }
 
-/* Build a RECEIVE payload. duration_ms 0 and types 0 are both "unstated", and an unstated pair
-   leaves the payload empty -- which is the complete message "listening, for anything". */
-static inline size_t iotdata_node_receive_build(uint8_t *const buf, const size_t size, const uint16_t duration_ms, const uint32_t types) {
+/* Build a RECEIVE payload. duration_s 0, types 0 and delay_s 0 are each "unstated", and all three
+   unstated leaves the payload empty -- which is the complete message "listening, for anything".
+   A zero delay is the ordinary case and says nothing BECAUSE it has nothing to say: the window is
+   open now, which is what a reader of an absent key already concludes. */
+static inline size_t iotdata_node_receive_build(uint8_t *const buf, const size_t size, const uint16_t duration_s, const uint32_t types, const uint32_t delay_s) {
     iotdata_kvr_t kv;
     iotdata_kvr_init(&kv, buf, size);
-    if (duration_ms != 0)
-        iotdata_kvr_add_u16(&kv, IOTDATA_NODE_RECEIVE_DURATION, duration_ms);
+    if (duration_s != 0)
+        iotdata_kvr_add_u16(&kv, IOTDATA_NODE_RECEIVE_DURATION_S, duration_s);
     if (types != 0)
         iotdata_kvr_add_u32(&kv, IOTDATA_NODE_RECEIVE_TYPES, types);
+    if (delay_s != 0)
+        iotdata_kvr_add_u32(&kv, IOTDATA_NODE_RECEIVE_DELAY_S, (delay_s > IOTDATA_NODE_RECEIVE_DELAY_S_MAX) ? (uint32_t)IOTDATA_NODE_RECEIVE_DELAY_S_MAX : delay_s);
     return kv.overflow ? 0 : kv.len;
 }
 
@@ -1133,32 +1149,50 @@ static inline bool iotdata_node_receive_accepts(const iotdata_node_receive_t *co
    taking responsibility", because a holder has to decide whether a frame fits before sending it and
    cannot do that against an unknown. There is no "always on" station in this model: a permanently
    listening node advertises a very large window and is handled by exactly the same rules. */
-#ifndef IOTDATA_NODE_RECEIVE_WINDOW_MS_DEFAULT
-#define IOTDATA_NODE_RECEIVE_WINDOW_MS_DEFAULT 5000u
+#ifndef IOTDATA_NODE_RECEIVE_WINDOW_S_DEFAULT
+#define IOTDATA_NODE_RECEIVE_WINDOW_S_DEFAULT 5u
 #endif
 
 /* Safety room inside a window, beyond the frame's own airtime. FIXED rather than proportional: the
    uncertainty being covered is the delay between deciding to send and the frame leaving -- queue
-   depth and transmit jitter -- and that does not scale with the frame. */
+   depth and transmit jitter -- and that does not scale with the frame.
+ *
+ * MILLISECONDS, though the window itself is stated in SECONDS. The unit on the wire is the
+   operator's, because nobody states a receive window to the millisecond; the arithmetic below is a
+   holder's, and a holder's clock is in ticks. Rounded up to a whole second this margin would be
+   four times the jitter it covers, and would put a 1s window out of reach of every frame. */
 #ifndef IOTDATA_NODE_RECEIVE_MARGIN_MS
 #define IOTDATA_NODE_RECEIVE_MARGIN_MS 250u
 #endif
 
-static inline uint32_t iotdata_node_receive_window_ms(const iotdata_node_receive_t *const r) {
-    return (r->has_duration && r->duration_ms > 0) ? (uint32_t)r->duration_ms : (uint32_t)IOTDATA_NODE_RECEIVE_WINDOW_MS_DEFAULT;
+static inline uint32_t iotdata_node_receive_window_s(const iotdata_node_receive_t *const r) {
+    return (r->has_duration && r->duration_s > 0) ? (uint32_t)r->duration_s : (uint32_t)IOTDATA_NODE_RECEIVE_WINDOW_S_DEFAULT;
 }
 
-/* Does `bytes` fit in `window_ms` at `bps`, with the margin? This is the form a holder wants, since
-   what it has is the window REMAINING rather than the window advertised. */
+/* Seconds until that window OPENS, where 0 means it is open now -- which is also what an
+   advertisement carrying no DELAY_S says, so a holder needs no has_delay test of its own. */
+static inline uint32_t iotdata_node_receive_delay_s(const iotdata_node_receive_t *const r) {
+    return r->has_delay ? r->delay_s : 0u;
+}
+
+/* Does `bytes` fit in `window_ms` at `bps`, with the margin? MILLISECONDS, and this is the form a
+   holder wants: what it has is the window REMAINING on its own clock, which seconds cannot state.
+ *
+ * Nor can whole seconds state the AIRTIME. At 2400bps a maximum-size frame is 0.853s, so an
+   integer-second airtime is ZERO for every frame this protocol can produce -- the term only
+   survives below 2048bps -- and the test silently collapses into "is there a second left". */
 static inline bool iotdata_node_receive_fits_ms(const size_t bytes, const uint32_t bps, const uint32_t window_ms) {
-    if (bps == 0)
-        return true;
-    return (((uint32_t)((bytes * 8u * 1000u) / bps)) + (uint32_t)IOTDATA_NODE_RECEIVE_MARGIN_MS) <= window_ms;
+    return bps == 0 || (((uint32_t)((bytes * 8u * 1000u) / bps) + (uint32_t)IOTDATA_NODE_RECEIVE_MARGIN_MS) <= window_ms);
+}
+
+/* The same question against an ADVERTISED window, which is the unit a RECEIVE carries. */
+static inline bool iotdata_node_receive_fits_s(const size_t bytes, const uint32_t bps, const uint32_t window_s) {
+    return iotdata_node_receive_fits_ms(bytes, bps, window_s * 1000u);
 }
 
 /* Is the window this station advertised long enough to be worth transmitting `bytes` into? */
 static inline bool iotdata_node_receive_fits(const iotdata_node_receive_t *const r, const size_t bytes, const uint32_t bps) {
-    return iotdata_node_receive_fits_ms(bytes, bps, iotdata_node_receive_window_ms(r));
+    return iotdata_node_receive_fits_s(bytes, bps, iotdata_node_receive_window_s(r));
 }
 
 /* -------------------------------------------------------------------------

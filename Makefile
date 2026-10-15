@@ -97,7 +97,7 @@ STACK_USAGE_FILE_EXAMPLE_IOTDATA=tests/test_example-iotdata.su
 
 LIB_SRC    = iotdata.c
 LIB_OBJ    = iotdata.o
-LIB_HDR    = iotdata.h
+LIB_HDR    = iotdata.h iotdata_node.h iotdata_mesh.h iotdata_fields.h
 LIB_STATIC = libiotdata.a
 
 TEST_DEFAULT_SRC = tests/test_default.c

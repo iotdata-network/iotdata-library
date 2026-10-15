@@ -1,0 +1,203 @@
+IOTDATA C STYLE
+
+Preferences, with the reason attached, because the reason is what decides the cases this list does
+not cover. Where a rule gets in the way of being clear, the clearer code wins -- "prefer" means
+prefer. clang-format owns the mechanics (4 spaces, 240 columns, aligned macros, brace placement);
+everything here is what it cannot decide for us.
+
+
+## FILES
+
+- no object files, and a single unit full compilation: modern compilers and machines are fast enough
+  to do this, and it avoids stale and dependency object issues. the consequence is the next two
+  rules, so they are not separate decisions. (the library can still be packaged as libiotdata.a for
+  someone outside this tree; nothing we build uses it.)
+
+- prefer the whole implementation in the header, as static inline: with one translation unit there is
+  nothing to link and nothing to keep in step. the library's own body is the exception (iotdata.c,
+  which #includes iotdata_fields.c and so is still one unit); everything layered above it -- node,
+  platform, device, app -- is header-only, and a .c file otherwise means an application's main or a
+  third-party engine we did not write.
+
+- headers can include system standard includes, or framework includes, but not other application
+  headers: meaning that header ordering is explicit and controllable at the application level. a
+  header states what it needs in a comment and relies on its includer to have provided it, which is
+  how iotdata_node_platform.h can fix one order for everyone.
+      yes:  /* needs iotdata_node_state.h -- the includer provides it */
+      no:   #include "iotdata_node_state.h"
+
+- a guard is still written (IOTDATA_NODE_SETTINGS_H), partly as cheap insurance and partly because
+  the guard macro doubles as a feature test: an optional adapter compiles itself only when the thing
+  it adapts to was included.
+      #ifdef IOTDATA_NODE_CONSOLE_H   /* the console words exist only if there IS a console */
+
+- an optional adapter is compiled whether or not the application wires it up, and says so, rather
+  than making every application prove it did: __attribute__((unused)) is cheaper than a second knob.
+
+- prefer the include order in an application's main to BE its dependency order, lowest tier first,
+  with members pointing down and upward edges only as callbacks. the gateway asserts this in
+  `make check` rather than documenting it.
+
+- separate sections with a full-width rule comment, and let the file read top to bottom in the order
+  a reader meets the ideas: constants, types, construction, then operations.
+
+
+## NAMES
+
+- prefer naming that is hierarchical by module, e.g. "node_settings_add" and "node_settings_delete"
+  rather than "node_add_settings" and "node_delete_settings". the prefix is the module, so a grep for
+  the module finds everything it owns and nothing it does not.
+
+- the prefix says who owns the thing: bare iotdata_* is the library, iotdata_node_* is ours on top of
+  it. a shared noun under two prefixes (status_t, state_t) is fine; the same name under one is not.
+
+- prefer a leading underscore for what is private to a header: _iotdata_node_settings_same() is not
+  for callers, and the underscore says so without a comment.
+
+- prefer predicates that read as questions, returning bool: _is_valid(), _accepts(), _fits_ms(),
+  _persists(). a reader should be able to put "?" after the call and have a sentence.
+
+- the unit is part of the name, always: window_s, interval_m, period_s, elapsed_ms, window_at_ms,
+  and the suffix goes last. a quantity that does not say its unit leaves a reader guessing, and
+  changing the unit then breaks the spelling, loudly, instead of passing as a number that quietly
+  means something else.
+      yes:  uint32_t window_at_ms;
+      no:   uint32_t window_ms_at;   /* suffix mid-name */
+      no:   uint32_t window;         /* in what? */
+
+- types end in _t, and a struct is typedef'd at its definition rather than named twice.
+
+
+## TYPES
+
+- prefer strong const correctness, including function arguments and pointers, e.g.
+  "const char *const name" rather than just "char *name": the second const is a promise about this
+  function's body, which is the one a reader is trying to make.
+      yes:  static inline bool f(const iotdata_node_settings_t *const s, const int i)
+
+- prefer the caller owning the buffer: bool f(..., char *const out, const size_t size), returning
+  false rather than truncating silently. nothing in the node layer allocates, so there is nothing to
+  own, free or leak.
+
+- -Wconversion is on and -Werror with it, so put the cast where the narrowing is a decision and not
+  at the end of an expression that got a warning.
+      yes:  r.period_s = (uint16_t)v;
+
+- prefer #define over enum for anything the preprocessor must see: an enum value in an #if is
+  silently 0, which costs an hour to find the first time.
+
+- prefer fixed-width types for anything stored, sent or persisted; int is fine for a loop.
+
+- return bool for a yes-or-no, and a named status type where the caller can act differently on
+  different failures (iotdata_status_t, iotdata_node_content_status_t). never a bare int, and never a
+  success code nobody checks.
+
+
+## LOGIC
+
+- prefer (!s) or (s) rather than (s == NULL) or (s != NULL): the pointer is the condition, and the
+  comparison adds a word without adding a claim.
+      yes:  if (!r)
+      no:   if (r == NULL)
+
+- avoid using continue, and prefer nesting: the body then states the case it handles instead of the
+  cases it skips, and there is one place to look for what happens to an element. a skip guard is
+  tolerable where the body is long and the guard is genuinely "not ours", but it is the exception.
+      yes:  for (...) { if (iotdata_node_settings_key_name(i, key, sizeof(key))) { ... } }
+      no:   for (...) { if (!iotdata_node_settings_key_name(i, key, sizeof(key))) continue; ... }
+
+- prefer, where simple enough, single returns from functions rather than multiple: one exit is one
+  place to read the answer off. validating arguments is the standing exception -- a guard at the top
+  that refuses and returns is clearer than wrapping the whole body in an if.
+      yes:  if (!s || i < 0 || i >= COUNT) return false;   /* the guard */
+            ... one answer below ...
+
+- prefer logic ordering that is 'if (valid operation) { do valid case code } else { do invalid case
+  code }': the path that matters reads first, and the alternative does not arrive as a stack of
+  negations.
+
+- prefer pointer dereferencing to array elements by a locally scoped variable, rather than repeated
+  indexing, e.g. 'for (int i = 0; i < f->count; i++) { const filter_entry_t *const e = &f->e[i];'.
+  the name says what the element IS, and the const says the loop will not move it.
+
+- prefer const on locals that do not change, especially a computed one: it says the value is settled
+  and lets the next reader stop wondering.
+
+- do not keep a pointer to a compound literal past the block it was written in -- it dies there, and
+  a callee that retains it reads as correct right up until it does not.
+
+
+## UNITS
+
+- use millisecond timings/units inside the code, but choose appropriate units (milliseconds,
+  seconds, minutes, hours) for user and wire as is appropriate to the function and the timing limits,
+  where typically the user and wire are 16, 24 or 32 bit lengths. mixed units in arithmetic is how a
+  5 second window becomes an 83 minute one.
+
+- the code's millisecond is a uint32_t tick from hw_time_ms(), not a 64-bit epoch: it exists from
+  reset and never steps. 64-bit and wall clock time are for the other two jobs only -- an instant a
+  reader reads as a date, and a stamp another host compares against its own.
+
+- convert once, at a named boundary -- at the parse, or in an accessor -- and never at each point of
+  use. one named conversion per quantity is the thing that keeps the two worlds apart.
+      yes:  static inline uint32_t iotdata_node_window_ms(const iotdata_node_t *const n) { ... * 1000u; }
+      no:   n->window_end_ms = now_ms + iotdata_node_window_s(n) * 1000;   /* at every use */
+
+- compare ticks by a signed difference, never by magnitude, because a uint32 of milliseconds wraps
+  at 49.7 days. saturate a multiply that could pass it.
+      yes:  if ((int32_t)(deadline_ms - now_ms) > 0)
+      no:   if (now_ms < deadline_ms)
+
+
+## DATA
+
+- prefer fixed capacity with a stated policy to anything that grows: a table, a pool, and a written
+  rule for what gets evicted when it is full. losing the oldest on purpose is a design; running out
+  is not.
+
+- prefer every value stated to any "unset" sentinel: seeding fills the block, a write replaces it,
+  and "back to the default" means knowing the default and stating it. a sentinel is a second meaning
+  hiding in the value's own range.
+
+- one number, one place: derive the second from the first, and where the include order forbids
+  deriving it, _Static_assert that they agree. two copies of 5u will disagree eventually.
+
+- prefer reaching through an accessor to reaching into a struct, so that the struct's layout stays
+  the module's business and every call takes the subject and nothing else.
+
+- prefer counting to logging: a stat_* counter on the struct survives, aggregates and costs nothing
+  on a sleeping node, where a log line is gone the moment nobody is attached.
+
+
+## REFUSALS AND MESSAGES
+
+- prefer refusing a bad value to clamping it: a typo that looks accepted is worse than one that is
+  rejected, and the operator is the only one who can say what they meant.
+
+- a refusal names the subject, the value and the limit, in the units the name uses. it is read by
+  somebody standing at a console with the manual shut.
+      emit("%s: %u is not a window (1..%u seconds)", argv[1], v, MAX);
+
+
+## COMMENTS
+
+- say why, not what: the code already says what. a comment earns its place by holding a decision, a
+  constraint, or the failure that made the line necessary.
+
+- prefer putting the load-bearing claim in capitals at the head of the comment, then the reasoning
+  under it. a reader skimming for the reason a thing exists finds it in one line.
+
+- no comment that the name already makes -- and a name good enough to make it is the better fix.
+
+
+## TESTS
+
+- prefer the test to the argument: a rule worth stating is worth a check, and a new check should be
+  made to FAIL once on purpose before it is believed. a test that cannot bite is decoration.
+
+- the CHECK message is the rule, written as prose, so a failure reads as the sentence that broke
+  rather than as a line number.
+      CHECK(!iotdata_node_receive_fits_ms(256, 2400, 1000), "a 853ms frame does not fit a 1s window");
+
+- prefer asserting an invariant over the generated list to asserting each name: the rule is the
+  point, and anything added later is then checked by the same line.

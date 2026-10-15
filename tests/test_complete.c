@@ -797,6 +797,108 @@ static void test_node_definitions(void) {
     PASS();
 }
 
+/* The receive window: the unit it is stated in, and the arithmetic a holder does with it.
+ *
+ * The units are not the same at both ends ON PURPOSE. The wire carries SECONDS, because an
+ * operator states a window and nobody states one to the millisecond; the fit test works in
+ * MILLISECONDS, because what a holder has is the window remaining on its own clock. Collapsing
+ * both to seconds is what this pins down: whole-second airtime is zero for every frame this
+ * protocol can carry at any rate above 2048bps, and the test silently becomes "is there a second
+ * left" -- which passes for the 850ms frame it was supposed to be measuring. */
+static void test_node_receive_window(void) {
+    TEST("Node RECEIVE window: seconds on the wire, milliseconds in the arithmetic");
+
+    /* a stated duration round-trips as SECONDS */
+    uint8_t kv[8];
+    const size_t n = iotdata_node_receive_build(kv, sizeof(kv), 30u, 0u, 0u);
+    ASSERT_TRUE(n > 0, "a window builds");
+    iotdata_node_receive_t r;
+    iotdata_node_receive_parse(kv, n, &r);
+    ASSERT_TRUE(r.has_duration && r.duration_s == 30u, "and parses back as the same number of seconds");
+    ASSERT_EQ(iotdata_node_receive_window_s(&r), 30u, "which is the window");
+
+    /* unstated is the system default, not "no window": a holder has to size against something */
+    ASSERT_EQ(iotdata_node_receive_build(kv, sizeof(kv), 0u, 0u, 0u), 0u, "an unstated set builds an EMPTY payload");
+    iotdata_node_receive_parse(kv, 0, &r);
+    ASSERT_TRUE(!r.has_duration, "nothing was stated");
+    ASSERT_EQ(iotdata_node_receive_window_s(&r), IOTDATA_NODE_RECEIVE_WINDOW_S_DEFAULT, "so the default stands in");
+
+    /* THE AIRTIME IS REAL. 256 bytes at 2400bps is 853ms, which no integer number of seconds can
+       hold; against a 1s window the frame plus the margin does not fit, and against 2s it does. */
+    ASSERT_TRUE(!iotdata_node_receive_fits_ms(256, 2400, 1000), "a 853ms frame does not fit a 1s window");
+    ASSERT_TRUE(iotdata_node_receive_fits_ms(256, 2400, 2000), "and does fit a 2s one");
+    ASSERT_TRUE(!iotdata_node_receive_fits_s(256, 2400, 1), "the same answer through the seconds form");
+    ASSERT_TRUE(iotdata_node_receive_fits_s(256, 2400, 2), "both ways");
+
+    /* THE MARGIN IS REAL TOO: a frame whose airtime alone would fit is still refused if the margin
+       does not, because the uncertainty covered is the delay before it leaves rather than its size */
+    ASSERT_TRUE(!iotdata_node_receive_fits_ms(256, 2400, 900), "airtime alone is not the test: 853ms into 900ms is refused");
+    ASSERT_TRUE(iotdata_node_receive_fits_ms(256, 2400, 853 + IOTDATA_NODE_RECEIVE_MARGIN_MS), "the margin is what has to fit beside it");
+
+    /* a smaller frame fits a window a larger one does not: the test DISCRIMINATES, which is the
+       whole property an integer-second airtime loses */
+    ASSERT_TRUE(iotdata_node_receive_fits_ms(32, 2400, 400), "a 32-byte frame fits 400ms");
+    ASSERT_TRUE(!iotdata_node_receive_fits_ms(256, 2400, 400), "where a 256-byte one does not");
+
+    /* an unknown rate is not a refusal: a holder that cannot model its own radio assumes it fits */
+    ASSERT_TRUE(iotdata_node_receive_fits_ms(256, 0, 1), "rate 0 means assume it fits");
+    ASSERT_TRUE(iotdata_node_receive_fits_s(256, 0, 0), "at any window at all");
+
+    /* and the advertised form agrees with the remaining form, since one calls the other */
+    iotdata_node_receive_parse(kv, 0, &r);
+    ASSERT_TRUE(iotdata_node_receive_fits(&r, 256, 2400), "the 5s default holds a maximum-size frame");
+    const size_t n2 = iotdata_node_receive_build(kv, sizeof(kv), 1u, 0u, 0u);
+    iotdata_node_receive_parse(kv, n2, &r);
+    ASSERT_TRUE(!iotdata_node_receive_fits(&r, 256, 2400), "a 1s advertised window does not");
+    PASS();
+}
+
+/* DELAY: the window is not always NOW, and an absent key says that it is.
+ *
+ * The key exists for a node that transmits once or twice a day and listens in the evening: it
+ * piggybacks the countdown onto a reading it was sending anyway, rather than waking at the chosen
+ * hour to send a bare RECEIVE for no other reason. Two properties are worth holding down -- a zero
+ * delay costs NOTHING on the air, and an over-cap delay is CLAMPED rather than dropped, because a
+ * dropped one reads as "now", which is the only reading that puts a frame into a sleeping node. */
+static void test_node_receive_delay(void) {
+    TEST("Node RECEIVE delay: absent means now, and the cap holds at both ends");
+
+    uint8_t kv[16];
+    iotdata_node_receive_t r;
+
+    const size_t n = iotdata_node_receive_build(kv, sizeof(kv), 30u, 0u, 3600u);
+    ASSERT_TRUE(n > 0, "a delayed window builds");
+    iotdata_node_receive_parse(kv, n, &r);
+    ASSERT_TRUE(r.has_delay && r.delay_s == 3600u, "an hour's delay round-trips as seconds");
+    ASSERT_EQ(iotdata_node_receive_delay_s(&r), 3600u, "which is the countdown");
+    ASSERT_EQ(iotdata_node_receive_window_s(&r), 30u, "and the window beside it is untouched");
+
+    /* zero is the ordinary case, and it has nothing to say */
+    uint8_t kv0[16];
+    const size_t n0 = iotdata_node_receive_build(kv0, sizeof(kv0), 30u, 0u, 0u);
+    ASSERT_TRUE(n0 < n && memcmp(kv0, kv, n0) == 0, "a zero delay adds NOTHING to the payload");
+    iotdata_node_receive_parse(kv0, n0, &r);
+    ASSERT_TRUE(!r.has_delay, "so nothing was stated");
+    ASSERT_EQ(iotdata_node_receive_delay_s(&r), 0u, "and an unstated delay reads as now");
+
+    /* the cap on the way out: a node cannot state what it cannot mean */
+    const size_t nc = iotdata_node_receive_build(kv, sizeof(kv), 30u, 0u, IOTDATA_NODE_RECEIVE_DELAY_S_MAX + 1000u);
+    iotdata_node_receive_parse(kv, nc, &r);
+    ASSERT_EQ(iotdata_node_receive_delay_s(&r), IOTDATA_NODE_RECEIVE_DELAY_S_MAX, "an over-cap delay is capped where it is built");
+
+    /* and on the way in, where the number came from somebody else's encoder */
+    {
+        uint8_t rawbuf[16];
+        iotdata_kvr_t raw;
+        iotdata_kvr_init(&raw, rawbuf, sizeof(rawbuf));
+        iotdata_kvr_add_u32(&raw, IOTDATA_NODE_RECEIVE_DELAY_S, 7u * 24u * 60u * 60u);
+        iotdata_node_receive_parse(rawbuf, raw.len, &r);
+        ASSERT_TRUE(r.has_delay, "a week arriving on the air is CLAMPED");
+        ASSERT_EQ(iotdata_node_receive_delay_s(&r), IOTDATA_NODE_RECEIVE_DELAY_S_MAX, "and not discarded, because discarding it would read as NOW");
+    }
+    PASS();
+}
+
 static void test_node_status_tlv(void) {
     TEST("Node STATUS TLV encode/decode via kvr");
     begin(0, 1, 48);
@@ -804,10 +906,10 @@ static void test_node_status_tlv(void) {
     uint8_t kvbuf[64];
     iotdata_kvr_t kv;
     iotdata_kvr_init(&kv, kvbuf, sizeof(kvbuf));
-    iotdata_kvr_add_u32(&kv, IOTDATA_NODE_STATUS_UPTIME, 3600);
+    iotdata_kvr_add_u32(&kv, IOTDATA_NODE_STATUS_UPTIME_S, 3600);
     iotdata_kvr_add_u16(&kv, IOTDATA_NODE_STATUS_RESTARTS, 7);
     iotdata_kvr_add_u8(&kv, IOTDATA_NODE_STATUS_REASON, IOTDATA_NODE_REASON_WATCHDOG);
-    iotdata_kvr_add_i8(&kv, IOTDATA_NODE_STATUS_TEMPERATURE, -5);
+    iotdata_kvr_add_i8(&kv, IOTDATA_NODE_STATUS_TEMPERATURE_C, -5);
     ASSERT_TRUE(!kv.overflow, "built");
     ASSERT_OK(iotdata_encode_tlv(&enc, IOTDATA_NODE_TLV_STATUS, kvbuf, (uint8_t)kv.len), "encode");
     finish();
@@ -825,7 +927,7 @@ static void test_node_status_tlv(void) {
         ASSERT_TRUE(iotdata_node_tlv_key_name(IOTDATA_NODE_TLV_STATUS, k) != NULL, "key named");
         ASSERT_EQ(n, iotdata_node_tlv_key_width(IOTDATA_NODE_TLV_STATUS, k), "width matches definition");
         switch (k) {
-        case IOTDATA_NODE_STATUS_UPTIME:
+        case IOTDATA_NODE_STATUS_UPTIME_S:
             ASSERT_TRUE(iotdata_kvr_u32(v, n, 0) == 3600u, "uptime");
             break;
         case IOTDATA_NODE_STATUS_RESTARTS:
@@ -834,7 +936,7 @@ static void test_node_status_tlv(void) {
         case IOTDATA_NODE_STATUS_REASON:
             ASSERT_EQ(strcmp(iotdata_node_tlv_status_reason_str(iotdata_kvr_u8(v, n, 0)), "watchdog"), 0, "reason");
             break;
-        case IOTDATA_NODE_STATUS_TEMPERATURE:
+        case IOTDATA_NODE_STATUS_TEMPERATURE_C:
             ASSERT_EQ(iotdata_kvr_i8(v, n, 0), -5, "temperature is signed");
             break;
         default:
@@ -870,7 +972,7 @@ static void test_node_receive_tlv(void) {
     uint8_t kvbuf[32];
     iotdata_kvr_t kv;
     iotdata_kvr_init(&kv, kvbuf, sizeof(kvbuf));
-    iotdata_kvr_add_u16(&kv, IOTDATA_NODE_RECEIVE_DURATION, 500);
+    iotdata_kvr_add_u16(&kv, IOTDATA_NODE_RECEIVE_DURATION_S, 500);
     iotdata_kvr_add_u32(&kv, IOTDATA_NODE_RECEIVE_TYPES, (1u << IOTDATA_NODE_TLV_CONTROL) | (1u << IOTDATA_NODE_TLV_CONFIG));
     ASSERT_TRUE(!kv.overflow, "built");
     ASSERT_OK(iotdata_encode_tlv(&enc, IOTDATA_NODE_TLV_RECEIVE, kvbuf, (uint8_t)kv.len), "encode");
@@ -884,7 +986,7 @@ static void test_node_receive_tlv(void) {
     while (iotdata_kvr_next(dec.tlv[0].raw, dec.tlv[0].length, &cur, &k, &v, &n)) {
         ASSERT_TRUE(iotdata_node_tlv_key_name(IOTDATA_NODE_TLV_RECEIVE, k) != NULL, "key named");
         ASSERT_EQ(n, iotdata_node_tlv_key_width(IOTDATA_NODE_TLV_RECEIVE, k), "width matches definition");
-        if (k == IOTDATA_NODE_RECEIVE_DURATION)
+        if (k == IOTDATA_NODE_RECEIVE_DURATION_S)
             ASSERT_EQ(iotdata_kvr_u16(v, n, 0), 500, "duration");
         if (k == IOTDATA_NODE_RECEIVE_TYPES)
             types = iotdata_kvr_u32(v, n, 0);
@@ -1292,6 +1394,8 @@ int main(void) {
     test_kv_raw_in_tlv();
     test_kv_string_round_trip();
     test_node_definitions();
+    test_node_receive_window();
+    test_node_receive_delay();
     test_node_status_tlv();
     test_node_receive_tlv();
     test_node_variant_tlv();

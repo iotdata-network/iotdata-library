@@ -260,6 +260,7 @@ typedef struct {
 
 const iotdata_variant_def_t *iotdata_get_variant(uint8_t variant);
 
+#define IOTDATA_MIN_PACKET_SIZE  (IOTDATA_HEADER_BITS / 8)
 #define IOTDATA_MAX_PACKET_SIZE  256
 
 #define IOTDATA_TLV_VALUE_BUDGET (IOTDATA_MAX_PACKET_SIZE - ((IOTDATA_HEADER_BITS + 7u) / 8u) - IOTDATA_PRES_MAXIMUM - IOTDATA_TLV_HEADER_BYTES)
