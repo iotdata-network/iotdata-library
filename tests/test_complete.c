@@ -998,6 +998,154 @@ static void test_node_receive_tlv(void) {
     PASS();
 }
 
+/* CONTENT is the one system TLV that is not a kvr: packed positional behind a 32-bit header. These
+   pin the MANIFEST shape, because a manifest is the only thing in the protocol whose encoder lives
+   off the device (an advertiser builds one from an operator's words) and whose decoder lives on it,
+   so the two can only be kept honest by a test of the bytes themselves. */
+static void test_node_content_manifest(void) {
+    TEST("Node CONTENT MANIFEST, packed positional");
+
+    uint8_t buf[128];
+    const iotdata_content_manifest_t put = {
+        .id = 0x001003u,
+        .generation = 5u,
+        .size = 448u,
+        .hash = 0x5B5EB8C2E54AA1C4ull,
+        .sig_id = 0x001004u,
+        .expiry_m = 1440u,
+        .encoding = IOTDATA_CONTENT_ENCODING(IOTDATA_CONTENT_TYPE_BINARY, IOTDATA_CONTENT_COMPRESS_NONE),
+        .name = "sensor-esp32c3-0.9.11",
+    };
+    const size_t n = iotdata_content_manifest_pack(buf, sizeof(buf), &put);
+    ASSERT_EQ_U(n, IOTDATA_CONTENT_MANIFEST_SIZE + strlen(put.name), "22 bytes plus the name");
+
+    /* The header, read by a decoder that does not yet know what it is looking at. */
+    uint8_t kind = 0xFF, tag = 0xFF;
+    uint32_t id = 0;
+    ASSERT_TRUE(iotdata_content_header_parse(buf, n, &kind, &tag, &id), "the header parses");
+    ASSERT_EQ(kind, IOTDATA_CONTENT_MANIFEST, "sub-kind in the high nibble");
+    ASSERT_EQ(tag, 5, "the tag in the low one: here a generation");
+    ASSERT_EQ_U(id, 0x001003u, "and the content-id in three bytes");
+    ASSERT_TRUE(iotdata_content_header_parse(buf, n, NULL, NULL, NULL), "every out may be NULL");
+
+    iotdata_content_manifest_t got;
+    ASSERT_TRUE(iotdata_content_manifest_parse(buf, n, &got), "and the manifest parses");
+    ASSERT_EQ_U(got.id, put.id, "id");
+    ASSERT_EQ(got.generation, put.generation, "generation");
+    ASSERT_EQ_U(got.size, put.size, "size");
+    ASSERT_TRUE(got.hash == put.hash, "the whole 64-bit hash, byte order included");
+    ASSERT_EQ_U(got.sig_id, put.sig_id, "sig-id");
+    ASSERT_EQ(got.expiry_m, put.expiry_m, "expiry minutes");
+    ASSERT_EQ(got.encoding, put.encoding, "encoding");
+    ASSERT_TRUE(got.name != NULL && strcmp(got.name, put.name) == 0, "and the name");
+    /* The name is handed out IN PLACE, which is the reason it is NUL-terminated on the wire. */
+    ASSERT_TRUE((const uint8_t *)got.name == &buf[21], "the name points into the value, uncopied");
+
+    /* A LONE NUL IS NO NAME, and that is the whole of the optionality -- there is no flag and no
+       length to say "absent", so the smallest legal manifest is exactly 22 bytes. */
+    const iotdata_content_manifest_t bare = { .id = 0x68E001u, .size = 32u, .sig_id = 0x68E002u, .expiry_m = IOTDATA_CONTENT_EXPIRY_INDEFINITE };
+    const size_t bn = iotdata_content_manifest_pack(buf, sizeof(buf), &bare);
+    ASSERT_EQ_U(bn, IOTDATA_CONTENT_MANIFEST_SIZE, "22 bytes with no name");
+    ASSERT_TRUE(iotdata_content_manifest_parse(buf, bn, &got) && got.name[0] == '\0', "and it reads back as no name");
+    ASSERT_EQ(got.expiry_m, IOTDATA_CONTENT_EXPIRY_INDEFINITE, "indefinite is all-ones, as the broadcast id is");
+    /* A NULL name is the same statement as an empty one: a caller with nothing to say need not
+       reach for a literal to say it with. */
+    const iotdata_content_manifest_t nullname = { .id = 0x68E001u, .size = 32u, .name = NULL };
+    ASSERT_EQ_U(iotdata_content_manifest_pack(buf, sizeof(buf), &nullname), IOTDATA_CONTENT_MANIFEST_SIZE, "NULL packs as no name");
+
+    /* A SIGNATURE STREAM'S OWN MANIFEST names no stream, because hashing the hashes would recurse
+       without end. It needs no flag: §4 makes 0x000xxx unassignable, so 0 was never available to
+       mean anything else. */
+    const iotdata_content_manifest_t sig = { .id = 0x001004u, .size = 2048u, .sig_id = IOTDATA_CONTENT_SIG_NONE };
+    ASSERT_TRUE(iotdata_content_manifest_pack(buf, sizeof(buf), &sig) > 0 && iotdata_content_manifest_parse(buf, IOTDATA_CONTENT_MANIFEST_SIZE, &got), "a signature stream's manifest packs");
+    ASSERT_EQ_U(got.sig_id, IOTDATA_CONTENT_SIG_NONE, "and says so by naming no stream");
+
+    PASS();
+}
+
+static void test_node_content_manifest_refusals(void) {
+    TEST("Node CONTENT MANIFEST, what it refuses");
+
+    uint8_t buf[128];
+    const iotdata_content_manifest_t m = { .id = 0x001003u, .size = 448u, .sig_id = 0x001004u, .name = "x" };
+    const size_t n = iotdata_content_manifest_pack(buf, sizeof(buf), &m);
+    ASSERT_EQ_U(n, IOTDATA_CONTENT_MANIFEST_SIZE + 1u, "the reference manifest is 23 bytes");
+
+    /* NEVER TRUNCATED TO FIT: a half-stated offer is not a smaller offer. */
+    for (size_t room = 0; room < n; room++)
+        ASSERT_EQ_U(iotdata_content_manifest_pack(buf, room, &m), 0u, "a buffer one byte short writes nothing");
+    ASSERT_EQ_U(iotdata_content_manifest_pack(buf, n, &m), n, "and exactly enough writes it");
+
+    /* Fields wider than their wire width are the caller's mistake, not something to silently mask
+       off -- a size of 0x1000000 that packed as 0 would advertise an empty object. */
+    const iotdata_content_manifest_t big = { .id = 0x001003u, .size = IOTDATA_CONTENT_SIZE_MAX + 1u };
+    ASSERT_EQ_U(iotdata_content_manifest_pack(buf, sizeof(buf), &big), 0u, "a size past u24 is refused");
+    const iotdata_content_manifest_t bigid = { .id = IOTDATA_CONTENT_ID_MAX + 1u, .size = 32u };
+    ASSERT_EQ_U(iotdata_content_manifest_pack(buf, sizeof(buf), &bigid), 0u, "and so is an id past u24");
+    const iotdata_content_manifest_t bigtag = { .id = 0x001003u, .size = 32u, .generation = 16u };
+    ASSERT_EQ_U(iotdata_content_manifest_pack(buf, sizeof(buf), &bigtag), 0u, "the tag is four bits, and 16 is not one");
+
+    /* A value SHORTER than 22 bytes cannot be a manifest whatever it holds. */
+    (void)iotdata_content_manifest_pack(buf, sizeof(buf), &m);
+    iotdata_content_manifest_t got;
+    for (size_t vlen = 0; vlen < IOTDATA_CONTENT_MANIFEST_SIZE; vlen++)
+        ASSERT_TRUE(!iotdata_content_manifest_parse(buf, vlen, &got), "a short value is not a manifest");
+
+    /* WRONG SUB-KIND, RIGHT LENGTH. A RANGES value of 22 bytes is well-formed as RANGES and must
+       not be read as the manifest it is not -- which is what switching on the nibble is for. */
+    (void)iotdata_content_header_pack(buf, sizeof(buf), IOTDATA_CONTENT_RANGES, 3u, 0x001003u);
+    ASSERT_TRUE(!iotdata_content_manifest_parse(buf, IOTDATA_CONTENT_MANIFEST_SIZE, &got), "RANGES is not a MANIFEST");
+    (void)iotdata_content_header_pack(buf, sizeof(buf), IOTDATA_CONTENT_CHUNKS, 3u, 0x001003u);
+    ASSERT_TRUE(!iotdata_content_manifest_parse(buf, IOTDATA_CONTENT_MANIFEST_SIZE, &got), "nor is CHUNKS");
+
+    /* AN UNTERMINATED NAME IS NOT A MANIFEST. There is no length field to consult for a second
+       opinion about where the name ends, which is exactly the property that choice was made for --
+       so a value whose tail is all name and no terminator has to be refused rather than guessed at. */
+    (void)iotdata_content_manifest_pack(buf, sizeof(buf), &m);
+    memset(&buf[21], 'A', 8); /* clobber the terminator and run on */
+    ASSERT_TRUE(!iotdata_content_manifest_parse(buf, 21u + 8u, &got), "no terminator inside the value");
+    buf[28] = '\0';
+    ASSERT_TRUE(iotdata_content_manifest_parse(buf, 21u + 8u, &got) && strcmp(got.name, "AAAAAAA") == 0, "and one at the last byte is enough");
+
+    /* A LONGER VALUE IS ACCEPTED AND ITS TAIL IGNORED, which is the weak extensibility positional
+       packing keeps for nothing: a field appended after the name is never read by a decoder that
+       stops when it has consumed what it knows. New fields therefore go at the END. */
+    const size_t base = iotdata_content_manifest_pack(buf, sizeof(buf), &m);
+    buf[base] = 0xAAu;
+    buf[base + 1u] = 0xBBu;
+    ASSERT_TRUE(iotdata_content_manifest_parse(buf, base + 2u, &got), "a value with an unknown tail still parses");
+    ASSERT_TRUE(strcmp(got.name, "x") == 0, "and the name stops where its terminator says");
+
+    PASS();
+}
+
+/* The two nibbles answer "can I decode this at all" without parsing a string, and the high bit of
+   each tells a version problem from a scope problem. */
+static void test_node_content_encoding(void) {
+    TEST("Node CONTENT encoding nibbles");
+
+    const uint8_t encoding = IOTDATA_CONTENT_ENCODING(IOTDATA_CONTENT_TYPE_BSDIFF, IOTDATA_CONTENT_COMPRESS_HEATSHRINK);
+    ASSERT_EQ(encoding, 0x11, "type in the high nibble, compression in the low");
+    ASSERT_EQ(iotdata_content_encoding_type(encoding), IOTDATA_CONTENT_TYPE_BSDIFF, "type reads back");
+    ASSERT_EQ(iotdata_content_encoding_compression(encoding), IOTDATA_CONTENT_COMPRESS_HEATSHRINK, "and compression");
+    ASSERT_TRUE(!iotdata_content_nibble_is_proprietary(iotdata_content_encoding_type(encoding)), "a standard value is not proprietary");
+
+    const uint8_t own = IOTDATA_CONTENT_ENCODING(IOTDATA_CONTENT_NIBBLE_PROPRIETARY | 2u, IOTDATA_CONTENT_COMPRESS_NONE);
+    ASSERT_TRUE(iotdata_content_nibble_is_proprietary(iotdata_content_encoding_type(own)), "and a proprietary one is");
+    ASSERT_TRUE(!iotdata_content_nibble_is_proprietary(iotdata_content_encoding_compression(own)), "independently, per nibble");
+
+    /* §4: chunks are 32 bytes, the index is u16, so the object ceiling is 2 MiB and the final
+       chunk of anything else is short. */
+    ASSERT_EQ_U(iotdata_content_chunks_for(0u), 0u, "nothing is no chunks");
+    ASSERT_EQ_U(iotdata_content_chunks_for(1u), 1u, "one byte is one chunk");
+    ASSERT_EQ_U(iotdata_content_chunks_for(32u), 1u, "and so is exactly one chunk's worth");
+    ASSERT_EQ_U(iotdata_content_chunks_for(33u), 2u, "one byte over needs another");
+    ASSERT_EQ_U(iotdata_content_chunks_for(448u), 14u, "the first test object: 14 chunks, two frames");
+    ASSERT_EQ_U(iotdata_content_chunks_for(IOTDATA_CONTENT_OBJECT_MAX), IOTDATA_CONTENT_CHUNKS_MAX, "and the ceiling is the whole index");
+
+    PASS();
+}
+
 /* VARIANT carries a whole variant suite as two repeated keys: ENTRY is the variant number then one
    u16 field id per presence slot, NAMES is the same variant's descriptive labels. Round-trip the
    suite this build was compiled against. */
@@ -1398,6 +1546,9 @@ int main(void) {
     test_node_receive_delay();
     test_node_status_tlv();
     test_node_receive_tlv();
+    test_node_content_manifest();
+    test_node_content_manifest_refusals();
+    test_node_content_encoding();
     test_node_variant_tlv();
     test_node_reserved_header_values();
 

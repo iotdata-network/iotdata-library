@@ -390,35 +390,46 @@ static inline bool iotdata_node_tlv_is_reportable(const uint8_t type) {
  * were writes wearing a command's clothes; they are SETTINGS keys now, and the band went with them.
  * ----------------------------------------------------------------------- */
 
-#define IOTDATA_NODE_ACTION_PROPRIETARY                0x80
+#define IOTDATA_NODE_ACTION_PROPRIETARY        0x80
 
 /* --- NODE actions ---------------------------------------------------------------------------- */
-#define IOTDATA_NODE_ACTION_NODE_REBOOT                0x00 /* args: optional u16 delay seconds         */
-#define IOTDATA_NODE_ACTION_NODE_RESET                 0x01 /* args: identity token, then RESET_*       */
+#define IOTDATA_NODE_ACTION_NODE_REBOOT        0x00 /* args: optional u16 delay seconds         */
+#define IOTDATA_NODE_ACTION_NODE_RESET         0x01 /* args: identity token, then RESET_*       */
 /* GO BACK TO THE OTHER SLOT, and reboot into it. A NODE action and not a CONTENT one: nothing about
  * it touches the store, and it is the same kind of thing as REBOOT and RESET -- something done to
  * the node itself. It is also the only one of the three that can brick a node outright, when there
  * is no other image to go back to, so the device half refuses rather than trying. */
-#define IOTDATA_NODE_ACTION_NODE_ROLLBACK              0x02 /* no args: the previous image, and reboot  */
+#define IOTDATA_NODE_ACTION_NODE_ROLLBACK      0x02 /* no args: the previous image, and reboot  */
 
-#define IOTDATA_NODE_RESET_FACTORY                     0x00 /* wipe everything                          */
-#define IOTDATA_NODE_RESET_DEFAULTS                    0x01 /* configuration back to default            */
+#define IOTDATA_NODE_RESET_FACTORY             0x00 /* wipe everything                          */
+#define IOTDATA_NODE_RESET_DEFAULTS            0x01 /* configuration back to default            */
 
 /* --- DIAG actions ---------------------------------------------------------------------------- */
-#define IOTDATA_NODE_ACTION_DIAG_BBOX_ENABLE           0x00 /* args: u8 0=stop 1=start, [u8 category]   */
-#define IOTDATA_NODE_ACTION_DIAG_BBOX_CLEAR            0x01 /* args: optional u32 stamp (idempotent)    */
-#define IOTDATA_NODE_ACTION_DIAG_BBOX_DUMP             0x02 /* to the node's own console                */
-#define IOTDATA_NODE_ACTION_DIAG_CART_ENABLE           0x03 /* args: u8 0=close 1=open the cart window  */
+#define IOTDATA_NODE_ACTION_DIAG_BBOX_ENABLE   0x00 /* args: u8 0=stop 1=start, [u8 category]   */
+#define IOTDATA_NODE_ACTION_DIAG_BBOX_CLEAR    0x01 /* args: optional u32 stamp (idempotent)    */
+#define IOTDATA_NODE_ACTION_DIAG_BBOX_DUMP     0x02 /* to the node's own console                */
+#define IOTDATA_NODE_ACTION_DIAG_CART_ENABLE   0x03 /* args: u8 0=close 1=open the cart window  */
 
 /* --- CONTENT actions -------------------------------------------------------------------------
  * The store's words. A content id is 24 bits (§4), so it travels as three bytes rather than
  * borrowing the u16 a station takes -- a station is 12 bits and a content id is not one. */
-#define IOTDATA_NODE_ACTION_CONTENT_LIST               0x00 /* to the node's own console                */
-#define IOTDATA_NODE_ACTION_CONTENT_DELETE             0x01 /* args: u24 content id                     */
-#define IOTDATA_NODE_ACTION_CONTENT_INSPECT            0x02 /* args: u24 id, to the node's own console  */
-#define IOTDATA_NODE_ACTION_CONTENT_VALIDATE           0x03 /* args: u24 id, reads it back and sums it  */
-#define IOTDATA_NODE_ACTION_CONTENT_OTA_STATUS         0x04 /* what the firmware consumer is doing      */
-#define IOTDATA_NODE_ACTION_CONTENT_OTA_APPLY          0x05 /* args: u24 id, take this one NOW          */
+#define IOTDATA_NODE_ACTION_CONTENT_LIST       0x00 /* to the node's own console                */
+#define IOTDATA_NODE_ACTION_CONTENT_DELETE     0x01 /* args: u24 content id                     */
+#define IOTDATA_NODE_ACTION_CONTENT_INSPECT    0x02 /* args: u24 id, to the node's own console  */
+#define IOTDATA_NODE_ACTION_CONTENT_VALIDATE   0x03 /* args: u24 id, reads it back and sums it  */
+#define IOTDATA_NODE_ACTION_CONTENT_OTA_STATUS 0x04 /* what the firmware consumer is doing      */
+#define IOTDATA_NODE_ACTION_CONTENT_OTA_APPLY  0x05 /* args: u24 id, take this one NOW          */
+/* The OFFERS half: what a node says content IS, as opposed to what it is holding. §3's manifest
+   has no source in the protocol -- "how a content-id comes to exist is NOT the protocol's
+   business" -- so the source is a person, and these are how they reach a node. The fields are
+   exactly the ones no amount of reading the file would reveal: the size and the gross hash are
+   taken from the store, by the node, when it authors the entry. */
+#define IOTDATA_NODE_ACTION_CONTENT_MANIFEST_SET \
+    0x06                                                    /* args: u24 id, u8 encoding, u16 expiry-m, \
+                                                               u24 sig-id, name NUL-terminated         */
+#define IOTDATA_NODE_ACTION_CONTENT_MANIFEST_LIST      0x07 /* the offers, to the node's own console    */
+#define IOTDATA_NODE_ACTION_CONTENT_ADVERTISE          0x08 /* args: u24 id, u16 audience (0xFFF = all) */
+#define IOTDATA_NODE_ACTION_CONTENT_REVOKE             0x09 /* args: u24 id -- say so, then destroy it  */
 
 /* --- NODE management actions ----------------------------------------------------------------- */
 #define IOTDATA_NODE_ACTION_NODE_STATIONS_DUMP         0x00
@@ -670,13 +681,20 @@ static inline uint8_t iotdata_node_status_entry_size(const uint8_t entry_key) {
 static inline void iotdata_node_entry_put_u8(uint8_t *const row, const size_t at, const uint8_t v) {
     row[at] = v;
 }
-/* Big-endian field accessors, so a builder and a reader cannot disagree about the layout. */
 static inline void iotdata_node_entry_put_u16(uint8_t *const row, const size_t at, const uint16_t v) {
     row[at] = (uint8_t)(v >> 8);
     row[at + 1] = (uint8_t)v;
 }
 static inline uint16_t iotdata_node_entry_get_u16(const uint8_t *const row, const size_t at) {
     return (uint16_t)(((uint16_t)row[at] << 8) | row[at + 1]);
+}
+static inline void iotdata_node_entry_put_u24(uint8_t *const row, const size_t at, const uint32_t v) {
+    row[at] = (uint8_t)(v >> 16);
+    row[at + 1] = (uint8_t)(v >> 8);
+    row[at + 2] = (uint8_t)v;
+}
+static inline uint32_t iotdata_node_entry_get_u24(const uint8_t *const row, const size_t at) {
+    return ((uint32_t)row[at] << 16) | ((uint32_t)row[at + 1] << 8) | (uint32_t)row[at + 2];
 }
 static inline void iotdata_node_entry_put_u32(uint8_t *const row, const size_t at, const uint32_t v) {
     row[at] = (uint8_t)(v >> 24);
@@ -687,13 +705,15 @@ static inline void iotdata_node_entry_put_u32(uint8_t *const row, const size_t a
 static inline uint32_t iotdata_node_entry_get_u32(const uint8_t *const row, const size_t at) {
     return ((uint32_t)row[at] << 24) | ((uint32_t)row[at + 1] << 16) | ((uint32_t)row[at + 2] << 8) | (uint32_t)row[at + 3];
 }
-static inline void iotdata_node_entry_put_u24(uint8_t *const row, const size_t at, const uint32_t v) {
-    row[at] = (uint8_t)(v >> 16);
-    row[at + 1] = (uint8_t)(v >> 8);
-    row[at + 2] = (uint8_t)v;
+static inline void iotdata_node_entry_put_u64(uint8_t *const row, const size_t at, const uint64_t v) {
+    for (size_t i = 0; i < 8u; i++)
+        row[at + i] = (uint8_t)(v >> (8u * (7u - i)));
 }
-static inline uint32_t iotdata_node_entry_get_u24(const uint8_t *const row, const size_t at) {
-    return ((uint32_t)row[at] << 16) | ((uint32_t)row[at + 1] << 8) | (uint32_t)row[at + 2];
+static inline uint64_t iotdata_node_entry_get_u64(const uint8_t *const row, const size_t at) {
+    uint64_t v = 0;
+    for (size_t i = 0; i < 8u; i++)
+        v = (v << 8) | (uint64_t)row[at + i];
+    return v;
 }
 
 /* AN AGE IS A u24 OF SECONDS wherever a row carries one, and every writer goes through this so the
@@ -1193,6 +1213,222 @@ static inline bool iotdata_node_receive_fits_s(const size_t bytes, const uint32_
 /* Is the window this station advertised long enough to be worth transmitting `bytes` into? */
 static inline bool iotdata_node_receive_fits(const iotdata_node_receive_t *const r, const size_t bytes, const uint32_t bps) {
     return iotdata_node_receive_fits_s(bytes, bps, iotdata_node_receive_window_s(r));
+}
+
+/* -------------------------------------------------------------------------
+ * CONTENT codec  (NOTES_CONTENT.md §3, §5)
+ *
+ * CONTENT is the one system TLV that is NOT a kvr. All three sub-kinds share one 32-bit header --
+ * sub-kind:4 | tag:4 | id:24 -- so a decoder reads four bytes and switches on a nibble, and what
+ * follows is packed positional:
+ *
+ *   MANIFEST : header | size:u24 | hash:u64 | sig-id:u24 | expiry:u16 | encoding:u8 | name:NUL
+ *   RANGES   : header | maxframes:4 | reserved:4 | [ start:u16, count:u8 ] * N
+ *   CHUNKS   : header |                            [ start:u16, count:u8, data ] * M
+ *
+ * ONLY MANIFEST IS HERE. The other two arrive with the requester and the responder, where their
+ * tests can be about behaviour rather than round-trips; the header they share is already below.
+ *
+ * THE ID IS ALWAYS THE CONTENT-ID, AND THE TAG MEANS SOMETHING DIFFERENT IN EACH, which is what
+ * lets one header serve all three: the generation in MANIFEST, the requester's attempt in RANGES,
+ * and that attempt echoed back in CHUNKS.
+ *
+ * ONE MANIFEST PER TLV. A frame offering several flavours carries several MANIFEST TLVs, which the
+ * framing already allows -- so there is no repeating group to delimit here, no entry key, no
+ * nesting, and no length field that can disagree with the TLV's own.
+ *
+ * `iotdata_content_*` IS THE WIRE; `iotdata_node_content_*` IS A NODE'S STORE, in
+ * iotdata-platform. Two namespaces on purpose: the store is written against a backend and nothing
+ * else, and is tested on a host without this library, so it cannot be where the codec lives. The
+ * spelling follows NOTES_CONTENT §13, which fixed these three names before either existed.
+ *
+ * WHAT THIS VALIDATES, AND WHAT IT DOES NOT. Structure only: the length, the sub-kind, and that
+ * the name's terminator falls inside the value. Whether the id is ASSIGNABLE (§4 makes the top
+ * twelve bits 0x000 and 0xFFF malformed by construction) and whether an expiry has run out are
+ * questions about MEANING, and they belong to whoever keeps the table -- which is the store, for
+ * the reason above.
+ * ----------------------------------------------------------------------- */
+
+#define IOTDATA_CONTENT_MANIFEST                    0x0 /* one manifest, one content-id */
+#define IOTDATA_CONTENT_RANGES                      0x1 /* which chunks are wanted      */
+#define IOTDATA_CONTENT_CHUNKS                      0x2 /* the chunks themselves        */
+
+#define IOTDATA_CONTENT_HEADER_SIZE                 4u
+#define IOTDATA_CONTENT_MANIFEST_SIZE               22u /* the header, the six fixed fields, and a lone NUL */
+#define IOTDATA_CONTENT_TAG_MAX                     0x0Fu
+#define IOTDATA_CONTENT_ID_MAX                      0xFFFFFFu
+#define IOTDATA_CONTENT_SIZE_MAX                    0xFFFFFFu
+
+/* §4: chunks are 32 bytes system-wide and the index is u16, so 2 MiB is the ceiling an object
+   actually has -- `size` is u24 and carries headroom it will never use. The wider field is kept
+   because the only route to two bytes is counting chunks and carrying the final short chunk's
+   length separately, which is the same three bytes with an extra field and a padding question.
+ *
+ * d_module_filestore.h states this number too, as D_FILESTORE_CHUNK_BYTES, because a d_ module
+ * must be includable without this library. Neither can include the other, so the duplicate is
+ * unavoidable -- iotdata_node_content_control.h sees both and asserts they agree. */
+#define IOTDATA_CONTENT_CHUNK_BYTES                 32u
+#define IOTDATA_CONTENT_CHUNKS_MAX                  65536u
+#define IOTDATA_CONTENT_OBJECT_MAX                  (IOTDATA_CONTENT_CHUNKS_MAX * IOTDATA_CONTENT_CHUNK_BYTES)
+
+/* §3: minutes from receipt, never an absolute time -- every node has a monotonic clock and none of
+   them need a shared one. Minutes because u16 seconds caps at 18 hours and a 512 KiB transfer at a
+   1% duty cycle takes two days: the offer would expire mid-transfer. */
+#define IOTDATA_CONTENT_EXPIRY_REVOKED              0x0000u /* re-advertise with this and every holder drops it */
+#define IOTDATA_CONTENT_EXPIRY_INDEFINITE           0xFFFFu /* the COMMON case: an offer stands until replaced  */
+
+/* §3: a sig-id of 0 says THIS IS a signature stream, which is the base case rather than an
+   exception -- naming a stream for a stream would recurse without end. It needs no flag because
+   §4 already makes 0x000xxx unassignable, so the value was never available to mean anything else.
+ *
+ * SO THE FIELD IS MANDATORY WHERE A PERSON STATES IT AND FORGIVING EVERYWHERE ELSE, which is how
+ * §3's "always provided, optional to use" lands in code. The split, decided rather than drifted
+ * into:
+ *
+ *   this codec, and the offers table above it, take ANY value including 0. A manifest arriving off
+ *   the air may legitimately be a signature stream's own, and refusing one would make this
+ *   implementation the arbiter of somebody else's.
+ *
+ *   the two places a PERSON describes an offer -- the control vocabulary's argv parser and the
+ *   control tool -- have NO DEFAULT for it and will not build the command without one. Forgetting
+ *   the stream is therefore impossible, while saying `self` (the deliberate zero, for a stream's
+ *   own manifest) stays available.
+ *
+ * In practice that makes it mandatory by design and survivable by implementation, and it needs no
+ * second sentinel: 0 keeps the one meaning §3 gave it, because the only way to send it is to say
+ * so on purpose. */
+#define IOTDATA_CONTENT_SIG_NONE                    0x000000u
+
+/* §3's encoding byte: what it IS, and how it was wrapped, as two nibbles. The nibbles answer "can
+   I decode this at all", which every node including an 8-bit one must decide without parsing a
+   string; the name is for the human and for OTA platform/semver matching.
+ *
+ * THE HIGH BIT OF EACH NIBBLE MEANS PROPRIETARY, and it earns its place: an unknown STANDARD value
+ * means "my firmware is older than this manifest" and a newer build might cope, where an unknown
+ * PROPRIETARY one means "this was never meant for me". One bit tells a version problem from a
+ * scope problem. */
+#define IOTDATA_CONTENT_TYPE_BINARY                 0x0
+#define IOTDATA_CONTENT_TYPE_BSDIFF                 0x1
+#define IOTDATA_CONTENT_TYPE_TARBALL                0x2
+#define IOTDATA_CONTENT_TYPE_ZIPFILE                0x3
+#define IOTDATA_CONTENT_COMPRESS_NONE               0x0
+#define IOTDATA_CONTENT_COMPRESS_HEATSHRINK         0x1
+#define IOTDATA_CONTENT_COMPRESS_XZ                 0x2
+#define IOTDATA_CONTENT_COMPRESS_GZIP               0x3
+#define IOTDATA_CONTENT_NIBBLE_PROPRIETARY          0x8 /* set in either nibble */
+
+#define IOTDATA_CONTENT_ENCODING(type, compression) ((uint8_t)((((uint8_t)(type) & 0x0Fu) << 4) | ((uint8_t)(compression) & 0x0Fu)))
+
+static inline uint8_t iotdata_content_encoding_type(const uint8_t encoding) {
+    return (uint8_t)(encoding >> 4);
+}
+static inline uint8_t iotdata_content_encoding_compression(const uint8_t encoding) {
+    return (uint8_t)(encoding & 0x0Fu);
+}
+static inline bool iotdata_content_nibble_is_proprietary(const uint8_t nibble) {
+    return (nibble & (uint8_t)IOTDATA_CONTENT_NIBBLE_PROPRIETARY) != 0u;
+}
+
+/* 32 bytes is a RECOMMENDATION and not a limit (§3): nothing breaks at 200, you simply fit fewer
+   manifests per frame -- an entry is 22 bytes without a name, so 32 keeps four to a frame and 64
+   drops it to three. It is here for whoever needs a number to size a buffer by, and the codec does
+   not enforce it. */
+#define IOTDATA_CONTENT_NAME_RECOMMENDED 32u
+
+/* §3's manifest. `name` POINTS INTO THE VALUE after a parse, with no copy and no terminator to
+   append, which is the reason it is NUL-terminated on the wire rather than length-prefixed -- so
+   it is valid only as long as the frame buffer is, and anything keeping a manifest copies it. It
+   is never NULL after a successful parse: a lone NUL is no name and reads as "". */
+typedef struct {
+    uint32_t id;        /* the header's, u24 */
+    uint8_t generation; /* the header's tag: bumped by the advertiser on every re-origination */
+    uint32_t size;      /* u24, of the ON-AIR object, before any decoding */
+    uint64_t hash;      /* CRC-64/XZ of that whole on-air object */
+    uint32_t sig_id;    /* u24, the block-hash stream; IOTDATA_CONTENT_SIG_NONE = this IS one */
+    uint16_t expiry_m;  /* minutes from receipt */
+    uint8_t encoding;   /* content-type:4 | compression:4 */
+    const char *name;   /* free text, and what it MEANS is the application's (§3) */
+} iotdata_content_manifest_t;
+
+/* The header every sub-kind starts with. Returns the length written, or 0. */
+static inline size_t iotdata_content_header_pack(uint8_t *const buf, const size_t size, const uint8_t kind, const uint8_t tag, const uint32_t id) {
+    if (buf == NULL || size < (size_t)IOTDATA_CONTENT_HEADER_SIZE || kind > 0x0Fu || tag > (uint8_t)IOTDATA_CONTENT_TAG_MAX || id > (uint32_t)IOTDATA_CONTENT_ID_MAX)
+        return 0;
+    buf[0] = (uint8_t)((uint8_t)(kind << 4) | tag);
+    iotdata_node_entry_put_u24(buf, 1, id);
+    return (size_t)IOTDATA_CONTENT_HEADER_SIZE;
+}
+
+/* Read it back. Any out pointer may be NULL -- a reader switching on the sub-kind wants only that
+   one, and asking for the id before it knows what it is looking at would be premature. */
+static inline bool iotdata_content_header_parse(const uint8_t *const val, const size_t vlen, uint8_t *const kind, uint8_t *const tag, uint32_t *const id) {
+    if (val == NULL || vlen < (size_t)IOTDATA_CONTENT_HEADER_SIZE)
+        return false;
+    if (kind != NULL)
+        *kind = (uint8_t)(val[0] >> 4);
+    if (tag != NULL)
+        *tag = (uint8_t)(val[0] & 0x0Fu);
+    if (id != NULL)
+        *id = iotdata_node_entry_get_u24(val, 1);
+    return true;
+}
+
+/* One MANIFEST TLV's value. Returns the length written, or 0 if it does not fit -- a manifest is
+   never truncated to fit, because a half-stated offer is not a smaller offer. */
+static inline size_t iotdata_content_manifest_pack(uint8_t *const buf, const size_t size, const iotdata_content_manifest_t *const m) {
+    if (buf == NULL || m == NULL)
+        return 0;
+    const char *const name = (m->name != NULL) ? m->name : "";
+    const size_t nlen = strlen(name), need = (size_t)IOTDATA_CONTENT_MANIFEST_SIZE + nlen;
+    if (need > size || m->size > (uint32_t)IOTDATA_CONTENT_SIZE_MAX || m->sig_id > (uint32_t)IOTDATA_CONTENT_ID_MAX)
+        return 0;
+    if (iotdata_content_header_pack(buf, size, (uint8_t)IOTDATA_CONTENT_MANIFEST, m->generation, m->id) == 0)
+        return 0;
+    iotdata_node_entry_put_u24(buf, 4, m->size);
+    iotdata_node_entry_put_u64(buf, 7, m->hash);
+    iotdata_node_entry_put_u24(buf, 15, m->sig_id);
+    iotdata_node_entry_put_u16(buf, 18, m->expiry_m);
+    iotdata_node_entry_put_u8(buf, 20, m->encoding);
+    memcpy(&buf[21], name, nlen);
+    buf[21 + nlen] = '\0';
+    return need;
+}
+
+/* Read one back. A value LONGER than the manifest it states is accepted and its tail ignored:
+   positional packing keeps a weak form of kvr's extensibility for nothing, because a field
+   APPENDED after the name is simply never read by a decoder that stops when it has consumed what
+   it knows. That is why new fields go at the end and never among these. */
+static inline bool iotdata_content_manifest_parse(const uint8_t *const val, const size_t vlen, iotdata_content_manifest_t *const out) {
+    uint8_t kind = 0, tag = 0;
+    uint32_t id = 0;
+    if (out == NULL || !iotdata_content_header_parse(val, vlen, &kind, &tag, &id))
+        return false;
+    if (kind != (uint8_t)IOTDATA_CONTENT_MANIFEST || vlen < (size_t)IOTDATA_CONTENT_MANIFEST_SIZE)
+        return false;
+    /* THE TERMINATOR MUST FALL INSIDE THE VALUE, and finding it is the only scan here. A value
+       with no NUL from offset 21 on is not a manifest: there is no length field to consult for a
+       second opinion, which is precisely the property that choice was made for. */
+    size_t n = 21u;
+    while (n < vlen && val[n] != '\0')
+        n++;
+    if (n >= vlen)
+        return false;
+    out->id = id;
+    out->generation = tag;
+    out->size = iotdata_node_entry_get_u24(val, 4);
+    out->hash = iotdata_node_entry_get_u64(val, 7);
+    out->sig_id = iotdata_node_entry_get_u24(val, 15);
+    out->expiry_m = iotdata_node_entry_get_u16(val, 18);
+    out->encoding = val[20];
+    out->name = (const char *)&val[21];
+    return true;
+}
+
+/* How many 32-byte chunks an object of this many bytes occupies -- the final one is short whenever
+   the size is not a multiple of 32, and the wire has no special case for it (§4). 0 bytes is 0
+   chunks, which is not a legal object but is the honest answer. */
+static inline uint32_t iotdata_content_chunks_for(const uint32_t size) {
+    return (size + (uint32_t)IOTDATA_CONTENT_CHUNK_BYTES - 1u) / (uint32_t)IOTDATA_CONTENT_CHUNK_BYTES;
 }
 
 /* -------------------------------------------------------------------------
