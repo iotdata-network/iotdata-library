@@ -1,5 +1,38 @@
 
 /* ---------------------------------------------------------------------------
+ * Field identifiers
+ *
+ * EVERY FIELD CARRIES TWO NUMBERS, AND THEY ARE NOT THE SAME NUMBER.
+ *
+ *   IOTDATA_FIELD_<NAME>     the iotdata_field_type_t enum member    BUILD-LOCAL
+ *   IOTDATA_FIELD_ID_<NAME>  the identifier, defined in its block    STABLE
+ *
+ * The enum is dense and moves with IOTDATA_ENABLE_*, because it doubles as a bit position in the
+ * uint32_t presence mask and as an index into a flat ops table. That makes it a good handle
+ * inside one program and meaningless between two: enable one more field and every ordinal after
+ * it shifts. The identifier does not move, so it is the one that can be written down, kept, or
+ * handed to a peer that was built differently.
+ *
+ * NOTHING IN THE BASE PROTOCOL USES THEM, and that is the point of having them separate. A
+ * point-to-point, mesh or relay implementation encodes and decodes entirely from its own
+ * compiled-in fields and never needs a number anyone else agrees with. The identifiers exist for
+ * the layer above: the node VARIANT TLV in iotdata_node.h puts them on the wire so a peer can
+ * learn what this node's presence slots carry, which is what turns a purely local map into
+ * something a stranger can read. See that header's VARIANT notes.
+ *
+ * NUMBERING. Identifiers are opaque -- compared, never calculated with. They are grouped only so
+ * a person reading a capture can see the shape: sixteen to a family, and by convention x0..x7 are
+ * a family's atomic fields while x8..xF are the composites over them, so ENVIRONMENT at 0x0018 is
+ * temperature, pressure and humidity in one slot. The gaps let a new sibling sit beside its
+ * relatives instead of on the end. 0x0000 is left unassigned so that a zeroed buffer is not a
+ * valid field, and the upper half of the space is the implementer's -- iotdata_node.h states the
+ * boundary, because it owns the wire.
+ *
+ * TLV HAS NO IDENTIFIER. It is reserved, it never occupies a data presence slot, and it is the
+ * escape hatch from typed telemetry rather than a kind of it.
+ * -------------------------------------------------------------------------*/
+
+/* ---------------------------------------------------------------------------
  * Field BATTERY
  * -------------------------------------------------------------------------*/
 
@@ -13,6 +46,7 @@
 #if !defined(IOTDATA_NO_ENCODE)
 enum iotdata_status_t_ iotdata_encode_battery(struct iotdata_encoder_t_ *enc, uint8_t level_percent, bool charging);
 #endif
+#define IOTDATA_FIELD_ID_BATTERY              0x0001u
 #define IOTDATA_FIELDS_DEF_BATTERY(F)         F(BATTERY)
 #define IOTDATA_FIELDS_OPS_BATTERY(E)         E(BATTERY, _iotdata_field_def_battery)
 #define IOTDATA_FIELDS_ERR_IDENTS_BATTERY(S)  S(IOTDATA_ERR_BATTERY_LEVEL_HIGH)
@@ -50,6 +84,7 @@ enum iotdata_status_t_ iotdata_encode_battery(struct iotdata_encoder_t_ *enc, ui
 #if !defined(IOTDATA_NO_ENCODE)
 enum iotdata_status_t_ iotdata_encode_link(struct iotdata_encoder_t_ *enc, int8_t rssi_dbm, iotdata_float_t snr_db);
 #endif
+#define IOTDATA_FIELD_ID_LINK      0x0002u
 #define IOTDATA_FIELDS_DEF_LINK(F) F(LINK)
 #define IOTDATA_FIELDS_OPS_LINK(E) E(LINK, _iotdata_field_def_link)
 #define IOTDATA_FIELDS_ERR_IDENTS_LINK(S) \
@@ -89,6 +124,7 @@ enum iotdata_status_t_ iotdata_encode_link(struct iotdata_encoder_t_ *enc, int8_
 #if !defined(IOTDATA_NO_ENCODE)
 enum iotdata_status_t_ iotdata_encode_temperature(struct iotdata_encoder_t_ *enc, iotdata_float_t temperature_c);
 #endif
+#define IOTDATA_FIELD_ID_TEMPERATURE      0x0010u
 #define IOTDATA_FIELDS_DEF_TEMPERATURE(F) F(TEMPERATURE)
 #define IOTDATA_FIELDS_ERR_IDENTS_TEMPERATURE(S) \
     S(IOTDATA_ERR_TEMPERATURE_LOW) \
@@ -115,6 +151,7 @@ enum iotdata_status_t_ iotdata_encode_temperature(struct iotdata_encoder_t_ *enc
 #if !defined(IOTDATA_NO_ENCODE)
 enum iotdata_status_t_ iotdata_encode_pressure(struct iotdata_encoder_t_ *enc, uint16_t pressure_hpa);
 #endif
+#define IOTDATA_FIELD_ID_PRESSURE      0x0011u
 #define IOTDATA_FIELDS_DEF_PRESSURE(F) F(PRESSURE)
 #define IOTDATA_FIELDS_ERR_IDENTS_PRESSURE(S) \
     S(IOTDATA_ERR_PRESSURE_LOW) \
@@ -140,6 +177,7 @@ enum iotdata_status_t_ iotdata_encode_pressure(struct iotdata_encoder_t_ *enc, u
 #if !defined(IOTDATA_NO_ENCODE)
 enum iotdata_status_t_ iotdata_encode_humidity(struct iotdata_encoder_t_ *enc, uint8_t humidity_pct);
 #endif
+#define IOTDATA_FIELD_ID_HUMIDITY              0x0012u
 #define IOTDATA_FIELDS_DEF_HUMIDITY(F)         F(HUMIDITY)
 #define IOTDATA_FIELDS_ERR_IDENTS_HUMIDITY(S)  S(IOTDATA_ERR_HUMIDITY_HIGH)
 #define IOTDATA_FIELDS_ERR_STRINGS_HUMIDITY(D) D(IOTDATA_ERR_HUMIDITY_HIGH, "Humidity above 100%")
@@ -158,6 +196,7 @@ enum iotdata_status_t_ iotdata_encode_humidity(struct iotdata_encoder_t_ *enc, u
 #if !defined(IOTDATA_NO_ENCODE)
 enum iotdata_status_t_ iotdata_encode_environment(struct iotdata_encoder_t_ *enc, iotdata_float_t temp_c, uint16_t pressure_hpa, uint8_t humidity_pct);
 #endif
+#define IOTDATA_FIELD_ID_ENVIRONMENT      0x0018u
 #define IOTDATA_FIELDS_DEF_ENVIRONMENT(F) F(ENVIRONMENT)
 #define IOTDATA_FIELDS_OPS_ENVIRONMENT(E) E(ENVIRONMENT, _iotdata_field_def_environment)
 #else
@@ -193,6 +232,7 @@ enum iotdata_status_t_ iotdata_encode_wind_speed(struct iotdata_encoder_t_ *enc,
 #define IOTDATA_FIELDS_ERR_STRINGS_WIND_SPEED(D)
 #endif
 #if defined(IOTDATA_ENABLE_WIND_SPEED)
+#define IOTDATA_FIELD_ID_WIND_SPEED      0x0020u
 #define IOTDATA_FIELDS_DEF_WIND_SPEED(F) F(WIND_SPEED)
 #define IOTDATA_FIELDS_OPS_WIND_SPEED(E) E(WIND_SPEED, _iotdata_field_def_wind_speed)
 #else
@@ -214,6 +254,7 @@ enum iotdata_status_t_ iotdata_encode_wind_direction(struct iotdata_encoder_t_ *
 #define IOTDATA_FIELDS_ERR_STRINGS_WIND_DIRECTION(D)
 #endif
 #if defined(IOTDATA_ENABLE_WIND_DIRECTION)
+#define IOTDATA_FIELD_ID_WIND_DIRECTION      0x0021u
 #define IOTDATA_FIELDS_DEF_WIND_DIRECTION(F) F(WIND_DIRECTION)
 #define IOTDATA_FIELDS_OPS_WIND_DIRECTION(E) E(WIND_DIRECTION, _iotdata_field_def_wind_direction)
 #else
@@ -234,6 +275,7 @@ enum iotdata_status_t_ iotdata_encode_wind_gust(struct iotdata_encoder_t_ *enc, 
 #define IOTDATA_FIELDS_ERR_STRINGS_WIND_GUST(D)
 #endif
 #if defined(IOTDATA_ENABLE_WIND_GUST)
+#define IOTDATA_FIELD_ID_WIND_GUST      0x0022u
 #define IOTDATA_FIELDS_DEF_WIND_GUST(F) F(WIND_GUST)
 #define IOTDATA_FIELDS_OPS_WIND_GUST(E) E(WIND_GUST, _iotdata_field_def_wind_gust)
 #else
@@ -244,6 +286,7 @@ enum iotdata_status_t_ iotdata_encode_wind_gust(struct iotdata_encoder_t_ *enc, 
 #if !defined(IOTDATA_NO_ENCODE)
 enum iotdata_status_t_ iotdata_encode_wind(struct iotdata_encoder_t_ *enc, iotdata_float_t speed_ms, uint16_t direction_deg, iotdata_float_t gust_ms);
 #endif
+#define IOTDATA_FIELD_ID_WIND      0x0028u
 #define IOTDATA_FIELDS_DEF_WIND(F) F(WIND)
 #define IOTDATA_FIELDS_OPS_WIND(E) E(WIND, _iotdata_field_def_wind)
 #else
@@ -273,6 +316,7 @@ enum iotdata_status_t_ iotdata_encode_rain_rate(struct iotdata_encoder_t_ *enc, 
 #define IOTDATA_FIELDS_ERR_STRINGS_RAIN_RATE(D)
 #endif
 #if defined(IOTDATA_ENABLE_RAIN_RATE)
+#define IOTDATA_FIELD_ID_RAIN_RATE      0x0030u
 #define IOTDATA_FIELDS_DEF_RAIN_RATE(F) F(RAIN_RATE)
 #define IOTDATA_FIELDS_OPS_RAIN_RATE(E) E(RAIN_RATE, _iotdata_field_def_rain_rate)
 #else
@@ -295,6 +339,7 @@ enum iotdata_status_t_ iotdata_encode_rain_size(struct iotdata_encoder_t_ *enc, 
 #define IOTDATA_FIELDS_ERR_STRINGS_RAIN_SIZE(D)
 #endif
 #if defined(IOTDATA_ENABLE_RAIN_SIZE)
+#define IOTDATA_FIELD_ID_RAIN_SIZE      0x0031u
 #define IOTDATA_FIELDS_DEF_RAIN_SIZE(F) F(RAIN_SIZE)
 #define IOTDATA_FIELDS_OPS_RAIN_SIZE(E) E(RAIN_SIZE, _iotdata_field_def_rain_size)
 #else
@@ -305,6 +350,7 @@ enum iotdata_status_t_ iotdata_encode_rain_size(struct iotdata_encoder_t_ *enc, 
 #if !defined(IOTDATA_NO_ENCODE)
 enum iotdata_status_t_ iotdata_encode_rain(struct iotdata_encoder_t_ *enc, uint8_t rate_mmhr, uint8_t size_mmd);
 #endif
+#define IOTDATA_FIELD_ID_RAIN      0x0038u
 #define IOTDATA_FIELDS_DEF_RAIN(F) F(RAIN)
 #define IOTDATA_FIELDS_OPS_RAIN(E) E(RAIN, _iotdata_field_def_rain)
 #else
@@ -330,6 +376,7 @@ enum iotdata_status_t_ iotdata_encode_rain(struct iotdata_encoder_t_ *enc, uint8
 #if !defined(IOTDATA_NO_ENCODE)
 enum iotdata_status_t_ iotdata_encode_solar(struct iotdata_encoder_t_ *enc, uint16_t irradiance_wm2, uint8_t ultraviolet_index);
 #endif
+#define IOTDATA_FIELD_ID_SOLAR      0x0040u
 #define IOTDATA_FIELDS_DEF_SOLAR(F) F(SOLAR)
 #define IOTDATA_FIELDS_OPS_SOLAR(E) E(SOLAR, _iotdata_field_def_solar)
 #define IOTDATA_FIELDS_ERR_IDENTS_SOLAR(S) \
@@ -357,6 +404,7 @@ enum iotdata_status_t_ iotdata_encode_solar(struct iotdata_encoder_t_ *enc, uint
 #if !defined(IOTDATA_NO_ENCODE)
 enum iotdata_status_t_ iotdata_encode_clouds(struct iotdata_encoder_t_ *enc, uint8_t okta);
 #endif
+#define IOTDATA_FIELD_ID_CLOUDS              0x0041u
 #define IOTDATA_FIELDS_DEF_CLOUDS(F)         F(CLOUDS)
 #define IOTDATA_FIELDS_OPS_CLOUDS(E)         E(CLOUDS, _iotdata_field_def_clouds)
 #define IOTDATA_FIELDS_ERR_IDENTS_CLOUDS(S)  S(IOTDATA_ERR_CLOUDS_HIGH)
@@ -389,6 +437,7 @@ enum iotdata_status_t_ iotdata_encode_air_quality_index(struct iotdata_encoder_t
 #define IOTDATA_FIELDS_ERR_STRINGS_AIR_QUALITY_INDEX(D)
 #endif
 #if defined(IOTDATA_ENABLE_AIR_QUALITY_INDEX)
+#define IOTDATA_FIELD_ID_AIR_QUALITY_INDEX      0x0050u
 #define IOTDATA_FIELDS_DEF_AIR_QUALITY_INDEX(F) F(AIR_QUALITY_INDEX)
 #define IOTDATA_FIELDS_OPS_AIR_QUALITY_INDEX(E) E(AIR_QUALITY_INDEX, _iotdata_field_def_aq_index)
 #else
@@ -421,6 +470,7 @@ enum iotdata_status_t_ iotdata_encode_air_quality_pm(struct iotdata_encoder_t_ *
 #define IOTDATA_FIELDS_ERR_STRINGS_AIR_QUALITY_PM(D)
 #endif
 #if defined(IOTDATA_ENABLE_AIR_QUALITY_PM)
+#define IOTDATA_FIELD_ID_AIR_QUALITY_PM      0x0051u
 #define IOTDATA_FIELDS_DEF_AIR_QUALITY_PM(F) F(AIR_QUALITY_PM)
 #define IOTDATA_FIELDS_OPS_AIR_QUALITY_PM(E) E(AIR_QUALITY_PM, _iotdata_field_def_aq_pm)
 #else
@@ -480,6 +530,7 @@ enum iotdata_status_t_ iotdata_encode_air_quality_gas(struct iotdata_encoder_t_ 
 #define IOTDATA_FIELDS_ERR_STRINGS_AIR_QUALITY_GAS(D)
 #endif
 #if defined(IOTDATA_ENABLE_AIR_QUALITY_GAS)
+#define IOTDATA_FIELD_ID_AIR_QUALITY_GAS      0x0052u
 #define IOTDATA_FIELDS_DEF_AIR_QUALITY_GAS(F) F(AIR_QUALITY_GAS)
 #define IOTDATA_FIELDS_OPS_AIR_QUALITY_GAS(E) E(AIR_QUALITY_GAS, _iotdata_field_def_aq_gas)
 #else
@@ -490,6 +541,7 @@ enum iotdata_status_t_ iotdata_encode_air_quality_gas(struct iotdata_encoder_t_ 
 #if !defined(IOTDATA_NO_ENCODE)
 enum iotdata_status_t_ iotdata_encode_air_quality(struct iotdata_encoder_t_ *enc, uint16_t aq_index, uint8_t pm_present, const uint16_t pm[4], uint8_t gas_present, const uint16_t gas[8]);
 #endif
+#define IOTDATA_FIELD_ID_AIR_QUALITY      0x0058u
 #define IOTDATA_FIELDS_DEF_AIR_QUALITY(F) F(AIR_QUALITY)
 #define IOTDATA_FIELDS_OPS_AIR_QUALITY(E) E(AIR_QUALITY, _iotdata_field_def_air_quality)
 #else
@@ -519,6 +571,7 @@ enum iotdata_status_t_ iotdata_encode_radiation_cpm(struct iotdata_encoder_t_ *e
 #define IOTDATA_FIELDS_ERR_STRINGS_RADIATION_CPM(D)
 #endif
 #if defined(IOTDATA_ENABLE_RADIATION_CPM)
+#define IOTDATA_FIELD_ID_RADIATION_CPM      0x0060u
 #define IOTDATA_FIELDS_DEF_RADIATION_CPM(F) F(RADIATION_CPM)
 #define IOTDATA_FIELDS_OPS_RADIATION_CPM(E) E(RADIATION_CPM, _iotdata_field_def_radiation_cpm)
 #else
@@ -546,6 +599,7 @@ enum iotdata_status_t_ iotdata_encode_radiation_dose(struct iotdata_encoder_t_ *
 #define IOTDATA_FIELDS_ERR_STRINGS_RADIATION_DOSE(D)
 #endif
 #if defined(IOTDATA_ENABLE_RADIATION_DOSE)
+#define IOTDATA_FIELD_ID_RADIATION_DOSE      0x0061u
 #define IOTDATA_FIELDS_DEF_RADIATION_DOSE(F) F(RADIATION_DOSE)
 #define IOTDATA_FIELDS_OPS_RADIATION_DOSE(E) E(RADIATION_DOSE, _iotdata_field_def_radiation_dose)
 #else
@@ -556,6 +610,7 @@ enum iotdata_status_t_ iotdata_encode_radiation_dose(struct iotdata_encoder_t_ *
 #if !defined(IOTDATA_NO_ENCODE)
 enum iotdata_status_t_ iotdata_encode_radiation(struct iotdata_encoder_t_ *enc, uint16_t cpm, iotdata_float_t usvh);
 #endif
+#define IOTDATA_FIELD_ID_RADIATION      0x0068u
 #define IOTDATA_FIELDS_DEF_RADIATION(F) F(RADIATION)
 #define IOTDATA_FIELDS_OPS_RADIATION(E) E(RADIATION, _iotdata_field_def_radiation)
 #else
@@ -577,6 +632,7 @@ enum iotdata_status_t_ iotdata_encode_radiation(struct iotdata_encoder_t_ *enc, 
 #if !defined(IOTDATA_NO_ENCODE)
 enum iotdata_status_t_ iotdata_encode_depth(struct iotdata_encoder_t_ *enc, uint16_t depth_cm);
 #endif
+#define IOTDATA_FIELD_ID_DEPTH              0x0070u
 #define IOTDATA_FIELDS_DEF_DEPTH(F)         F(DEPTH)
 #define IOTDATA_FIELDS_OPS_DEPTH(E)         E(DEPTH, _iotdata_field_def_depth)
 #define IOTDATA_FIELDS_ERR_IDENTS_DEPTH(S)  S(IOTDATA_ERR_DEPTH_HIGH)
@@ -623,6 +679,7 @@ enum iotdata_status_t_ iotdata_encode_depth(struct iotdata_encoder_t_ *enc, uint
 #if !defined(IOTDATA_NO_ENCODE)
 enum iotdata_status_t_ iotdata_encode_position(struct iotdata_encoder_t_ *enc, iotdata_double_t latitude, iotdata_double_t longitude);
 #endif
+#define IOTDATA_FIELD_ID_POSITION      0x0080u
 #define IOTDATA_FIELDS_DEF_POSITION(F) F(POSITION)
 #define IOTDATA_FIELDS_OPS_POSITION(E) E(POSITION, _iotdata_field_def_position)
 #define IOTDATA_FIELDS_ERR_IDENTS_POSITION(S) \
@@ -655,6 +712,7 @@ enum iotdata_status_t_ iotdata_encode_position(struct iotdata_encoder_t_ *enc, i
 #if !defined(IOTDATA_NO_ENCODE)
 enum iotdata_status_t_ iotdata_encode_datetime(struct iotdata_encoder_t_ *enc, uint32_t seconds_from_year_start);
 #endif
+#define IOTDATA_FIELD_ID_DATETIME              0x0081u
 #define IOTDATA_FIELDS_DEF_DATETIME(F)         F(DATETIME)
 #define IOTDATA_FIELDS_OPS_DATETIME(E)         E(DATETIME, _iotdata_field_def_datetime)
 #define IOTDATA_FIELDS_ERR_IDENTS_DATETIME(S)  S(IOTDATA_ERR_DATETIME_HIGH)
@@ -751,6 +809,7 @@ typedef struct {
 #if !defined(IOTDATA_NO_ENCODE)
 enum iotdata_status_t_ iotdata_encode_image(struct iotdata_encoder_t_ *enc, uint8_t pixel_format, uint8_t size_tier, uint8_t compression, uint8_t flags, const uint8_t *data, uint8_t data_len);
 #endif
+#define IOTDATA_FIELD_ID_IMAGE      0x0090u
 #define IOTDATA_FIELDS_DEF_IMAGE(F) F(IMAGE)
 #define IOTDATA_FIELDS_OPS_IMAGE(E) E(IMAGE, _iotdata_field_def_image)
 #define IOTDATA_FIELDS_ERR_IDENTS_IMAGE(S) \
@@ -802,6 +861,7 @@ enum iotdata_status_t_ iotdata_encode_image(struct iotdata_encoder_t_ *enc, uint
 #if !defined(IOTDATA_NO_ENCODE)
 enum iotdata_status_t_ iotdata_encode_flags(struct iotdata_encoder_t_ *enc, uint8_t flags);
 #endif
+#define IOTDATA_FIELD_ID_FLAGS      0x00A0u
 #define IOTDATA_FIELDS_DEF_FLAGS(F) F(FLAGS)
 #define IOTDATA_FIELDS_OPS_FLAGS(E) E(FLAGS, _iotdata_field_def_flags)
 #else
@@ -822,6 +882,7 @@ enum iotdata_status_t_ iotdata_encode_flags(struct iotdata_encoder_t_ *enc, uint
 #if !defined(IOTDATA_NO_ENCODE)
 enum iotdata_status_t_ iotdata_encode_bits32(struct iotdata_encoder_t_ *enc, uint32_t bits32);
 #endif
+#define IOTDATA_FIELD_ID_BITS32      0x00A1u
 #define IOTDATA_FIELDS_DEF_BITS32(F) F(BITS32)
 #define IOTDATA_FIELDS_OPS_BITS32(E) E(BITS32, _iotdata_field_def_bits32)
 #else

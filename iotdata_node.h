@@ -288,11 +288,18 @@
  * whole or arrives later, receiving one twice is harmless, and the receiver merges by variant id.
  * What tells a receiver it has them ALL is PARTIAL, which is why there is no manifest here.
  *
- * REGISTRY (unfinished): a field id is its iotdata_field_type_t value today. That enum is generated
- * per build from the variant suite selected for it, so an id currently means something only within
- * one build and must not be persisted or compared between nodes. Making it global is a change to
- * the enum's numbering, not to anything here -- the encoding, the width and the framing are already
- * what they will be.
+ * WHERE AN ID COMES FROM: iotdata_fields.h gives every field an IOTDATA_FIELD_ID_ of its own,
+ * fixed and independent of what a build enabled, and iotdata_node_variant_field_id() below turns
+ * this build's iotdata_field_type_t into one. It has to be that way round: the enum is dense, it
+ * doubles as a bit position in the presence mask, and it shifts the moment another field is
+ * enabled -- so the enum is a handle inside one program, and the identifier is the thing that can
+ * be put on a wire. An id may be kept and compared between nodes; an enum value may not.
+ *
+ * STILL OPEN: the identifiers are assigned by hand in iotdata_fields.h, so nothing yet proves two
+ * fields were not given the same one. There is also no shared document of them -- the base
+ * protocol does not need one, since a point-to-point, mesh or relay implementation works entirely
+ * from its own compiled-in fields, and this TLV is what gives a local map a wider meaning. Both
+ * belong with the generator work, where the whole set is visible at once.
  * ----------------------------------------------------------------------- */
 
 #define IOTDATA_NODE_VARIANT_ENTRY             0x00 /* [variant:u8][field id:u16]*                        */
@@ -1446,17 +1453,31 @@ static inline size_t iotdata_node_variant_slots(const uint8_t num_pres_bytes) {
     return (num_pres_bytes == 0) ? 0u : (size_t)IOTDATA_PRES0_DATA_FIELDS + (size_t)IOTDATA_PRESN_DATA_FIELDS * (size_t)(num_pres_bytes - 1u);
 }
 
-/* The registry seam: a field's wire id is its iotdata_field_type_t value. That enum is generated
-   per build today, so the ids only mean anything within one; when its values become globally
-   assigned the same identity holds and this function does not change -- the registry work is in
-   the enum, not here. Anything the library does not consider a usable field id -- IOTDATA_FIELD_
-   NONE, and the reserved TLV pseudo-field, which is a presence flag rather than a data slot --
-   reads as an empty slot, and so does anything that would land in the implementer's half. */
+/* A build-local field type to the identifier that means the same thing everywhere. This is the
+   whole reason the identifiers exist: what a decoder is told must not depend on how the node that
+   told it was compiled, and iotdata_field_type_t does depend on exactly that.
+
+   Generated from IOTDATA_FIELDS_SELECTED, so a field that this build enabled has an answer here
+   by construction and one it did not cannot be asked about. Everything else -- NONE, a reserved
+   type, a value from nowhere -- falls to the default and reads as NONE, which is the same answer
+   the old guards gave and needs no separate check. */
 static inline uint16_t iotdata_node_variant_field_id(const iotdata_field_type_t type) {
-    if (!IOTDATA_FIELD_VALID(type) || (unsigned)type >= (unsigned)IOTDATA_NODE_VARIANT_FIELD_PROPRIETARY)
+    switch ((int)type) {
+#define IOTDATA_NODE_VARIANT_FIELD_ID_VISITOR_(name) \
+    case IOTDATA_FIELD_##name: \
+        return IOTDATA_FIELD_ID_##name;
+        IOTDATA_FIELDS_SELECTED(IOTDATA_NODE_VARIANT_FIELD_ID_VISITOR_)
+#undef IOTDATA_NODE_VARIANT_FIELD_ID_VISITOR_
+    default:
         return IOTDATA_NODE_VARIANT_FIELD_NONE;
-    return (uint16_t)type;
+    }
 }
+
+/* NOTE, while the identifiers are still assigned by hand: nothing above catches two fields given
+   the SAME identifier. The case labels here are the enum's ordinals, which are distinct whatever
+   the identifiers say, so a clash shows up only as two slots on the wire claiming to be the same
+   field. Checking that belongs to the generator, which sees the whole set at once rather than
+   just what one build enabled. */
 
 /* How many slots a definition actually states, with trailing empties trimmed: a definition with
    two fields in a three-byte presence map would otherwise spend 50 bytes saying "nothing" 25
