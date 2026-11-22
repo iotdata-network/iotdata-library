@@ -2238,7 +2238,11 @@ static const uint16_t _aq_gas_res[IOTDATA_AIR_QUALITY_GAS_COUNT] = {
     IOTDATA_AIR_QUALITY_GAS_RES_VOC,  IOTDATA_AIR_QUALITY_GAS_RES_NOX, IOTDATA_AIR_QUALITY_GAS_RES_CO2,   IOTDATA_AIR_QUALITY_GAS_RES_CO,
     IOTDATA_AIR_QUALITY_GAS_RES_HCHO, IOTDATA_AIR_QUALITY_GAS_RES_O3,  IOTDATA_AIR_QUALITY_GAS_RES_RSVD6, IOTDATA_AIR_QUALITY_GAS_RES_RSVD7,
 };
-#if defined(IOTDATA_ENABLE_AIR_QUALITY_GAS) && !defined(IOTDATA_NO_ENCODE) && !defined(IOTDATA_NO_CHECKS_TYPES)
+/* Already inside the GAS || AIR_QUALITY guard, so asking for GAS again was a NARROWING, and the
+   wrong one: the composite's setter reads this table, so with AIR_QUALITY enabled and the part
+   not, the table was missing while the code that indexes it was present. Its two siblings above
+   never carried that extra condition. */
+#if !defined(IOTDATA_NO_ENCODE) && !defined(IOTDATA_NO_CHECKS_TYPES)
 static const uint16_t _aq_gas_max[IOTDATA_AIR_QUALITY_GAS_COUNT] = {
     IOTDATA_AIR_QUALITY_GAS_MAX_VOC,  IOTDATA_AIR_QUALITY_GAS_MAX_NOX, IOTDATA_AIR_QUALITY_GAS_MAX_CO2,   IOTDATA_AIR_QUALITY_GAS_MAX_CO,
     IOTDATA_AIR_QUALITY_GAS_MAX_HCHO, IOTDATA_AIR_QUALITY_GAS_MAX_O3,  IOTDATA_AIR_QUALITY_GAS_MAX_RSVD6, IOTDATA_AIR_QUALITY_GAS_MAX_RSVD7,
@@ -2270,19 +2274,19 @@ static const char *_aq_gas_range[IOTDATA_AIR_QUALITY_GAS_COUNT] = {
 
 #if defined(IOTDATA_ENABLE_AIR_QUALITY_INDEX) || defined(IOTDATA_ENABLE_AIR_QUALITY)
 #if !defined(IOTDATA_NO_ENCODE)
-static uint32_t quantise_aq_index(uint16_t v) {
+static uint32_t quantise_air_quality_index(uint16_t v) {
     return (uint32_t)v;
 }
 #endif
 #if !defined(IOTDATA_NO_DECODE) || !defined(IOTDATA_NO_DUMP)
-static uint16_t dequantise_aq_index(uint32_t r) {
+static uint16_t dequantise_air_quality_index(uint32_t r) {
     return (uint16_t)r;
 }
 #endif
 #if !defined(IOTDATA_NO_ENCODE)
-static bool pack_aq_index(uint8_t *buf, size_t bb, size_t *bp, const void *vv) {
+static bool pack_air_quality_index(uint8_t *buf, size_t bb, size_t *bp, const void *vv) {
     const iotdata_field_air_quality_index_t *const v = vv;
-    return bits_write(buf, bb, bp, quantise_aq_index(v->aq_index), IOTDATA_AIR_QUALITY_INDEX_BITS);
+    return bits_write(buf, bb, bp, quantise_air_quality_index(v->aq_index), IOTDATA_AIR_QUALITY_INDEX_BITS);
 }
 #endif
 #if defined(IOTDATA_ENABLE_AIR_QUALITY_INDEX) && !defined(IOTDATA_NO_ENCODE)
@@ -2299,7 +2303,7 @@ iotdata_status_t iotdata_encode_air_quality_index_by_slot(iotdata_encoder_t *enc
 #endif
     iotdata_field_air_quality_index_t v;
     v.aq_index = aq_index;
-    PACK_DIRECT(enc, pack_aq_index, &v);
+    PACK_DIRECT(enc, pack_air_quality_index, &v);
     COMMIT_SLOT(enc, si, IOTDATA_FIELD_AIR_QUALITY_INDEX);
     return IOTDATA_OK;
 }
@@ -2325,11 +2329,11 @@ iotdata_status_t iotdata_encode_air_quality_index(iotdata_encoder_t *enc, uint16
 #endif
 #endif
 #if !defined(IOTDATA_NO_DECODE)
-static bool unpack_aq_index(const uint8_t *buf, size_t bb, size_t *bp, void *vv) {
+static bool unpack_air_quality_index(const uint8_t *buf, size_t bb, size_t *bp, void *vv) {
     iotdata_field_air_quality_index_t *const v = vv;
     if (*bp + IOTDATA_AIR_QUALITY_INDEX_BITS > bb)
         return false;
-    v->aq_index = dequantise_aq_index(bits_read(buf, bb, bp, IOTDATA_AIR_QUALITY_INDEX_BITS));
+    v->aq_index = dequantise_air_quality_index(bits_read(buf, bb, bp, IOTDATA_AIR_QUALITY_INDEX_BITS));
     return true;
 }
 #endif
@@ -2337,7 +2341,7 @@ static bool unpack_aq_index(const uint8_t *buf, size_t bb, size_t *bp, void *vv)
 iotdata_status_t iotdata_decode_air_quality_index(iotdata_decoder_t *dec, uint16_t *aq_index) {
 #if defined(IOTDATA_OPERATE_ORDERED)
     iotdata_field_air_quality_index_t v;
-    RESOLVE_DEC_FIELD(dec, IOTDATA_FIELD_AIR_QUALITY_INDEX, unpack_aq_index, &v);
+    RESOLVE_DEC_FIELD(dec, IOTDATA_FIELD_AIR_QUALITY_INDEX, unpack_air_quality_index, &v);
     if (aq_index)
         *aq_index = v.aq_index;
 #else
@@ -2349,14 +2353,14 @@ iotdata_status_t iotdata_decode_air_quality_index(iotdata_decoder_t *dec, uint16
 }
 #endif
 #if !defined(IOTDATA_NO_JSON) && !defined(IOTDATA_NO_DECODE)
-static void json_set_aq_index(cJSON *root, const void *vv, const char *label, iotdata_decode_to_json_scratch_t *scratch) {
+static void json_set_air_quality_index(cJSON *root, const void *vv, const char *label, iotdata_decode_to_json_scratch_t *scratch) {
     const iotdata_field_air_quality_index_t *const v = vv;
     (void)scratch;
     cJSON_AddNumberToObject(root, label, v->aq_index);
 }
 #endif
 #if defined(IOTDATA_ENABLE_AIR_QUALITY_INDEX) && !defined(IOTDATA_NO_JSON) && !defined(IOTDATA_NO_ENCODE)
-static iotdata_status_t json_get_aq_index(cJSON *root, iotdata_encoder_t *enc, const char *label, iotdata_encode_from_json_scratch_t *scratch) {
+static iotdata_status_t json_get_air_quality_index(cJSON *root, iotdata_encoder_t *enc, const char *label, iotdata_encode_from_json_scratch_t *scratch) {
     (void)scratch;
     cJSON *j = cJSON_GetObjectItem(root, label);
     if (!j)
@@ -2365,34 +2369,34 @@ static iotdata_status_t json_get_aq_index(cJSON *root, iotdata_encoder_t *enc, c
 }
 #endif
 #if !defined(IOTDATA_NO_DUMP)
-static int dump_aq_index(const uint8_t *buf, size_t bb, size_t *bp, iotdata_dump_t *dump, int n, const char *label) {
+static int dump_air_quality_index(const uint8_t *buf, size_t bb, size_t *bp, iotdata_dump_t *dump, int n, const char *label) {
     (void)label;
     size_t s = *bp;
     uint32_t r = bits_read(buf, bb, bp, IOTDATA_AIR_QUALITY_INDEX_BITS);
-    snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "%" PRIu16 " AQI", dequantise_aq_index(r));
+    snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "%" PRIu16 " AQI", dequantise_air_quality_index(r));
     n = dump_add(dump, n, s, IOTDATA_AIR_QUALITY_INDEX_BITS, r, dump->_dec_buf, "0..500 AQI", "aq_index");
     return n;
 }
 #endif
 #if !defined(IOTDATA_NO_PRINT) && !defined(IOTDATA_NO_DECODE)
-static void print_aq_index(const void *vv, iotdata_buf_t *bp, const char *label) {
+static void print_air_quality_index(const void *vv, iotdata_buf_t *bp, const char *label) {
     const iotdata_field_air_quality_index_t *const v = vv;
     bprintf(bp, "  %s:%s %" PRIu16 " AQI\n", label, _padd(label), v->aq_index);
 }
 #endif
 // clang-format off
 #if defined(IOTDATA_ENABLE_AIR_QUALITY_INDEX)
-static const iotdata_field_ops_t _iotdata_field_def_aq_index = {
+static const iotdata_field_ops_t _iotdata_field_def_air_quality_index = {
     _IOTDATA_OP_ENC_OFF(offsetof(iotdata_encoder_t, air_quality_index))
     _IOTDATA_OP_DEC_OFF(offsetof(iotdata_decoder_t, air_quality_index))
     _IOTDATA_OP_NAME("air_quality_index")
     _IOTDATA_OP_BITS(IOTDATA_AIR_QUALITY_INDEX_BITS)
-    _IOTDATA_OP_PACK(pack_aq_index)
-    _IOTDATA_OP_UNPACK(unpack_aq_index)
-    _IOTDATA_OP_DUMP(dump_aq_index)
-    _IOTDATA_OP_PRINT(print_aq_index)
-    _IOTDATA_OP_JSON_SET(json_set_aq_index)
-    _IOTDATA_OP_JSON_GET(json_get_aq_index)
+    _IOTDATA_OP_PACK(pack_air_quality_index)
+    _IOTDATA_OP_UNPACK(unpack_air_quality_index)
+    _IOTDATA_OP_DUMP(dump_air_quality_index)
+    _IOTDATA_OP_PRINT(print_air_quality_index)
+    _IOTDATA_OP_JSON_SET(json_set_air_quality_index)
+    _IOTDATA_OP_JSON_GET(json_get_air_quality_index)
 };
 #endif
 #endif
@@ -2400,7 +2404,7 @@ static const iotdata_field_ops_t _iotdata_field_def_aq_index = {
 
 #if defined(IOTDATA_ENABLE_AIR_QUALITY_PM) || defined(IOTDATA_ENABLE_AIR_QUALITY)
 #if !defined(IOTDATA_NO_ENCODE)
-static bool pack_aq_pm(uint8_t *buf, size_t bb, size_t *bp, const void *vv) {
+static bool pack_air_quality_pm(uint8_t *buf, size_t bb, size_t *bp, const void *vv) {
     const iotdata_field_air_quality_pm_t *const v = vv;
     if (!bits_write(buf, bb, bp, v->aq_pm_present, IOTDATA_AIR_QUALITY_PM_PRESENT_BITS))
         return false;
@@ -2428,7 +2432,7 @@ iotdata_status_t iotdata_encode_air_quality_pm_by_slot(iotdata_encoder_t *enc, i
     v.aq_pm_present = pm_present & 0x0F;
     for (int i = 0; i < IOTDATA_AIR_QUALITY_PM_COUNT; i++)
         v.aq_pm[i] = pm[i];
-    PACK_DIRECT(enc, pack_aq_pm, &v);
+    PACK_DIRECT(enc, pack_air_quality_pm, &v);
     COMMIT_SLOT(enc, si, IOTDATA_FIELD_AIR_QUALITY_PM);
     return IOTDATA_OK;
 }
@@ -2457,7 +2461,7 @@ iotdata_status_t iotdata_encode_air_quality_pm(iotdata_encoder_t *enc, uint8_t p
 #endif
 #endif
 #if !defined(IOTDATA_NO_DECODE)
-static bool unpack_aq_pm(const uint8_t *buf, size_t bb, size_t *bp, void *vv) {
+static bool unpack_air_quality_pm(const uint8_t *buf, size_t bb, size_t *bp, void *vv) {
     iotdata_field_air_quality_pm_t *const v = vv;
     if (*bp + IOTDATA_AIR_QUALITY_PM_PRESENT_BITS > bb)
         return false;
@@ -2474,7 +2478,7 @@ static bool unpack_aq_pm(const uint8_t *buf, size_t bb, size_t *bp, void *vv) {
 iotdata_status_t iotdata_decode_air_quality_pm(iotdata_decoder_t *dec, uint8_t *pm_present, uint16_t pm[IOTDATA_AIR_QUALITY_PM_COUNT]) {
 #if defined(IOTDATA_OPERATE_ORDERED)
     iotdata_field_air_quality_pm_t v;
-    RESOLVE_DEC_FIELD(dec, IOTDATA_FIELD_AIR_QUALITY_PM, unpack_aq_pm, &v);
+    RESOLVE_DEC_FIELD(dec, IOTDATA_FIELD_AIR_QUALITY_PM, unpack_air_quality_pm, &v);
     if (pm_present)
         *pm_present = v.aq_pm_present;
     if (pm)
@@ -2490,7 +2494,7 @@ iotdata_status_t iotdata_decode_air_quality_pm(iotdata_decoder_t *dec, uint8_t *
 }
 #endif
 #if !defined(IOTDATA_NO_JSON) && !defined(IOTDATA_NO_DECODE)
-static void json_set_aq_pm(cJSON *root, const void *vv, const char *label, iotdata_decode_to_json_scratch_t *scratch) {
+static void json_set_air_quality_pm(cJSON *root, const void *vv, const char *label, iotdata_decode_to_json_scratch_t *scratch) {
     const iotdata_field_air_quality_pm_t *const v = vv;
     (void)scratch;
     cJSON *obj = cJSON_AddObjectToObject(root, label);
@@ -2500,7 +2504,7 @@ static void json_set_aq_pm(cJSON *root, const void *vv, const char *label, iotda
 }
 #endif
 #if defined(IOTDATA_ENABLE_AIR_QUALITY_PM) && !defined(IOTDATA_NO_JSON) && !defined(IOTDATA_NO_ENCODE)
-static iotdata_status_t json_get_aq_pm(cJSON *root, iotdata_encoder_t *enc, const char *label, iotdata_encode_from_json_scratch_t *scratch) {
+static iotdata_status_t json_get_air_quality_pm(cJSON *root, iotdata_encoder_t *enc, const char *label, iotdata_encode_from_json_scratch_t *scratch) {
     (void)scratch;
     cJSON *j = cJSON_GetObjectItem(root, label);
     if (!j)
@@ -2518,7 +2522,7 @@ static iotdata_status_t json_get_aq_pm(cJSON *root, iotdata_encoder_t *enc, cons
 }
 #endif
 #if !defined(IOTDATA_NO_DUMP)
-static int dump_aq_pm(const uint8_t *buf, size_t bb, size_t *bp, iotdata_dump_t *dump, int n, const char *label) {
+static int dump_air_quality_pm(const uint8_t *buf, size_t bb, size_t *bp, iotdata_dump_t *dump, int n, const char *label) {
     (void)label;
     size_t s = *bp;
     uint32_t present = bits_read(buf, bb, bp, IOTDATA_AIR_QUALITY_PM_PRESENT_BITS);
@@ -2535,7 +2539,7 @@ static int dump_aq_pm(const uint8_t *buf, size_t bb, size_t *bp, iotdata_dump_t 
 }
 #endif
 #if !defined(IOTDATA_NO_PRINT) && !defined(IOTDATA_NO_DECODE)
-static void print_aq_pm(const void *vv, iotdata_buf_t *bp, const char *label) {
+static void print_air_quality_pm(const void *vv, iotdata_buf_t *bp, const char *label) {
     const iotdata_field_air_quality_pm_t *const v = vv;
     bprintf(bp, "  %s:%s", label, _padd(label));
     for (int i = 0, first = 0; i < IOTDATA_AIR_QUALITY_PM_COUNT; i++)
@@ -2546,17 +2550,17 @@ static void print_aq_pm(const void *vv, iotdata_buf_t *bp, const char *label) {
 #endif
 // clang-format off
 #if defined(IOTDATA_ENABLE_AIR_QUALITY_PM)
-static const iotdata_field_ops_t _iotdata_field_def_aq_pm = {
+static const iotdata_field_ops_t _iotdata_field_def_air_quality_pm = {
     _IOTDATA_OP_ENC_OFF(offsetof(iotdata_encoder_t, air_quality_pm))
     _IOTDATA_OP_DEC_OFF(offsetof(iotdata_decoder_t, air_quality_pm))
     _IOTDATA_OP_NAME("air_quality_pm")
     _IOTDATA_OP_BITS(0)
-    _IOTDATA_OP_PACK(pack_aq_pm)
-    _IOTDATA_OP_UNPACK(unpack_aq_pm)
-    _IOTDATA_OP_DUMP(dump_aq_pm)
-    _IOTDATA_OP_PRINT(print_aq_pm)
-    _IOTDATA_OP_JSON_SET(json_set_aq_pm)
-    _IOTDATA_OP_JSON_GET(json_get_aq_pm)
+    _IOTDATA_OP_PACK(pack_air_quality_pm)
+    _IOTDATA_OP_UNPACK(unpack_air_quality_pm)
+    _IOTDATA_OP_DUMP(dump_air_quality_pm)
+    _IOTDATA_OP_PRINT(print_air_quality_pm)
+    _IOTDATA_OP_JSON_SET(json_set_air_quality_pm)
+    _IOTDATA_OP_JSON_GET(json_get_air_quality_pm)
 };
 #endif
 #endif
@@ -2564,7 +2568,7 @@ static const iotdata_field_ops_t _iotdata_field_def_aq_pm = {
 
 #if defined(IOTDATA_ENABLE_AIR_QUALITY_GAS) || defined(IOTDATA_ENABLE_AIR_QUALITY)
 #if !defined(IOTDATA_NO_ENCODE)
-static bool pack_aq_gas(uint8_t *buf, size_t bb, size_t *bp, const void *vv) {
+static bool pack_air_quality_gas(uint8_t *buf, size_t bb, size_t *bp, const void *vv) {
     const iotdata_field_air_quality_gas_t *const v = vv;
     if (!bits_write(buf, bb, bp, v->aq_gas_present, IOTDATA_AIR_QUALITY_GAS_PRESENT_BITS))
         return false;
@@ -2592,7 +2596,7 @@ iotdata_status_t iotdata_encode_air_quality_gas_by_slot(iotdata_encoder_t *enc, 
     v.aq_gas_present = gas_present;
     for (int i = 0; i < IOTDATA_AIR_QUALITY_GAS_COUNT; i++)
         v.aq_gas[i] = gas[i];
-    PACK_DIRECT(enc, pack_aq_gas, &v);
+    PACK_DIRECT(enc, pack_air_quality_gas, &v);
     COMMIT_SLOT(enc, si, IOTDATA_FIELD_AIR_QUALITY_GAS);
     return IOTDATA_OK;
 }
@@ -2621,7 +2625,7 @@ iotdata_status_t iotdata_encode_air_quality_gas(iotdata_encoder_t *enc, uint8_t 
 #endif
 #endif
 #if !defined(IOTDATA_NO_DECODE)
-static bool unpack_aq_gas(const uint8_t *buf, size_t bb, size_t *bp, void *vv) {
+static bool unpack_air_quality_gas(const uint8_t *buf, size_t bb, size_t *bp, void *vv) {
     iotdata_field_air_quality_gas_t *const v = vv;
     if (*bp + IOTDATA_AIR_QUALITY_GAS_PRESENT_BITS > bb)
         return false;
@@ -2638,7 +2642,7 @@ static bool unpack_aq_gas(const uint8_t *buf, size_t bb, size_t *bp, void *vv) {
 iotdata_status_t iotdata_decode_air_quality_gas(iotdata_decoder_t *dec, uint8_t *gas_present, uint16_t gas[IOTDATA_AIR_QUALITY_GAS_COUNT]) {
 #if defined(IOTDATA_OPERATE_ORDERED)
     iotdata_field_air_quality_gas_t v;
-    RESOLVE_DEC_FIELD(dec, IOTDATA_FIELD_AIR_QUALITY_GAS, unpack_aq_gas, &v);
+    RESOLVE_DEC_FIELD(dec, IOTDATA_FIELD_AIR_QUALITY_GAS, unpack_air_quality_gas, &v);
     if (gas_present)
         *gas_present = v.aq_gas_present;
     if (gas)
@@ -2654,7 +2658,7 @@ iotdata_status_t iotdata_decode_air_quality_gas(iotdata_decoder_t *dec, uint8_t 
 }
 #endif
 #if !defined(IOTDATA_NO_JSON) && !defined(IOTDATA_NO_DECODE)
-static void json_set_aq_gas(cJSON *root, const void *vv, const char *label, iotdata_decode_to_json_scratch_t *scratch) {
+static void json_set_air_quality_gas(cJSON *root, const void *vv, const char *label, iotdata_decode_to_json_scratch_t *scratch) {
     const iotdata_field_air_quality_gas_t *const v = vv;
     (void)scratch;
     cJSON *obj = cJSON_AddObjectToObject(root, label);
@@ -2664,7 +2668,7 @@ static void json_set_aq_gas(cJSON *root, const void *vv, const char *label, iotd
 }
 #endif
 #if defined(IOTDATA_ENABLE_AIR_QUALITY_GAS) && !defined(IOTDATA_NO_JSON) && !defined(IOTDATA_NO_ENCODE)
-static iotdata_status_t json_get_aq_gas(cJSON *root, iotdata_encoder_t *enc, const char *label, iotdata_encode_from_json_scratch_t *scratch) {
+static iotdata_status_t json_get_air_quality_gas(cJSON *root, iotdata_encoder_t *enc, const char *label, iotdata_encode_from_json_scratch_t *scratch) {
     (void)scratch;
     cJSON *j = cJSON_GetObjectItem(root, label);
     if (!j)
@@ -2682,7 +2686,7 @@ static iotdata_status_t json_get_aq_gas(cJSON *root, iotdata_encoder_t *enc, con
 }
 #endif
 #if !defined(IOTDATA_NO_DUMP)
-static int dump_aq_gas(const uint8_t *buf, size_t bb, size_t *bp, iotdata_dump_t *dump, int n, const char *label) {
+static int dump_air_quality_gas(const uint8_t *buf, size_t bb, size_t *bp, iotdata_dump_t *dump, int n, const char *label) {
     (void)label;
     size_t s = *bp;
     uint32_t present = bits_read(buf, bb, bp, IOTDATA_AIR_QUALITY_GAS_PRESENT_BITS);
@@ -2699,7 +2703,7 @@ static int dump_aq_gas(const uint8_t *buf, size_t bb, size_t *bp, iotdata_dump_t
 }
 #endif
 #if !defined(IOTDATA_NO_PRINT) && !defined(IOTDATA_NO_DECODE)
-static void print_aq_gas(const void *vv, iotdata_buf_t *bp, const char *label) {
+static void print_air_quality_gas(const void *vv, iotdata_buf_t *bp, const char *label) {
     const iotdata_field_air_quality_gas_t *const v = vv;
     bprintf(bp, "  %s:%s", label, _padd(label));
     for (int i = 0, first = 0; i < IOTDATA_AIR_QUALITY_GAS_COUNT; i++)
@@ -2710,17 +2714,17 @@ static void print_aq_gas(const void *vv, iotdata_buf_t *bp, const char *label) {
 #endif
 // clang-format off
 #if defined(IOTDATA_ENABLE_AIR_QUALITY_GAS)
-static const iotdata_field_ops_t _iotdata_field_def_aq_gas = {
+static const iotdata_field_ops_t _iotdata_field_def_air_quality_gas = {
     _IOTDATA_OP_ENC_OFF(offsetof(iotdata_encoder_t, air_quality_gas))
     _IOTDATA_OP_DEC_OFF(offsetof(iotdata_decoder_t, air_quality_gas))
     _IOTDATA_OP_NAME("air_quality_gas")
     _IOTDATA_OP_BITS(0)
-    _IOTDATA_OP_PACK(pack_aq_gas)
-    _IOTDATA_OP_UNPACK(unpack_aq_gas)
-    _IOTDATA_OP_DUMP(dump_aq_gas)
-    _IOTDATA_OP_PRINT(print_aq_gas)
-    _IOTDATA_OP_JSON_SET(json_set_aq_gas)
-    _IOTDATA_OP_JSON_GET(json_get_aq_gas)
+    _IOTDATA_OP_PACK(pack_air_quality_gas)
+    _IOTDATA_OP_UNPACK(unpack_air_quality_gas)
+    _IOTDATA_OP_DUMP(dump_air_quality_gas)
+    _IOTDATA_OP_PRINT(print_air_quality_gas)
+    _IOTDATA_OP_JSON_SET(json_set_air_quality_gas)
+    _IOTDATA_OP_JSON_GET(json_get_air_quality_gas)
 };
 #endif
 #endif
@@ -2730,7 +2734,7 @@ static const iotdata_field_ops_t _iotdata_field_def_aq_gas = {
 #if !defined(IOTDATA_NO_ENCODE)
 static bool pack_air_quality(uint8_t *buf, size_t bb, size_t *bp, const void *vv) {
     const iotdata_field_air_quality_t *const v = vv;
-    return pack_aq_index(buf, bb, bp, &v->air_quality_index) && pack_aq_pm(buf, bb, bp, &v->air_quality_pm) && pack_aq_gas(buf, bb, bp, &v->air_quality_gas);
+    return pack_air_quality_index(buf, bb, bp, &v->air_quality_index) && pack_air_quality_pm(buf, bb, bp, &v->air_quality_pm) && pack_air_quality_gas(buf, bb, bp, &v->air_quality_gas);
 }
 #endif
 #if !defined(IOTDATA_NO_ENCODE)
@@ -2800,7 +2804,7 @@ iotdata_status_t iotdata_encode_air_quality(iotdata_encoder_t *enc, uint16_t aq_
 #if !defined(IOTDATA_NO_DECODE)
 static bool unpack_air_quality(const uint8_t *buf, size_t bb, size_t *bp, void *vv) {
     iotdata_field_air_quality_t *const v = vv;
-    return unpack_aq_index(buf, bb, bp, &v->air_quality_index) && unpack_aq_pm(buf, bb, bp, &v->air_quality_pm) && unpack_aq_gas(buf, bb, bp, &v->air_quality_gas);
+    return unpack_air_quality_index(buf, bb, bp, &v->air_quality_index) && unpack_air_quality_pm(buf, bb, bp, &v->air_quality_pm) && unpack_air_quality_gas(buf, bb, bp, &v->air_quality_gas);
 }
 #endif
 #if !defined(IOTDATA_NO_DECODE)
@@ -2876,25 +2880,25 @@ static iotdata_status_t json_get_air_quality(cJSON *root, iotdata_encoder_t *enc
 static void json_set_air_quality(cJSON *root, const void *vv, const char *label, iotdata_decode_to_json_scratch_t *scratch) {
     const iotdata_field_air_quality_t *const v = vv;
     cJSON *obj = cJSON_AddObjectToObject(root, label);
-    json_set_aq_index(obj, &v->air_quality_index, "index", scratch);
-    json_set_aq_pm(obj, &v->air_quality_pm, "pm", scratch);
-    json_set_aq_gas(obj, &v->air_quality_gas, "gas", scratch);
+    json_set_air_quality_index(obj, &v->air_quality_index, "index", scratch);
+    json_set_air_quality_pm(obj, &v->air_quality_pm, "pm", scratch);
+    json_set_air_quality_gas(obj, &v->air_quality_gas, "gas", scratch);
 }
 #endif
 #if !defined(IOTDATA_NO_DUMP)
 static int dump_air_quality(const uint8_t *buf, size_t bb, size_t *bp, iotdata_dump_t *dump, int n, const char *label) {
-    n = dump_aq_index(buf, bb, bp, dump, n, label);
-    n = dump_aq_pm(buf, bb, bp, dump, n, label);
-    n = dump_aq_gas(buf, bb, bp, dump, n, label);
+    n = dump_air_quality_index(buf, bb, bp, dump, n, label);
+    n = dump_air_quality_pm(buf, bb, bp, dump, n, label);
+    n = dump_air_quality_gas(buf, bb, bp, dump, n, label);
     return n;
 }
 #endif
 #if !defined(IOTDATA_NO_PRINT) && !defined(IOTDATA_NO_DECODE)
 static void print_air_quality(const void *vv, iotdata_buf_t *bp, const char *label) {
     const iotdata_field_air_quality_t *const v = vv;
-    print_aq_index(&v->air_quality_index, bp, label);
-    print_aq_pm(&v->air_quality_pm, bp, label);
-    print_aq_gas(&v->air_quality_gas, bp, label);
+    print_air_quality_index(&v->air_quality_index, bp, label);
+    print_air_quality_pm(&v->air_quality_pm, bp, label);
+    print_air_quality_gas(&v->air_quality_gas, bp, label);
 }
 #endif
 // clang-format off

@@ -640,7 +640,7 @@ enum iotdata_status_t_ iotdata_decode_air_quality_index(struct iotdata_decoder_t
 #define IOTDATA_FIELDS_MEM_AIR_QUALITY_INDEX    iotdata_field_air_quality_index_t air_quality_index;
 #define IOTDATA_FIELD_ID_AIR_QUALITY_INDEX      0x0050u
 #define IOTDATA_FIELDS_DEF_AIR_QUALITY_INDEX(F) F(AIR_QUALITY_INDEX)
-#define IOTDATA_FIELDS_OPS_AIR_QUALITY_INDEX(E) E(AIR_QUALITY_INDEX, _iotdata_field_def_aq_index)
+#define IOTDATA_FIELDS_OPS_AIR_QUALITY_INDEX(E) E(AIR_QUALITY_INDEX, _iotdata_field_def_air_quality_index)
 #else
 #define IOTDATA_FIELDS_MEM_AIR_QUALITY_INDEX
 #define IOTDATA_FIELDS_DEF_AIR_QUALITY_INDEX(F)
@@ -684,7 +684,7 @@ enum iotdata_status_t_ iotdata_decode_air_quality_pm(struct iotdata_decoder_t_ *
 #define IOTDATA_FIELDS_MEM_AIR_QUALITY_PM    iotdata_field_air_quality_pm_t air_quality_pm;
 #define IOTDATA_FIELD_ID_AIR_QUALITY_PM      0x0051u
 #define IOTDATA_FIELDS_DEF_AIR_QUALITY_PM(F) F(AIR_QUALITY_PM)
-#define IOTDATA_FIELDS_OPS_AIR_QUALITY_PM(E) E(AIR_QUALITY_PM, _iotdata_field_def_aq_pm)
+#define IOTDATA_FIELDS_OPS_AIR_QUALITY_PM(E) E(AIR_QUALITY_PM, _iotdata_field_def_air_quality_pm)
 #else
 #define IOTDATA_FIELDS_MEM_AIR_QUALITY_PM
 #define IOTDATA_FIELDS_DEF_AIR_QUALITY_PM(F)
@@ -755,7 +755,7 @@ enum iotdata_status_t_ iotdata_decode_air_quality_gas(struct iotdata_decoder_t_ 
 #define IOTDATA_FIELDS_MEM_AIR_QUALITY_GAS    iotdata_field_air_quality_gas_t air_quality_gas;
 #define IOTDATA_FIELD_ID_AIR_QUALITY_GAS      0x0052u
 #define IOTDATA_FIELDS_DEF_AIR_QUALITY_GAS(F) F(AIR_QUALITY_GAS)
-#define IOTDATA_FIELDS_OPS_AIR_QUALITY_GAS(E) E(AIR_QUALITY_GAS, _iotdata_field_def_aq_gas)
+#define IOTDATA_FIELDS_OPS_AIR_QUALITY_GAS(E) E(AIR_QUALITY_GAS, _iotdata_field_def_air_quality_gas)
 #else
 #define IOTDATA_FIELDS_MEM_AIR_QUALITY_GAS
 #define IOTDATA_FIELDS_DEF_AIR_QUALITY_GAS(F)
