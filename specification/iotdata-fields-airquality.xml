@@ -1,0 +1,561 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    IoT Sensor Telemetry Protocol
+    Copyright(C) 2026 Matthew Gream (https://libiotdata.org)
+
+    iotdata-fields-airquality.xml - air quality fields
+
+    THIS IS THE SOURCE. iotdata_fields.h and iotdata_fields.c are generated from
+    it by generators/iotdata-generator-fields.js through the templates in
+    generators/templates, and editing them directly loses the edit at the next
+    `make generate`.
+
+    WHAT IS HERE AND WHAT IS IN THE TEMPLATE. This document carries what is true
+    of a field in any language: its identifier, its quantities, their ranges and
+    wire widths, the errors it can raise, its documentation -- and, for now, the
+    bodies of its operations as literal C. The template carries what is true of
+    the LANGUAGE: every brace, guard, typedef and macro form. So a toolchain that
+    needs the C shaped differently is a template edit, not a generator change.
+
+    <impl> IS LANGUAGE-SPECIFIC AND DELIBERATELY VERBATIM. Lifting the existing
+    bodies in unchanged is the whole approach: nothing is re-derived, so nothing
+    silently changes behaviour. A later <abstract> element may describe a
+    quantisation rule declaratively, and the generator will use it only where no
+    <impl> for that language and hook exists -- so a field migrates when someone
+    chooses to migrate it, and until then the C that has been in service stays
+    the definition.
+
+    WHEN AN <impl> HAS A 'when' ATTRIBUTE it is selected by build configuration:
+    'floating' and 'integer' are the two forms of iotdata_float_t. Several
+    quantities need genuinely different arithmetic in the two, not the same
+    expression at two widths, which is why they are separate bodies rather than
+    one body and a cast.
+
+    IDENTIFIERS are grouped in blocks of 16 per family, x0..x7 atomic and
+    x8..xF composite. A convention only: identifiers are compared, never
+    calculated with. 0x0000 is unassigned, 0x8000 and above belong to the
+    implementer, 0xFFFF means none. TLV has no identifier.
+
+    Air quality: an aggregate index, particulate mass, and gas concentrations.
+    Its own document because this is the family that carries ARRAYS -- a presence
+    mask and a vector of slots -- and so the family that made the specification
+    say how a quantity is spelled and how it moves, instead of deriving both
+    from a type and a name.
+-->
+<fields>
+
+    <!-- ---------------------------------------------------------------------------
+        AIR_QUALITY_INDEX - an aggregate air quality index, 0..500 AQI.
+
+        The plain scalar of this family: nine bits hold 0..500 directly.
+
+        THE FAMILY'S SHARED TABLES hang off this field, because they must be
+        emitted once and this is the family's first field. They are not its own
+        -- the pm names belong to PM and the gas bits to GAS -- but they belong
+        to no single function either, which is why they are a field-level
+        <impl> rather than part of any operation's body.
+    -->
+    <field name="air_quality_index" id="0x0050u" bits="IOTDATA_AIR_QUALITY_INDEX_BITS">
+
+        <documentation>
+            <note for="field"><![CDATA[Field AIR_QUALITY, AIR_QUALITY_INDEX, AIR_QUALITY_PM, AIR_QUALITY_GAS]]></note>
+            <note for="subfield"><![CDATA[AQ_INDEX (AQI 0-500, 9 bits)]]></note>
+        </documentation>
+
+        <constants>
+            <constant name="MAX" value="500"/>
+            <constant name="BITS" value="9"/>
+        </constants>
+
+        <!-- the whole family indexes its slots through these; emitted once, after the banner -->
+        <impl lang="c" hook="tables"><![CDATA[#if defined(IOTDATA_ENABLE_AIR_QUALITY_PM) || defined(IOTDATA_ENABLE_AIR_QUALITY)
+#if !defined(IOTDATA_NO_PRINT) || !defined(IOTDATA_NO_DUMP) || !defined(IOTDATA_NO_JSON)
+static const char *_aq_pm_names[IOTDATA_AIR_QUALITY_PM_COUNT] = { "pm1", "pm25", "pm4", "pm10" };
+#endif
+#if !defined(IOTDATA_NO_PRINT) && !defined(IOTDATA_NO_DECODE)
+static const char *_aq_pm_labels[IOTDATA_AIR_QUALITY_PM_COUNT] = { "PM1", "PM2.5", "PM4", "PM10" };
+#endif
+#endif
+
+#if defined(IOTDATA_ENABLE_AIR_QUALITY_GAS) || defined(IOTDATA_ENABLE_AIR_QUALITY)
+static const uint8_t _aq_gas_bits[IOTDATA_AIR_QUALITY_GAS_COUNT] = {
+    IOTDATA_AIR_QUALITY_GAS_BITS_VOC,  IOTDATA_AIR_QUALITY_GAS_BITS_NOX, IOTDATA_AIR_QUALITY_GAS_BITS_CO2,   IOTDATA_AIR_QUALITY_GAS_BITS_CO,
+    IOTDATA_AIR_QUALITY_GAS_BITS_HCHO, IOTDATA_AIR_QUALITY_GAS_BITS_O3,  IOTDATA_AIR_QUALITY_GAS_BITS_RSVD6, IOTDATA_AIR_QUALITY_GAS_BITS_RSVD7,
+};
+static const uint16_t _aq_gas_res[IOTDATA_AIR_QUALITY_GAS_COUNT] = {
+    IOTDATA_AIR_QUALITY_GAS_RES_VOC,  IOTDATA_AIR_QUALITY_GAS_RES_NOX, IOTDATA_AIR_QUALITY_GAS_RES_CO2,   IOTDATA_AIR_QUALITY_GAS_RES_CO,
+    IOTDATA_AIR_QUALITY_GAS_RES_HCHO, IOTDATA_AIR_QUALITY_GAS_RES_O3,  IOTDATA_AIR_QUALITY_GAS_RES_RSVD6, IOTDATA_AIR_QUALITY_GAS_RES_RSVD7,
+};
+/* Already inside the GAS || AIR_QUALITY guard, so asking for GAS again was a NARROWING, and the
+   wrong one: the composite's setter reads this table, so with AIR_QUALITY enabled and the part
+   not, the table was missing while the code that indexes it was present. Its two siblings above
+   never carried that extra condition. */
+#if !defined(IOTDATA_NO_ENCODE) && !defined(IOTDATA_NO_CHECKS_TYPES)
+static const uint16_t _aq_gas_max[IOTDATA_AIR_QUALITY_GAS_COUNT] = {
+    IOTDATA_AIR_QUALITY_GAS_MAX_VOC,  IOTDATA_AIR_QUALITY_GAS_MAX_NOX, IOTDATA_AIR_QUALITY_GAS_MAX_CO2,   IOTDATA_AIR_QUALITY_GAS_MAX_CO,
+    IOTDATA_AIR_QUALITY_GAS_MAX_HCHO, IOTDATA_AIR_QUALITY_GAS_MAX_O3,  IOTDATA_AIR_QUALITY_GAS_MAX_RSVD6, IOTDATA_AIR_QUALITY_GAS_MAX_RSVD7,
+};
+#endif
+/* The JSON paths name the gas slots too, so this table is not print/dump's alone -- with JSON on
+   and both of those off, the guard it used to carry left it undeclared. */
+#if !defined(IOTDATA_NO_PRINT) || !defined(IOTDATA_NO_DUMP) || !defined(IOTDATA_NO_JSON)
+static const char *_aq_gas_names[IOTDATA_AIR_QUALITY_GAS_COUNT] = {
+    "voc", "nox", "co2", "co", "hcho", "o3", "rsvd6", "rsvd7",
+};
+#endif
+#if !defined(IOTDATA_NO_PRINT) && !defined(IOTDATA_NO_DECODE)
+static const char *_aq_gas_labels[IOTDATA_AIR_QUALITY_GAS_COUNT] = {
+    "VOC", "NOx", "CO2", "CO", "HCHO", "O3", "rsvd6", "rsvd7",
+};
+#endif
+#if !defined(IOTDATA_NO_PRINT) || !defined(IOTDATA_NO_DUMP)
+static const char *_aq_gas_units[IOTDATA_AIR_QUALITY_GAS_COUNT] = {
+    "idx", "idx", "ppm", "ppm", "ppb", "ppb", "", "",
+};
+#endif
+#if !defined(IOTDATA_NO_DUMP)
+static const char *_aq_gas_range[IOTDATA_AIR_QUALITY_GAS_COUNT] = {
+    "0..510, 2 idx", "0..510, 2 idx", "0..51150, 50 ppm", "0..1023, 1 ppm", "0..5115, 5 ppb", "0..1023, 1 ppb", "reserved", "reserved",
+};
+#endif
+#endif]]></impl>
+
+        <quantity name="aq_index" type="uint16_t" param="aq_index" stem="air_quality_index">
+            <check error="HIGH" text="AQ index above 500 AQI"><![CDATA[    if (aq_index > IOTDATA_AIR_QUALITY_INDEX_MAX)
+        return IOTDATA_ERR_AIR_QUALITY_INDEX_HIGH;
+]]></check>
+            <impl lang="c" hook="quantise" arg="uint16_t v"><![CDATA[    return (uint32_t)v;
+]]></impl>
+            <impl lang="c" hook="dequantise" ret="uint16_t" arg="uint32_t r"><![CDATA[    return (uint16_t)r;
+]]></impl>
+        </quantity>
+
+        <impl lang="c" hook="pack"><![CDATA[    const iotdata_field_air_quality_index_t *const v = vv;
+    return bits_write(buf, bb, bp, quantise_air_quality_index(v->aq_index), IOTDATA_AIR_QUALITY_INDEX_BITS);
+]]></impl>
+        <impl lang="c" hook="unpack"><![CDATA[    iotdata_field_air_quality_index_t *const v = vv;
+    if (*bp + IOTDATA_AIR_QUALITY_INDEX_BITS > bb)
+        return false;
+    v->aq_index = dequantise_air_quality_index(bits_read(buf, bb, bp, IOTDATA_AIR_QUALITY_INDEX_BITS));
+    return true;
+]]></impl>
+        <impl lang="c" hook="json_get"><![CDATA[    (void)scratch;
+    cJSON *j = cJSON_GetObjectItem(root, label);
+    if (!j)
+        return IOTDATA_OK;
+    return iotdata_encode_air_quality_index(enc, (uint16_t)j->valueint);
+]]></impl>
+        <impl lang="c" hook="json_set"><![CDATA[    const iotdata_field_air_quality_index_t *const v = vv;
+    (void)scratch;
+    cJSON_AddNumberToObject(root, label, v->aq_index);
+]]></impl>
+        <impl lang="c" hook="dump"><![CDATA[    (void)label;
+    size_t s = *bp;
+    uint32_t r = bits_read(buf, bb, bp, IOTDATA_AIR_QUALITY_INDEX_BITS);
+    snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "%" PRIu16 " AQI", dequantise_air_quality_index(r));
+    n = dump_add(dump, n, s, IOTDATA_AIR_QUALITY_INDEX_BITS, r, dump->_dec_buf, "0..500 AQI", "aq_index");
+    return n;
+]]></impl>
+        <impl lang="c" hook="print"><![CDATA[    const iotdata_field_air_quality_index_t *const v = vv;
+    bprintf(bp, "  %s:%s %" PRIu16 " AQI\n", label, _padd(label), v->aq_index);
+]]></impl>
+
+    </field>
+
+    <!-- ---------------------------------------------------------------------------
+        AIR_QUALITY_PM - particulate mass for four size channels.
+
+        THE FIRST FIELD WITH AN ARRAY, and so the field that made the
+        specification state how a quantity is spelled and how it moves. A
+        presence mask says which channels carry a reading; the values are a
+        vector, which = cannot copy, which const decays in an argument, and
+        which an out-parameter takes without a star.
+
+        The mask is MASKED on the way in -- & 0x0F -- because only four
+        channels exist and a caller who sets a fifth bit would otherwise write
+        a presence claim for a channel that is not there.
+    -->
+    <field name="air_quality_pm" id="0x0051u" bits="0">
+
+        <documentation>
+            <note for="subfield"><![CDATA[AQ_PM (4 channels, presence + 8 bits each, res 5 ug/m3)]]></note>
+        </documentation>
+
+        <constants>
+            <constant name="COUNT" value="4" early="yes"/>
+            <constant name="PRESENT_BITS" value="4"/>
+            <constant name="VALUE_BITS" value="8"/>
+            <constant name="VALUE_RES" value="5"/>
+            <constant name="VALUE_MAX" value="1275 /* 255 * 5 */"/>
+            <constant name="INDEX_PM1" value="0"/>
+            <constant name="INDEX_PM25" value="1"/>
+            <constant name="INDEX_PM4" value="2"/>
+            <constant name="INDEX_PM10" value="3"/>
+        </constants>
+
+        <quantity name="aq_pm_present" type="uint8_t" param="pm_present">
+            <store_local><![CDATA[    v.aq_pm_present = pm_present & 0x0F;
+]]></store_local>
+            <store_member><![CDATA[    enc->air_quality_pm.aq_pm_present = pm_present & 0x0F;
+]]></store_member>
+        </quantity>
+
+        <quantity name="aq_pm" type="uint16_t" param="pm" member="uint16_t aq_pm[IOTDATA_AIR_QUALITY_PM_COUNT];" arg="const uint16_t pm[IOTDATA_AIR_QUALITY_PM_COUNT]" arg_out="uint16_t pm[IOTDATA_AIR_QUALITY_PM_COUNT]">
+            <check error="VALUE_HIGH" text="AQ PM value above 1275 ug/m3"><![CDATA[    for (int i = 0; i < IOTDATA_AIR_QUALITY_PM_COUNT; i++)
+        if ((pm_present & (1U << i)) && pm[i] > IOTDATA_AIR_QUALITY_PM_VALUE_MAX)
+            return IOTDATA_ERR_AIR_QUALITY_PM_VALUE_HIGH;
+]]></check>
+            <store_local><![CDATA[    for (int i = 0; i < IOTDATA_AIR_QUALITY_PM_COUNT; i++)
+        v.aq_pm[i] = pm[i];
+]]></store_local>
+            <store_member><![CDATA[    for (int i = 0; i < IOTDATA_AIR_QUALITY_PM_COUNT; i++)
+        enc->air_quality_pm.aq_pm[i] = pm[i];
+]]></store_member>
+            <fetch_local><![CDATA[    if (pm)
+        memcpy(pm, v.aq_pm, sizeof(v.aq_pm));
+]]></fetch_local>
+            <fetch_member><![CDATA[    if (pm)
+        memcpy(pm, dec->air_quality_pm.aq_pm, sizeof(dec->air_quality_pm.aq_pm));
+]]></fetch_member>
+        </quantity>
+
+        <impl lang="c" hook="pack"><![CDATA[    const iotdata_field_air_quality_pm_t *const v = vv;
+    if (!bits_write(buf, bb, bp, v->aq_pm_present, IOTDATA_AIR_QUALITY_PM_PRESENT_BITS))
+        return false;
+    for (int i = 0; i < IOTDATA_AIR_QUALITY_PM_COUNT; i++)
+        if (v->aq_pm_present & (1U << i))
+            if (!bits_write(buf, bb, bp, v->aq_pm[i] / IOTDATA_AIR_QUALITY_PM_VALUE_RES, IOTDATA_AIR_QUALITY_PM_VALUE_BITS))
+                return false;
+    return true;
+]]></impl>
+        <impl lang="c" hook="unpack"><![CDATA[    iotdata_field_air_quality_pm_t *const v = vv;
+    if (*bp + IOTDATA_AIR_QUALITY_PM_PRESENT_BITS > bb)
+        return false;
+    v->aq_pm_present = (uint8_t)bits_read(buf, bb, bp, IOTDATA_AIR_QUALITY_PM_PRESENT_BITS);
+    for (int i = 0; i < IOTDATA_AIR_QUALITY_PM_COUNT; i++) {
+        if (v->aq_pm_present & (1U << i) && (*bp + IOTDATA_AIR_QUALITY_PM_VALUE_BITS > bb))
+            return false;
+        v->aq_pm[i] = v->aq_pm_present & (1U << i) ? (uint16_t)(bits_read(buf, bb, bp, IOTDATA_AIR_QUALITY_PM_VALUE_BITS) * IOTDATA_AIR_QUALITY_PM_VALUE_RES) : 0;
+    }
+    return true;
+]]></impl>
+        <impl lang="c" hook="json_get"><![CDATA[    (void)scratch;
+    cJSON *j = cJSON_GetObjectItem(root, label);
+    if (!j)
+        return IOTDATA_OK;
+    uint8_t present = 0;
+    uint16_t pm[IOTDATA_AIR_QUALITY_PM_COUNT] = { 0 };
+    for (int i = 0; i < IOTDATA_AIR_QUALITY_PM_COUNT; i++) {
+        cJSON *v = cJSON_GetObjectItem(j, _aq_pm_names[i]);
+        if (v) {
+            present |= (1U << i);
+            pm[i] = (uint16_t)v->valueint;
+        }
+    }
+    return iotdata_encode_air_quality_pm(enc, present, pm);
+]]></impl>
+        <impl lang="c" hook="json_set"><![CDATA[    const iotdata_field_air_quality_pm_t *const v = vv;
+    (void)scratch;
+    cJSON *obj = cJSON_AddObjectToObject(root, label);
+    for (int i = 0; i < IOTDATA_AIR_QUALITY_PM_COUNT; i++)
+        if (v->aq_pm_present & (1U << i))
+            cJSON_AddNumberToObject(obj, _aq_pm_names[i], v->aq_pm[i]);
+]]></impl>
+        <impl lang="c" hook="dump"><![CDATA[    (void)label;
+    size_t s = *bp;
+    uint32_t present = bits_read(buf, bb, bp, IOTDATA_AIR_QUALITY_PM_PRESENT_BITS);
+    snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "0x%" PRIX32, present);
+    n = dump_add(dump, n, s, IOTDATA_AIR_QUALITY_PM_PRESENT_BITS, present, dump->_dec_buf, "4-bit mask", "aq_pm_present");
+    for (int i = 0; i < IOTDATA_AIR_QUALITY_PM_COUNT; i++)
+        if (present & (1U << i)) {
+            s = *bp;
+            uint32_t r = bits_read(buf, bb, bp, IOTDATA_AIR_QUALITY_PM_VALUE_BITS);
+            snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "%" PRIu32 " ug/m3", (uint32_t)(r * IOTDATA_AIR_QUALITY_PM_VALUE_RES));
+            n = dump_add(dump, n, s, IOTDATA_AIR_QUALITY_PM_VALUE_BITS, r, dump->_dec_buf, "0..1275, 5 ug/m3", _aq_pm_names[i]);
+        }
+    return n;
+]]></impl>
+        <impl lang="c" hook="print"><![CDATA[    const iotdata_field_air_quality_pm_t *const v = vv;
+    bprintf(bp, "  %s:%s", label, _padd(label));
+    for (int i = 0, first = 0; i < IOTDATA_AIR_QUALITY_PM_COUNT; i++)
+        if (v->aq_pm_present & (1U << i))
+            bprintf(bp, "%s %s=%" PRIu16, first++ ? "," : "", _aq_pm_labels[i], v->aq_pm[i]);
+    bprintf(bp, "%s\n", v->aq_pm_present ? " ug/m3" : "");
+]]></impl>
+
+    </field>
+
+    <!-- ---------------------------------------------------------------------------
+        AIR_QUALITY_GAS - gas concentrations across eight slots.
+
+        Like PM, but each slot has its OWN width, resolution and ceiling, so
+        the quantities cannot carry them as constants -- they live in the
+        shared tables, and the range check indexes _aq_gas_max rather than
+        comparing against a name.
+
+        No mask on the presence byte here: eight slots fill a uint8_t exactly,
+        so there is no spare bit for a caller to set wrongly.
+
+        Its wire width is 0, like PM's and the composite's: a presence-masked
+        array has NO fixed width, since what it costs depends on which slots
+        the caller filled.
+    -->
+    <field name="air_quality_gas" id="0x0052u" bits="0">
+
+        <documentation>
+            <note for="subfield"><![CDATA[AQ_GAS (8 slots, presence + variable bits per slot)]]></note>
+        </documentation>
+
+        <constants>
+            <constant name="COUNT" value="8" early="yes"/>
+            <constant name="PRESENT_BITS" value="8"/>
+            <constant name="INDEX_VOC" value="0"/>
+            <constant name="INDEX_NOX" value="1"/>
+            <constant name="INDEX_CO2" value="2"/>
+            <constant name="INDEX_CO" value="3"/>
+            <constant name="INDEX_HCHO" value="4"/>
+            <constant name="INDEX_O3" value="5"/>
+            <constant name="INDEX_RSVD6" value="6"/>
+            <constant name="INDEX_RSVD7" value="7"/>
+            <constant name="BITS_VOC" value="8 /* 0-510, res 2 index pts   */" lead="Bit width per slot: indices=8, concentrations=10"/>
+            <constant name="BITS_NOX" value="8 /* 0-510, res 2 index pts   */"/>
+            <constant name="BITS_CO2" value="10 /* 0-51150, res 50 ppm      */"/>
+            <constant name="BITS_CO" value="10 /* 0-1023, res 1 ppm        */"/>
+            <constant name="BITS_HCHO" value="10 /* 0-5115, res 5 ppb        */"/>
+            <constant name="BITS_O3" value="10 /* 0-1023, res 1 ppb        */"/>
+            <constant name="BITS_RSVD6" value="10"/>
+            <constant name="BITS_RSVD7" value="10"/>
+            <constant name="RES_VOC" value="2" lead="Resolution per slot"/>
+            <constant name="RES_NOX" value="2"/>
+            <constant name="RES_CO2" value="50"/>
+            <constant name="RES_CO" value="1"/>
+            <constant name="RES_HCHO" value="5"/>
+            <constant name="RES_O3" value="1"/>
+            <constant name="RES_RSVD6" value="1"/>
+            <constant name="RES_RSVD7" value="1"/>
+            <constant name="MAX_VOC" value="510" lead="Max physical value per slot"/>
+            <constant name="MAX_NOX" value="510"/>
+            <constant name="MAX_CO2" value="51150"/>
+            <constant name="MAX_CO" value="1023"/>
+            <constant name="MAX_HCHO" value="5115"/>
+            <constant name="MAX_O3" value="1023"/>
+            <constant name="MAX_RSVD6" value="1023"/>
+            <constant name="MAX_RSVD7" value="1023"/>
+        </constants>
+
+        <quantity name="aq_gas_present" type="uint8_t" param="gas_present">
+        </quantity>
+
+        <quantity name="aq_gas" type="uint16_t" param="gas" member="uint16_t aq_gas[IOTDATA_AIR_QUALITY_GAS_COUNT];" arg="const uint16_t gas[IOTDATA_AIR_QUALITY_GAS_COUNT]" arg_out="uint16_t gas[IOTDATA_AIR_QUALITY_GAS_COUNT]">
+            <check error="VALUE_HIGH" text="AQ gas value above slot maximum"><![CDATA[    for (int i = 0; i < IOTDATA_AIR_QUALITY_GAS_COUNT; i++)
+        if ((gas_present & (1U << i)) && gas[i] > _aq_gas_max[i])
+            return IOTDATA_ERR_AIR_QUALITY_GAS_VALUE_HIGH;
+]]></check>
+            <store_local><![CDATA[    for (int i = 0; i < IOTDATA_AIR_QUALITY_GAS_COUNT; i++)
+        v.aq_gas[i] = gas[i];
+]]></store_local>
+            <store_member><![CDATA[    for (int i = 0; i < IOTDATA_AIR_QUALITY_GAS_COUNT; i++)
+        enc->air_quality_gas.aq_gas[i] = gas[i];
+]]></store_member>
+            <fetch_local><![CDATA[    if (gas)
+        memcpy(gas, v.aq_gas, sizeof(v.aq_gas));
+]]></fetch_local>
+            <fetch_member><![CDATA[    if (gas)
+        memcpy(gas, dec->air_quality_gas.aq_gas, sizeof(dec->air_quality_gas.aq_gas));
+]]></fetch_member>
+        </quantity>
+
+        <impl lang="c" hook="pack"><![CDATA[    const iotdata_field_air_quality_gas_t *const v = vv;
+    if (!bits_write(buf, bb, bp, v->aq_gas_present, IOTDATA_AIR_QUALITY_GAS_PRESENT_BITS))
+        return false;
+    for (int i = 0; i < IOTDATA_AIR_QUALITY_GAS_COUNT; i++)
+        if (v->aq_gas_present & (1U << i))
+            if (!bits_write(buf, bb, bp, v->aq_gas[i] / _aq_gas_res[i], _aq_gas_bits[i]))
+                return false;
+    return true;
+]]></impl>
+        <impl lang="c" hook="unpack"><![CDATA[    iotdata_field_air_quality_gas_t *const v = vv;
+    if (*bp + IOTDATA_AIR_QUALITY_GAS_PRESENT_BITS > bb)
+        return false;
+    v->aq_gas_present = (uint8_t)bits_read(buf, bb, bp, IOTDATA_AIR_QUALITY_GAS_PRESENT_BITS);
+    for (int i = 0; i < IOTDATA_AIR_QUALITY_GAS_COUNT; i++) {
+        if (v->aq_gas_present & (1U << i) && (*bp + _aq_gas_bits[i] > bb))
+            return false;
+        v->aq_gas[i] = v->aq_gas_present & (1U << i) ? (uint16_t)(bits_read(buf, bb, bp, _aq_gas_bits[i]) * _aq_gas_res[i]) : 0;
+    }
+    return true;
+]]></impl>
+        <impl lang="c" hook="json_get"><![CDATA[    (void)scratch;
+    cJSON *j = cJSON_GetObjectItem(root, label);
+    if (!j)
+        return IOTDATA_OK;
+    uint8_t present = 0;
+    uint16_t gas[IOTDATA_AIR_QUALITY_GAS_COUNT] = { 0 };
+    for (int i = 0; i < IOTDATA_AIR_QUALITY_GAS_COUNT; i++) {
+        cJSON *v = cJSON_GetObjectItem(j, _aq_gas_names[i]);
+        if (v) {
+            present |= (1U << i);
+            gas[i] = (uint16_t)v->valueint;
+        }
+    }
+    return iotdata_encode_air_quality_gas(enc, present, gas);
+]]></impl>
+        <impl lang="c" hook="json_set"><![CDATA[    const iotdata_field_air_quality_gas_t *const v = vv;
+    (void)scratch;
+    cJSON *obj = cJSON_AddObjectToObject(root, label);
+    for (int i = 0; i < IOTDATA_AIR_QUALITY_GAS_COUNT; i++)
+        if (v->aq_gas_present & (1U << i))
+            cJSON_AddNumberToObject(obj, _aq_gas_names[i], v->aq_gas[i]);
+]]></impl>
+        <impl lang="c" hook="dump"><![CDATA[    (void)label;
+    size_t s = *bp;
+    uint32_t present = bits_read(buf, bb, bp, IOTDATA_AIR_QUALITY_GAS_PRESENT_BITS);
+    snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "0x%02" PRIX32, present);
+    n = dump_add(dump, n, s, IOTDATA_AIR_QUALITY_GAS_PRESENT_BITS, present, dump->_dec_buf, "8-bit mask", "aq_gas_present");
+    for (int i = 0; i < IOTDATA_AIR_QUALITY_GAS_COUNT; i++)
+        if (present & (1U << i)) {
+            s = *bp;
+            uint32_t r = bits_read(buf, bb, bp, _aq_gas_bits[i]);
+            snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "%" PRIu32 " %s", r * _aq_gas_res[i], _aq_gas_units[i]);
+            n = dump_add(dump, n, s, _aq_gas_bits[i], r, dump->_dec_buf, _aq_gas_range[i], _aq_gas_names[i]);
+        }
+    return n;
+]]></impl>
+        <impl lang="c" hook="print"><![CDATA[    const iotdata_field_air_quality_gas_t *const v = vv;
+    bprintf(bp, "  %s:%s", label, _padd(label));
+    for (int i = 0, first = 0; i < IOTDATA_AIR_QUALITY_GAS_COUNT; i++)
+        if (v->aq_gas_present & (1U << i))
+            bprintf(bp, "%s %s=%" PRIu16 "%s%s", first++ ? "," : "", _aq_gas_labels[i], v->aq_gas[i], _aq_gas_units[i][0] ? " " : "", _aq_gas_units[i][0] ? _aq_gas_units[i] : "");
+    bprintf(bp, "\n");
+]]></impl>
+
+    </field>
+
+    <!-- ---------------------------------------------------------------------------
+        AIR_QUALITY - index, particulates and gases as one slot.
+
+        The nested quantity paths mean most of the movements derive as they do
+        for any composite; only the arrays and the masked presence byte have to
+        be spelled out, exactly as they are for the parts.
+    -->
+    <field name="air_quality" id="0x0058u" bits="0" parts="air_quality_index air_quality_pm air_quality_gas" delegates="yes">
+
+        <!-- no notes -->
+
+        <constants/>
+
+        <quantity name="air_quality_index.aq_index" type="uint16_t" param="aq_index">
+            <check field="air_quality_index" error="HIGH" text=""><![CDATA[    if (aq_index > IOTDATA_AIR_QUALITY_INDEX_MAX)
+        return IOTDATA_ERR_AIR_QUALITY_INDEX_HIGH;
+]]></check>
+        </quantity>
+
+        <quantity name="air_quality_pm.aq_pm_present" type="uint8_t" param="pm_present">
+            <store_local><![CDATA[    v.air_quality_pm.aq_pm_present = pm_present & 0x0F;
+]]></store_local>
+            <store_member><![CDATA[    enc->air_quality.air_quality_pm.aq_pm_present = pm_present & 0x0F;
+]]></store_member>
+        </quantity>
+
+        <quantity name="air_quality_pm.aq_pm" type="uint16_t" param="pm" arg="const uint16_t pm[IOTDATA_AIR_QUALITY_PM_COUNT]" arg_out="uint16_t pm[IOTDATA_AIR_QUALITY_PM_COUNT]">
+            <check field="air_quality_pm" error="VALUE_HIGH" text=""><![CDATA[    for (int i = 0; i < IOTDATA_AIR_QUALITY_PM_COUNT; i++)
+        if ((pm_present & (1U << i)) && pm[i] > IOTDATA_AIR_QUALITY_PM_VALUE_MAX)
+            return IOTDATA_ERR_AIR_QUALITY_PM_VALUE_HIGH;
+]]></check>
+            <store_local><![CDATA[    for (int i = 0; i < IOTDATA_AIR_QUALITY_PM_COUNT; i++)
+        v.air_quality_pm.aq_pm[i] = pm[i];
+]]></store_local>
+            <store_member><![CDATA[    for (int i = 0; i < IOTDATA_AIR_QUALITY_PM_COUNT; i++)
+        enc->air_quality.air_quality_pm.aq_pm[i] = pm[i];
+]]></store_member>
+            <fetch_local><![CDATA[    if (pm)
+        memcpy(pm, v.air_quality_pm.aq_pm, sizeof(v.air_quality_pm.aq_pm));
+]]></fetch_local>
+            <fetch_member><![CDATA[    if (pm)
+        memcpy(pm, dec->air_quality.air_quality_pm.aq_pm, sizeof(dec->air_quality.air_quality_pm.aq_pm));
+]]></fetch_member>
+        </quantity>
+
+        <quantity name="air_quality_gas.aq_gas_present" type="uint8_t" param="gas_present">
+        </quantity>
+
+        <quantity name="air_quality_gas.aq_gas" type="uint16_t" param="gas" arg="const uint16_t gas[IOTDATA_AIR_QUALITY_GAS_COUNT]" arg_out="uint16_t gas[IOTDATA_AIR_QUALITY_GAS_COUNT]">
+            <check field="air_quality_gas" error="VALUE_HIGH" text=""><![CDATA[    for (int i = 0; i < IOTDATA_AIR_QUALITY_GAS_COUNT; i++)
+        if ((gas_present & (1U << i)) && gas[i] > _aq_gas_max[i])
+            return IOTDATA_ERR_AIR_QUALITY_GAS_VALUE_HIGH;
+]]></check>
+            <store_local><![CDATA[    for (int i = 0; i < IOTDATA_AIR_QUALITY_GAS_COUNT; i++)
+        v.air_quality_gas.aq_gas[i] = gas[i];
+]]></store_local>
+            <store_member><![CDATA[    for (int i = 0; i < IOTDATA_AIR_QUALITY_GAS_COUNT; i++)
+        enc->air_quality.air_quality_gas.aq_gas[i] = gas[i];
+]]></store_member>
+            <fetch_local><![CDATA[    if (gas)
+        memcpy(gas, v.air_quality_gas.aq_gas, sizeof(v.air_quality_gas.aq_gas));
+]]></fetch_local>
+            <fetch_member><![CDATA[    if (gas)
+        memcpy(gas, dec->air_quality.air_quality_gas.aq_gas, sizeof(dec->air_quality.air_quality_gas.aq_gas));
+]]></fetch_member>
+        </quantity>
+
+        <impl lang="c" hook="pack"><![CDATA[    const iotdata_field_air_quality_t *const v = vv;
+    return pack_air_quality_index(buf, bb, bp, &v->air_quality_index) && pack_air_quality_pm(buf, bb, bp, &v->air_quality_pm) && pack_air_quality_gas(buf, bb, bp, &v->air_quality_gas);
+]]></impl>
+        <impl lang="c" hook="unpack"><![CDATA[    iotdata_field_air_quality_t *const v = vv;
+    return unpack_air_quality_index(buf, bb, bp, &v->air_quality_index) && unpack_air_quality_pm(buf, bb, bp, &v->air_quality_pm) && unpack_air_quality_gas(buf, bb, bp, &v->air_quality_gas);
+]]></impl>
+        <impl lang="c" hook="json_get"><![CDATA[    (void)scratch;
+    cJSON *j = cJSON_GetObjectItem(root, label);
+    if (!j)
+        return IOTDATA_OK;
+    /* Extract index */
+    uint16_t idx = 0;
+    cJSON *ji = cJSON_GetObjectItem(j, "index");
+    if (ji)
+        idx = (uint16_t)ji->valueint;
+    /* Extract PM */
+    uint8_t pm_present = 0;
+    uint16_t pm[IOTDATA_AIR_QUALITY_PM_COUNT] = { 0 };
+    cJSON *jp = cJSON_GetObjectItem(j, "pm");
+    if (jp)
+        for (int i = 0; i < IOTDATA_AIR_QUALITY_PM_COUNT; i++) {
+            cJSON *v = cJSON_GetObjectItem(jp, _aq_pm_names[i]);
+            if (v) {
+                pm_present |= (1U << i);
+                pm[i] = (uint16_t)v->valueint;
+            }
+        }
+    /* Extract gas */
+    uint8_t gas_present = 0;
+    uint16_t gas[IOTDATA_AIR_QUALITY_GAS_COUNT] = { 0 };
+    cJSON *jg = cJSON_GetObjectItem(j, "gas");
+    if (jg)
+        for (int i = 0; i < IOTDATA_AIR_QUALITY_GAS_COUNT; i++) {
+            cJSON *v = cJSON_GetObjectItem(jg, _aq_gas_names[i]);
+            if (v) {
+                gas_present |= (1U << i);
+                gas[i] = (uint16_t)v->valueint;
+            }
+        }
+    return iotdata_encode_air_quality(enc, idx, pm_present, pm, gas_present, gas);
+]]></impl>
+        <impl lang="c" hook="json_set"><![CDATA[    const iotdata_field_air_quality_t *const v = vv;
+    cJSON *obj = cJSON_AddObjectToObject(root, label);
+    json_set_air_quality_index(obj, &v->air_quality_index, "index", scratch);
+    json_set_air_quality_pm(obj, &v->air_quality_pm, "pm", scratch);
+    json_set_air_quality_gas(obj, &v->air_quality_gas, "gas", scratch);
+]]></impl>
+        <impl lang="c" hook="dump"><![CDATA[    n = dump_air_quality_index(buf, bb, bp, dump, n, label);
+    n = dump_air_quality_pm(buf, bb, bp, dump, n, label);
+    n = dump_air_quality_gas(buf, bb, bp, dump, n, label);
+    return n;
+]]></impl>
+        <impl lang="c" hook="print"><![CDATA[    const iotdata_field_air_quality_t *const v = vv;
+    print_air_quality_index(&v->air_quality_index, bp, label);
+    print_air_quality_pm(&v->air_quality_pm, bp, label);
+    print_air_quality_gas(&v->air_quality_gas, bp, label);
+]]></impl>
+
+    </field>
+
+</fields>

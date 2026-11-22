@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    IoT Sensor Telemetry Protocol
+    Copyright(C) 2026 Matthew Gream (https://libiotdata.org)
+
+    iotdata-fields-image.xml - the image field
+
+    THIS IS THE SOURCE. iotdata_fields.h and iotdata_fields.c are generated from
+    it by generators/iotdata-generator-fields.js through the templates in
+    generators/templates, and editing them directly loses the edit at the next
+    `make generate`.
+
+    WHAT IS HERE AND WHAT IS IN THE TEMPLATE. This document carries what is true
+    of a field in any language: its identifier, its quantities, their ranges and
+    wire widths, the errors it can raise, its documentation -- and, for now, the
+    bodies of its operations as literal C. The template carries what is true of
+    the LANGUAGE: every brace, guard, typedef and macro form. So a toolchain that
+    needs the C shaped differently is a template edit, not a generator change.
+
+    <impl> IS LANGUAGE-SPECIFIC AND DELIBERATELY VERBATIM. Lifting the existing
+    bodies in unchanged is the whole approach: nothing is re-derived, so nothing
+    silently changes behaviour. A later <abstract> element may describe a
+    quantisation rule declaratively, and the generator will use it only where no
+    <impl> for that language and hook exists -- so a field migrates when someone
+    chooses to migrate it, and until then the C that has been in service stays
+    the definition.
+
+    WHEN AN <impl> HAS A 'when' ATTRIBUTE it is selected by build configuration:
+    'floating' and 'integer' are the two forms of iotdata_float_t. Several
+    quantities need genuinely different arithmetic in the two, not the same
+    expression at two widths, which is why they are separate bodies rather than
+    one body and a cast.
+
+    IDENTIFIERS are grouped in blocks of 16 per family, x0..x7 atomic and
+    x8..xF composite. A convention only: identifiers are compared, never
+    calculated with. 0x0000 is unassigned, 0x8000 and above belong to the
+    implementer, 0xFFFF means none. TLV has no identifier.
+
+    A small monochrome or greyscale picture, and the one field whose CODE is
+    not generated: see iotdata_fields_image.h for why. This document carries
+    everything about IMAGE that is not code -- its identifier, the quantities
+    it puts on the wire, its errors and its documentation -- so that it appears
+    in the registry and in the identifier-collision check alongside every other
+    field, and so that there is one place to read what the field IS.
+-->
+<fields>
+
+    <!-- ---------------------------------------------------------------------------
+        IMAGE - a small picture, 1 to 4 bits per pixel, up to 254 bytes.
+
+        THE FIRST VARIABLE-LENGTH FIELD in the protocol: an 8-bit length
+        prefix, then a control byte packing format, size tier, compression and
+        flags into two bits each, then the pixel data. Its wire width is
+        therefore 0 in the registry, like the presence-masked arrays -- what it
+        costs depends on what it carries.
+
+        ITS CODE IS HAND-WRITTEN, in iotdata_fields_image.h, and that file
+        explains the five structural reasons at length. The short version is
+        that an encoder holds a const pointer to pixels it does not own while a
+        decoder holds the 254 bytes itself, so the two contexts need different
+        storage -- and a field whose shape depends on the direction it travels
+        is not the shape the generator describes.
+
+        NOTHING HERE IS CHECKED BY A COMPILER, which is the price of code="no":
+        the five errors below were first written from memory and all five were
+        wrong, and the registry printed the fiction without complaint. What
+        keeps this document honest is tests/test_fields.c, whose IMAGE test
+        names every error and every constant -- a wrong name there does not
+        compile.
+
+        WHAT STAYS HERE is everything that is not code. The identifier, so the
+        collision check sees it. The quantities, so the registry lists what the
+        field puts on the wire. The errors, so they are written down once. And
+        this documentation, so a reader who wants to know what IMAGE is does not
+        have to read its implementation to find out.
+    -->    <field name="image" id="0x0090u" bits="0" code="no" mem="split">
+        <documentation>
+            <note for="field"><![CDATA[Field IMAGE]]></note>
+        </documentation>
+        <constants>
+            <constant name="DATA_MAX" value="254 /* max pixel data after control byte */"/>
+            <constant name="FMT_BILEVEL" value="0 /* 1 bpp */"/>
+            <constant name="FMT_GREY4" value="1 /* 2 bpp */"/>
+            <constant name="FMT_GREY16" value="2 /* 4 bpp */"/>
+            <constant name="SIZE_24x18" value="0"/>
+            <constant name="SIZE_32x24" value="1"/>
+            <constant name="SIZE_48x36" value="2"/>
+            <constant name="SIZE_64x48" value="3"/>
+            <constant name="COMP_RAW" value="0"/>
+            <constant name="COMP_RLE" value="1"/>
+            <constant name="COMP_HEATSHRINK" value="2"/>
+            <constant name="FLAG_FRAGMENT" value="(1U &lt;&lt; 1)"/>
+            <constant name="FLAG_INVERT" value="(1U &lt;&lt; 0)"/>
+            <constant name="HS_WINDOW_SZ2" value="8 /* 256-byte window */"/>
+            <constant name="HS_LOOKAHEAD_SZ2" value="4 /* 16-byte lookahead */"/>
+        </constants>
+        <!-- bilevel, 4-level grey or 16-level grey -->        <quantity name="image_pixel_format" type="uint8_t" param="pixel_format">            <check error="FORMAT_HIGH" text="Image pixel format above 2"/>            <check error="SIZE_HIGH" text="Image size tier above 3"/>            <check error="COMPRESSION_HIGH" text="Image compression above 2"/>            <check error="DATA_NULL" text="Image data pointer is NULL"/>            <check error="DATA_HIGH" text="Image data exceeds 254 bytes"/>        </quantity>
+        <!-- one of four fixed pixel geometries -->        <quantity name="image_size_tier" type="uint8_t" param="size_tier">        </quantity>
+        <!-- raw, run-length or heatshrink LZSS -->        <quantity name="image_compression" type="uint8_t" param="compression">        </quantity>
+        <!-- fragment and invert -->        <quantity name="image_flags" type="uint8_t" param="flags">        </quantity>
+        <!-- the pixels; a const pointer when encoding, a 254-byte buffer when decoding -->        <quantity name="image_data" type="uint8_t" param="data">        </quantity>
+        <!-- how many of those bytes are real -->        <quantity name="image_data_len" type="uint8_t" param="data_len">        </quantity>
+    </field>
+
+</fields>

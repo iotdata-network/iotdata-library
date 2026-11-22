@@ -214,57 +214,58 @@ static inline size_t bits_to_bytes(size_t bits) {
 
 #if !defined(IOTDATA_NO_ENCODE)
 static bool bits_write(uint8_t *buf, size_t buf_bits, size_t *bp, uint32_t value, uint8_t nbits) {
-    if (*bp + nbits > buf_bits)
+    if (*bp + nbits <= buf_bits) {
+        size_t pos = *bp;
+        int rem = nbits, off = pos & 7;
+        if (off) {
+            const int n = rem < (8 - off) ? rem : (8 - off);
+            buf[pos >> 3] = (buf[pos >> 3] & ~(uint8_t)(((1U << n) - 1) << ((8 - off) - n))) | (uint8_t)(((value >> (rem - n)) & ((1U << n) - 1)) << ((8 - off) - n));
+            pos += (size_t)n;
+            rem -= n;
+        }
+        while (rem >= 8) {
+            rem -= 8;
+            buf[pos >> 3] = (uint8_t)(value >> rem);
+            pos += 8;
+        }
+        if (rem > 0) {
+            buf[pos >> 3] = (buf[pos >> 3] & ~(uint8_t)(((1U << rem) - 1) << (8 - rem))) | (uint8_t)((value & ((1U << rem) - 1)) << (8 - rem));
+            pos += (size_t)rem;
+        }
+        *bp = pos;
+        return true;
+    } else {
         return false;
-    size_t pos = *bp;
-    int rem = nbits, off = pos & 7;
-    if (off) {
-        const int n = rem < (8 - off) ? rem : (8 - off);
-        buf[pos >> 3] = (buf[pos >> 3] & ~(uint8_t)(((1U << n) - 1) << ((8 - off) - n))) | (uint8_t)(((value >> (rem - n)) & ((1U << n) - 1)) << ((8 - off) - n));
-        pos += (size_t)n;
-        rem -= n;
     }
-    while (rem >= 8) {
-        rem -= 8;
-        buf[pos >> 3] = (uint8_t)(value >> rem);
-        pos += 8;
-    }
-    if (rem > 0) {
-        buf[pos >> 3] = (buf[pos >> 3] & ~(uint8_t)(((1U << rem) - 1) << (8 - rem))) | (uint8_t)((value & ((1U << rem) - 1)) << (8 - rem));
-        pos += (size_t)rem;
-    }
-    *bp = pos;
-    return true;
 }
 #endif
 
 #if !defined(IOTDATA_NO_DECODE) || !defined(IOTDATA_NO_DUMP)
 static uint32_t bits_read(const uint8_t *buf, size_t buf_bits, size_t *bp, uint8_t nbits) {
+    uint32_t value = 0;
     if (*bp + nbits > buf_bits) {
-        uint32_t value = 0;
         for (int i = nbits - 1; i >= 0 && *bp < buf_bits; i--, (*bp)++)
             value |= ((uint32_t)((buf[*bp / 8] >> (7 - (*bp % 8))) & 1U) << i);
-        return value;
+    } else {
+        size_t pos = *bp;
+        int rem = nbits, off = pos & 7;
+        if (off) {
+            const int n = rem < (8 - off) ? rem : (8 - off);
+            value = (buf[pos >> 3] >> ((8 - off) - n)) & ((1U << n) - 1);
+            pos += (size_t)n;
+            rem -= n;
+        }
+        while (rem >= 8) {
+            value = (value << 8) | buf[pos >> 3];
+            pos += 8;
+            rem -= 8;
+        }
+        if (rem > 0) {
+            value = (value << rem) | ((buf[pos >> 3] >> (8 - rem)) & ((1U << rem) - 1));
+            pos += (size_t)rem;
+        }
+        *bp = pos;
     }
-    uint32_t value = 0;
-    size_t pos = *bp;
-    int rem = nbits, off = pos & 7;
-    if (off) {
-        const int n = rem < (8 - off) ? rem : (8 - off);
-        value = (buf[pos >> 3] >> ((8 - off) - n)) & ((1U << n) - 1);
-        pos += (size_t)n;
-        rem -= n;
-    }
-    while (rem >= 8) {
-        value = (value << 8) | buf[pos >> 3];
-        pos += 8;
-        rem -= 8;
-    }
-    if (rem > 0) {
-        value = (value << rem) | ((buf[pos >> 3] >> (8 - rem)) & ((1U << rem) - 1));
-        pos += (size_t)rem;
-    }
-    *bp = pos;
     return value;
 }
 #endif
@@ -491,7 +492,10 @@ static const char *_padd(const char *label) {
 
 #if !defined(IOTDATA_NO_DUMP)
 #if defined(IOTDATA_NO_FLOATING)
-static int fmt_scaled(char *buf, size_t sz, int32_t val, int32_t divisor, const char *unit) {
+// INLINE FOR THE SAME REASON AS json_add_number_fixed BELOW: only a field with a quantised
+// integer representation prints through this, so in an integer build with a narrow field set
+// nothing calls it, and a plain static would be an unused-function error.
+static inline int fmt_scaled(char *buf, size_t sz, int32_t val, int32_t divisor, const char *unit) {
     const uint32_t a = (val < 0) ? -(uint32_t)val : (uint32_t)val;
     return snprintf(buf, sz, "%s%" PRIu32 ".%01" PRIu32 "%s%s", val < 0 ? "-" : "", a / (uint32_t)divisor, a % (uint32_t)divisor, unit[0] ? " " : "", unit);
 }
@@ -501,7 +505,13 @@ static int fmt_scaled(char *buf, size_t sz, int32_t val, int32_t divisor, const 
 #if !defined(IOTDATA_NO_JSON) && !defined(IOTDATA_NO_DECODE) && !defined(IOTDATA_NO_FLOATING)
 // cJSON prints doubles with %1.15g/%1.17g, so rounding the double isn't enough.
 // Format at the field's quantisation precision and insert as a raw JSON number.
-static void json_add_number_fixed(cJSON *obj, const char *name, double v, int decimals) {
+// INLINE SO IT MAY GO UNUSED. Its guard can only ask whether JSON, decoding and floating point
+// are in the build; whether anything CALLS it depends on which fields are enabled, and under
+// IOTDATA_ENABLE_SELECTIVE twenty of the twenty-eight single-field builds call it never. A
+// plain static would be an unused-function error in each of those. The honest alternative is a
+// guard naming every field whose json_set uses it, which would couple this file to the field
+// set and need editing on every migration; C99 lets an unused static inline pass instead.
+static inline void json_add_number_fixed(cJSON *obj, const char *name, double v, int decimals) {
     char buf[32];
     snprintf(buf, sizeof(buf), "%.*f", decimals, v);
     cJSON_AddRawToObject(obj, name, buf);
@@ -512,7 +522,15 @@ static void json_add_number_fixed(cJSON *obj, const char *name, double v, int de
  * Fields
  * ========================================================================= */
 
-#include "iotdata_fields.c"
+/* The generated fields, their definitions this time: iotdata.h already took the declarations.
+   Three files, one pattern -- each asks for its own implementation half here, where bits_write,
+   bits_read, bprintf, dump_add and CHECK_CTX_ACTIVE exist. */
+#define IOTDATA_FIELDS_IMPLEMENTATION
+#include "iotdata_fields.h"
+#define IOTDATA_FIELDS_TLV_IMPLEMENTATION
+#include "iotdata_fields_tlv.h"
+#define IOTDATA_FIELDS_IMAGE_IMPLEMENTATION
+#include "iotdata_fields_image.h"
 
 /* =========================================================================
  * Internal field operations table
@@ -693,9 +711,7 @@ iotdata_status_t iotdata_encode_end(iotdata_encoder_t *enc, size_t *out_bytes) {
     const int spare = (int)enc->pres_reserved - max_pres_needed;
     if (spare > 0) {
         const size_t payload_bit = enc->pres_bit + (size_t)enc->pres_reserved * 8;
-        const size_t from = payload_bit / 8;
-        const size_t len = (enc->bp - payload_bit + 7) / 8;
-        memmove(enc->buf + from - (size_t)spare, enc->buf + from, len);
+        memmove(enc->buf + (payload_bit / 8) - (size_t)spare, enc->buf + (payload_bit / 8), (enc->bp - payload_bit + 7) / 8);
         enc->bp -= (size_t)spare * 8;
     }
 

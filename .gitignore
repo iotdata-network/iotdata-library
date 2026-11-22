@@ -1,11 +1,13 @@
 *.o
 *.a
 *.su
+*.csv
 .vscode
 tests/test_default
 tests/test_complete
 tests/test_failures
 tests/test_custom
+tests/test_fields
 tests/test_example
 tests/test_ordered
 tests/test_version_*

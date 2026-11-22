@@ -106,7 +106,10 @@ static int tests_failed = 0;
  * -------------------------------------------------------------------------*/
 
 static iotdata_encoder_t enc;
-static uint8_t pkt[256];
+/* 512, not 256: a full IMAGE is 254 bytes of pixels, and with the header, a presence byte, the
+   length prefix and the control byte that does not fit in 256. Every use passes sizeof(pkt), so
+   nothing depends on the number. */
+static uint8_t pkt[512];
 static size_t pkt_len;
 static iotdata_decoder_t dec;
 

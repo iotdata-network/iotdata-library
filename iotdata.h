@@ -89,7 +89,11 @@ typedef float iotdata_float_t;
 #if !defined(IOTDATA_ENABLE_SELECTIVE)
 #define IOTDATA_ENABLE_TLV
 #define IOTDATA_ENABLE_BATTERY
+#define IOTDATA_ENABLE_BATTERY_LEVEL
+#define IOTDATA_ENABLE_BATTERY_CHARGE
 #define IOTDATA_ENABLE_LINK
+#define IOTDATA_ENABLE_LINK_RSSI
+#define IOTDATA_ENABLE_LINK_SNR
 #define IOTDATA_ENABLE_ENVIRONMENT
 #define IOTDATA_ENABLE_TEMPERATURE
 #define IOTDATA_ENABLE_PRESSURE
@@ -102,6 +106,8 @@ typedef float iotdata_float_t;
 #define IOTDATA_ENABLE_RAIN_RATE
 #define IOTDATA_ENABLE_RAIN_SIZE
 #define IOTDATA_ENABLE_SOLAR
+#define IOTDATA_ENABLE_SOLAR_IRRADIANCE
+#define IOTDATA_ENABLE_SOLAR_ULTRAVIOLET
 #define IOTDATA_ENABLE_CLOUDS
 #define IOTDATA_ENABLE_AIR_QUALITY
 #define IOTDATA_ENABLE_AIR_QUALITY_INDEX
@@ -123,7 +129,16 @@ typedef float iotdata_float_t;
 enum iotdata_status_t_;
 struct iotdata_encoder_t_;
 struct iotdata_decoder_t_;
+/* IMAGE is a field, but its code is not generated: its encoder and decoder need different
+   storage, so its shape depends on the direction it travels. Same two-phase include as TLV,
+   but BEFORE the generated header rather than after: the generated decoder member aggregate
+   names IOTDATA_FIELDS_MEM_IMAGE_DECODE inside a struct in that very file. TLV storage is
+   used a step later, in this file's own structs, so TLV can follow. */
+#include "iotdata_fields_image.h"
 #include "iotdata_fields.h"
+/* TLV is not a field and is not generated: its types have to be here because the encoder and
+   decoder carry its storage, while its bodies arrive later, where their primitives exist. */
+#include "iotdata_fields_tlv.h"
 #pragma GCC diagnostic pop
 
 /* ---------------------------------------------------------------------------
@@ -232,13 +247,21 @@ typedef enum {
 #undef IOTDATA_FIELDS_RESERVED_VISITOR_
 } iotdata_field_type_t;
 
-_Static_assert(IOTDATA_FIELD_COUNT <= 32, "fields overflow");
+/* The dense ordinals must fit the presence mask AND stay clear of the reserved ones above them.
+   TLV is the only reserved field and sits at the mask's top bit, so the dense count may reach it
+   but not pass it. Both halves of this are load-bearing: the first was always here, the second
+   is here because the ordinals did once collide with TLV, silently, and the symptom was a field
+   that could not be encoded at all. */
+_Static_assert(IOTDATA_FIELD_COUNT <= 64, "fields overflow: more fields enabled than iotdata_field_t has bits");
+#if defined(IOTDATA_ENABLE_TLV)
+_Static_assert(IOTDATA_FIELD_COUNT <= IOTDATA_FIELD_TLV_RESERVED_ID, "field ordinals have reached TLV's reserved id -- they would be treated as reserved");
+#endif
 
 #define IOTDATA_FIELD_EMPTY             (0)
-#define IOTDATA_FIELD_BIT(id)           (1U << (id))
+#define IOTDATA_FIELD_BIT(id)           ((iotdata_field_t)1 << (id))
 #define IOTDATA_FIELD_PRESENT(mask, id) (((mask) >> (id)) & 1U)
-#define IOTDATA_FIELD_SET(mask, id)     ((mask) |= (1U << (id)))
-#define IOTDATA_FIELD_CLR(mask, id)     ((mask) &= ~(1U << (id)))
+#define IOTDATA_FIELD_SET(mask, id)     ((mask) |= ((iotdata_field_t)1 << (id)))
+#define IOTDATA_FIELD_CLR(mask, id)     ((mask) &= ~((iotdata_field_t)1 << (id)))
 #define IOTDATA_FIELD_VALID(id)         ((id) != IOTDATA_FIELD_NONE && !IOTDATA_FIELD_RESERVED(id))
 
 /* ---------------------------------------------------------------------------
@@ -344,7 +367,14 @@ typedef enum {
     IOTDATA_STATE_ENDED,
 } iotdata_state_t;
 
-typedef uint32_t iotdata_field_t;
+/* THE PRESENCE BOOKKEEPING MASK, one bit per enabled field, and so the thing that sets how many
+   fields a single build may enable. It was uint32_t and the library had 28 fields; splitting the
+   three bundles took that to 34, which is why it is 64 bits now. The cost is four bytes in the
+   encoder and four in the decoder, against a decoder that was 2536 bytes before ORDERED mode.
+
+   This is NOT a wire quantity -- it never leaves the context, and the packet's own presence bytes
+   are a separate, variable-length thing. Nothing about the protocol changes with it. */
+typedef uint64_t iotdata_field_t;
 
 /* ---------------------------------------------------------------------------
  * Encoder context

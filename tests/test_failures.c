@@ -720,7 +720,7 @@ static void test_snr_errors(void) {
 static void test_solar_errors(void) {
     TEST("Solar out of range");
     begin(0, 1, 207);
-    ASSERT_ERR(iotdata_encode_solar(&enc, 1024, 0), IOTDATA_ERR_SOLAR_IRRADIATION_HIGH, "irr high");
+    ASSERT_ERR(iotdata_encode_solar(&enc, 1024, 0), IOTDATA_ERR_SOLAR_IRRADIANCE_HIGH, "irr high");
     ASSERT_ERR(iotdata_encode_solar(&enc, 0, 16), IOTDATA_ERR_SOLAR_ULTRAVIOLET_HIGH, "uv high");
     PASS();
 }

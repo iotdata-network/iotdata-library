@@ -96,9 +96,8 @@ STACK_USAGE_FILE_LIST=tests/*.su
 STACK_USAGE_FILE_EXAMPLE_IOTDATA=tests/test_example-iotdata.su
 
 LIB_SRC    = iotdata.c
-LIB_INC    = iotdata_fields.c
 LIB_OBJ    = iotdata.o
-LIB_HDR    = iotdata.h iotdata_node.h iotdata_mesh.h iotdata_fields.h $(LIB_INC)
+LIB_HDR    = iotdata.h iotdata_node.h iotdata_mesh.h iotdata_fields.h iotdata_fields_tlv.h iotdata_fields_image.h
 LIB_STATIC = libiotdata.a
 
 TEST_DEFAULT_SRC = tests/test_default.c
@@ -113,18 +112,23 @@ TEST_FAILURES_SRC = tests/test_failures.c
 TEST_FAILURES_BIN = tests/test_failures
 TEST_ORDERED_SRC = tests/test_ordered.c
 TEST_ORDERED_BIN = tests/test_ordered
+TEST_FIELDS_SRC  = tests/test_fields.c
+TEST_FIELDS_BIN  = tests/test_fields
 TEST_VERSION_SRC = tests/test_version.c
 
 MAPS_DEFAULT   = -DIOTDATA_VARIANT_MAPS_DEFAULT
 MAPS_CUSTOM    = -DIOTDATA_VARIANT_MAPS=custom_variants -DIOTDATA_VARIANT_MAPS_COUNT=3
-MAPS_COMPLETE  = -DIOTDATA_VARIANT_MAPS=complete_variants -DIOTDATA_VARIANT_MAPS_COUNT=2
+MAPS_COMPLETE  = -DIOTDATA_VARIANT_MAPS=complete_variants -DIOTDATA_VARIANT_MAPS_COUNT=3
 MAPS_FAILURES  = -DIOTDATA_VARIANT_MAPS=failure_variants -DIOTDATA_VARIANT_MAPS_COUNT=3
 MAPS_ORDERED   = -DIOTDATA_VARIANT_MAPS=ordered_variants -DIOTDATA_VARIANT_MAPS_COUNT=3
+MAPS_FIELDS    = -DIOTDATA_VARIANT_MAPS=field_variants -DIOTDATA_VARIANT_MAPS_COUNT=3
 CFLAGS_ORDERED = -DIOTDATA_OPERATE_ORDERED
 
-SUITES_DEFERRED = $(TEST_DEFAULT_BIN) $(TEST_CUSTOM_BIN) $(TEST_COMPLETE_BIN) $(TEST_FAILURES_BIN)
+SUITES_DEFERRED = $(TEST_DEFAULT_BIN) $(TEST_CUSTOM_BIN) $(TEST_COMPLETE_BIN) $(TEST_FAILURES_BIN) \
+    $(TEST_FIELDS_BIN)
 SUITES_ORDERED  = tests/test_default_ordered tests/test_custom_ordered \
-    tests/test_complete_ordered tests/test_failures_ordered $(TEST_ORDERED_BIN)
+    tests/test_complete_ordered tests/test_failures_ordered tests/test_fields_ordered \
+    $(TEST_ORDERED_BIN)
 
 MINIMAL_OBJ=iotdata_full.o iotdata_minimal.o
 
@@ -147,7 +151,7 @@ VERSION_BINS = \
 
 ################################################################################
 
-all: lib $(TEST_DEFAULT_BIN) $(TEST_CUSTOM_BIN) $(TEST_COMPLETE_BIN) $(TEST_FAILURES_BIN) $(TEST_ORDERED_BIN) $(TEST_EXAMPLE_BIN)
+all: lib $(TEST_DEFAULT_BIN) $(TEST_CUSTOM_BIN) $(TEST_COMPLETE_BIN) $(TEST_FAILURES_BIN) $(TEST_FIELDS_BIN) $(TEST_ORDERED_BIN) $(TEST_EXAMPLE_BIN)
 
 ################################################################################
 
@@ -157,6 +161,68 @@ $(LIB_OBJ): $(LIB_SRC) $(LIB_HDR)
 	$(CC) $(CFLAGS) $(EXTRA) -c $(LIB_SRC) -o $(LIB_OBJ)
 $(LIB_STATIC): $(LIB_OBJ)
 	$(AR) rcs $(LIB_STATIC) $(LIB_OBJ)
+
+################################################################################
+# Generation
+#
+# specification/iotdata-fields.xml is the source; generators/templates hold every
+# brace and guard; the generator knows no C and only pumps one into the other.
+#
+# generate-check is the acceptance test, and it is deliberately strict: generate,
+# format, and the tree must be unchanged. The committed files ARE the test -- they
+# have been in service, so reproducing them byte for byte is the only evidence
+# that nothing was quietly re-derived. Formatting first means the generator is
+# judged on content and not on its ability to pad columns.
+
+GENERATOR      = generators/iotdata-generator-fields.js
+# A wildcard, not a list: the point of several specification documents is that a
+# vendor adds fields by dropping a file in, and a file nobody has listed here
+# would otherwise not trigger a regeneration.
+GENERATOR_SPEC = $(wildcard specification/iotdata-fields*.xml)
+GENERATOR_TMPL = $(wildcard generators/templates/fields.*.tmpl)
+GENERATOR_DEPS = $(GENERATOR) generators/iotdata-generator-functions-xml.js \
+    $(GENERATOR_TMPL) $(GENERATOR_SPEC)
+
+generate: $(GENERATOR_DEPS)
+	node $(GENERATOR)
+	$(MAKE) --no-print-directory format
+
+# TWO QUESTIONS, BOTH WORTH ASKING, AND THEY ARE NOT THE SAME.
+#
+# FIDELITY: does the generated output match what is COMMITTED? That is the real
+# acceptance test while fields are being migrated -- the committed files have been
+# in service, so reproducing them is the only evidence nothing was quietly
+# re-derived. It is `git diff`, and a non-empty diff here is for reading, not
+# necessarily a fault: a deliberate change to a generated file shows up the same
+# way as a mistake, and only a person can tell those apart.
+#
+# IDEMPOTENCE: does generating twice give the same thing? A generator that is not
+# a fixed point is broken however good its first output looks, and this is the
+# check that a snapshot comparison can make on its own. Testing only this would
+# be hollow once the tree already holds generated output -- it would be comparing
+# generated to generated -- which is why fidelity is asked first.
+# What the generator writes. One header now, where it used to be a header and a
+# source: see the banner in iotdata_fields.h.
+GENERATED  = iotdata_fields.h
+
+generate-check: $(GENERATOR_DEPS)
+	@node $(GENERATOR) >/dev/null && $(MAKE) --no-print-directory format >/dev/null
+	@d=$$(mktemp -d) && cp $(GENERATED) $$d/ && \
+	node $(GENERATOR) >/dev/null && $(MAKE) --no-print-directory format >/dev/null && \
+	if for f in $(GENERATED); do cmp -s $$f $$d/$$f || exit 1; done; then \
+		rm -rf $$d; echo "generate-check: idempotent"; \
+	else \
+		echo "generate-check: NOT IDEMPOTENT -- generating twice gave different output"; \
+		for f in $(GENERATED); do diff -u $$d/$$f $$f | head -40; done; rm -rf $$d; exit 1; \
+	fi
+	@if git diff --quiet -- $(GENERATED); then \
+		echo "generate-check: matches the committed files byte for byte"; \
+	else \
+		echo "generate-check: DIFFERS FROM THE COMMITTED FILES -- read this before committing:"; \
+		git --no-pager diff --stat -- $(GENERATED); \
+		git --no-pager diff -- $(GENERATED) | head -60; \
+		exit 1; \
+	fi
 
 ################################################################################
 
@@ -178,6 +244,14 @@ tests/test_complete_ordered: $(TEST_COMPLETE_SRC) $(LIB_HDR) $(LIB_SRC)
 	$(CC) $(CFLAGS) $(CFLAGS_TEST) $(MAPS_COMPLETE) $(CFLAGS_ORDERED) $(TEST_COMPLETE_SRC) $(LIB_SRC) $(LIBS) -o $@
 tests/test_failures_ordered: $(TEST_FAILURES_SRC) $(LIB_HDR) $(LIB_SRC)
 	$(CC) $(CFLAGS) $(CFLAGS_TEST) $(MAPS_FAILURES) $(CFLAGS_ORDERED) $(TEST_FAILURES_SRC) $(LIB_SRC) $(LIBS) -o $@
+
+# One test per generated field, asking the same four questions of each: round trip,
+# boundaries, range, absence. The behavioural guard on the templates -- generate-check
+# proves the output has not changed, this proves a change was right.
+$(TEST_FIELDS_BIN): $(TEST_FIELDS_SRC) $(LIB_HDR) $(LIB_SRC)
+	$(CC) $(CFLAGS) $(CFLAGS_TEST) $(MAPS_FIELDS) $(TEST_FIELDS_SRC) $(LIB_SRC) $(LIBS) -o $@
+tests/test_fields_ordered: $(TEST_FIELDS_SRC) $(LIB_HDR) $(LIB_SRC)
+	$(CC) $(CFLAGS) $(CFLAGS_TEST) $(MAPS_FIELDS) $(CFLAGS_ORDERED) $(TEST_FIELDS_SRC) $(LIB_SRC) $(LIBS) -o $@
 $(TEST_ORDERED_BIN): $(TEST_ORDERED_SRC) $(LIB_HDR) $(LIB_SRC)
 	$(CC) $(CFLAGS) $(CFLAGS_TEST) $(MAPS_ORDERED) $(CFLAGS_ORDERED) $(TEST_ORDERED_SRC) $(LIB_SRC) $(LIBS) -o $@
 
@@ -191,6 +265,8 @@ test-failures: $(TEST_FAILURES_BIN)
 	./$(TEST_FAILURES_BIN)
 test-ordered: $(TEST_ORDERED_BIN)
 	./$(TEST_ORDERED_BIN)
+test-fields: $(TEST_FIELDS_BIN)
+	./$(TEST_FIELDS_BIN)
 
 test-suites: $(SUITES_DEFERRED) $(SUITES_ORDERED)
 	@for t in $(SUITES_DEFERRED) $(SUITES_ORDERED); do echo "### $$t"; ./$$t || exit 1; done
@@ -262,7 +338,44 @@ test-example: $(TEST_EXAMPLE_BIN)
 
 ################################################################################
 
-tests: test-suites test-versions test-example
+# EVERY FIELD ALONE, ACROSS THE BUILD AXES. IOTDATA_ENABLE_SELECTIVE compiles exactly one
+# field's code, and that is the only configuration that can expose a helper or a table whose
+# guard is wrong: in every other build some other field happens to use it, so the mistake stays
+# silent. Two helpers in iotdata.c and one table in the air quality family were wrong this way,
+# found only by sweeping it by hand -- hence this target.
+#
+# The field list derives itself from the GENERATED REGISTRY, so a field added tomorrow is swept
+# without anyone remembering to add it here. The registry rather than iotdata_fields.h, because
+# it is the whole-set view by construction: IMAGE's identifier lives in iotdata_fields_image.h,
+# and reading only the generated header silently dropped it from the sweep.
+SELECTIVE_FIELDS = $(shell awk -F, '/^0x/ { print toupper($$2) }' iotdata_fields.csv | sort -u)
+SELECTIVE_AXES   = default NO_FLOATING NO_FLOATING_DOUBLES NO_JSON NO_PRINT+NO_DUMP \
+                   NO_ENCODE NO_DECODE OPERATE_ORDERED NO_CHECKS_STATE+NO_CHECKS_TYPES
+
+test-selective: $(LIB_HDR) $(LIB_SRC)
+	@err=$$(mktemp); fail=0; n=0; \
+	for ax in $(SELECTIVE_AXES); do \
+		flags=""; \
+		if [ "$$ax" != default ]; then \
+			for one in $$(echo $$ax | tr '+' ' '); do flags="$$flags -DIOTDATA_$$one"; done; \
+		fi; \
+		for f in $(SELECTIVE_FIELDS); do \
+			n=$$((n+1)); \
+			if ! $(CC) $(CFLAGS) $(CFLAGS_VERSIONS) -DIOTDATA_ENABLE_SELECTIVE \
+				-DIOTDATA_ENABLE_$$f $$flags -c $(LIB_SRC) -o /dev/null 2>$$err; then \
+				echo "  FAIL $$f ($$ax)"; \
+				sed -n 's/.*error: /        /p' $$err | head -1; \
+				fail=$$((fail+1)); \
+			fi; \
+		done; \
+	done; \
+	rm -f $$err; \
+	echo "test-selective: $$((n-fail))/$$n field x axis combinations clean"; \
+	[ $$fail -eq 0 ]
+
+################################################################################
+
+tests: test-suites test-versions test-example test-selective
 
 ################################################################################
 
@@ -275,7 +388,7 @@ prettier:
 clean:
 	rm -f $(LIB_OBJ) $(LIB_STATIC) $(TEST_DEFAULT_BIN) $(TEST_CUSTOM_BIN) $(TEST_COMPLETE_BIN) $(TEST_FAILURES_BIN) $(TEST_EXAMPLE_BIN) $(VERSION_BINS) $(MINIMAL_OBJ) $(STACK_USAGE_FILE_LIST)
 
-.PHONY: all test-default test-custom test-complete test-failures test-suites test-example test-versions tests lib format clean minimal
+.PHONY: all test-default test-custom test-complete test-failures test-suites test-example test-versions test-selective tests lib format clean minimal
 
 ################################################################################
 

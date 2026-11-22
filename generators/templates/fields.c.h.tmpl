@@ -1,0 +1,220 @@
+{{#field}}{{#if has_banner}}
+/* ---------------------------------------------------------------------------
+ * {{doc field}}
+ * -------------------------------------------------------------------------*/
+
+{{/if}}{{#if has_subfield}}/* --- Sub-field: {{doc subfield}} --- */
+{{/if}}{{#if composite}}#if defined(IOTDATA_ENABLE_{{NAME}})
+#if !defined(IOTDATA_NO_ENCODE)
+enum iotdata_status_t_ iotdata_encode_{{name}}(struct iotdata_encoder_t_ * const enc{{#each quantity}}, {{q.arg}}{{/each}});
+#if defined(IOTDATA_OPERATE_ORDERED)
+enum iotdata_status_t_ iotdata_encode_{{name}}_by_slot(struct iotdata_encoder_t_ * const enc, const int slot{{#each quantity}}, {{q.arg}}{{/each}});
+#endif
+#endif
+#if !defined(IOTDATA_NO_DECODE)
+enum iotdata_status_t_ iotdata_decode_{{name}}(struct iotdata_decoder_t_ * const dec{{#each quantity}}, {{q.arg_out}}{{/each}});
+#endif
+typedef struct {
+{{#each part}}    iotdata_field_{{p.name}}_t {{p.name}};
+{{/each}}} iotdata_field_{{name}}_t;
+#define IOTDATA_FIELDS_MEM_{{NAME}} iotdata_field_{{name}}_t {{name}};
+#define IOTDATA_FIELD_ID_{{NAME}} {{id}}
+#define IOTDATA_FIELDS_DEF_{{NAME}}(F) F({{NAME}})
+#define IOTDATA_FIELDS_OPS_{{NAME}}(E) E({{NAME}}, _iotdata_field_def_{{name}})
+#else
+#define IOTDATA_FIELDS_MEM_{{NAME}}
+#define IOTDATA_FIELDS_DEF_{{NAME}}(F)
+#define IOTDATA_FIELDS_OPS_{{NAME}}(E)
+#endif
+#define IOTDATA_FIELDS_ERR_IDENTS_{{NAME}}(S)
+#define IOTDATA_FIELDS_ERR_STRINGS_{{NAME}}(D)
+#define IOTDATA_FIELDS_DAT_{{NAME}}{{#each part}} IOTDATA_FIELDS_DAT_{{p.NAME}}{{/each}}
+{{/if}}{{#if atomic}}#if {{enable_guard}}
+{{#each constant_early}}#define IOTDATA_{{NAME}}_{{c.name}} {{c.value}}
+{{/each}}{{#if single}}#define IOTDATA_FIELDS_DAT_{{NAME}} {{#each quantity}}{{q.member}}{{/each}}
+{{/if}}{{#if multi}}#define IOTDATA_FIELDS_DAT_{{NAME}} \
+{{#each quantity}}    {{q.member}}{{#if notlast}} \{{/if}}
+{{/each}}{{/if}}typedef struct {
+    IOTDATA_FIELDS_DAT_{{NAME}}
+} iotdata_field_{{name}}_t;
+{{#each constant}}{{#if has_lead}}/* {{c.lead}} */
+{{/if}}{{#if opens_cond}}#if !defined(IOTDATA_NO_FLOATING)
+{{/if}}{{#if emit_else}}#else
+{{/if}}#define IOTDATA_{{NAME}}_{{c.name}} {{c.value}}
+{{#if closes_cond}}#endif
+{{/if}}{{/each}}#if !defined(IOTDATA_NO_ENCODE)
+enum iotdata_status_t_ iotdata_encode_{{name}}(struct iotdata_encoder_t_ * const enc{{#each quantity}}, {{q.arg}}{{/each}});
+#if defined(IOTDATA_OPERATE_ORDERED)
+enum iotdata_status_t_ iotdata_encode_{{name}}_by_slot(struct iotdata_encoder_t_ * const enc, const int slot{{#each quantity}}, {{q.arg}}{{/each}});
+#endif
+#endif
+#if !defined(IOTDATA_NO_DECODE)
+enum iotdata_status_t_ iotdata_decode_{{name}}(struct iotdata_decoder_t_ * const dec{{#each quantity}}, {{q.arg_out}}{{/each}});
+#endif
+{{#if standalone}}#define IOTDATA_FIELDS_MEM_{{NAME}} iotdata_field_{{name}}_t {{name}};
+#define IOTDATA_FIELD_ID_{{NAME}} {{id}}
+#define IOTDATA_FIELDS_DEF_{{NAME}}(F) F({{NAME}})
+#define IOTDATA_FIELDS_OPS_{{NAME}}(E) E({{NAME}}, _iotdata_field_def_{{name}})
+{{/if}}{{#if one_check}}#define IOTDATA_FIELDS_ERR_IDENTS_{{NAME}}(S) {{#each own_check}}S({{k.ident}}){{/each}}
+#define IOTDATA_FIELDS_ERR_STRINGS_{{NAME}}(D) {{#each own_check}}D({{k.ident}}, "{{k.text}}"){{/each}}
+{{/if}}{{#if many_checks}}#define IOTDATA_FIELDS_ERR_IDENTS_{{NAME}}(S) \
+{{#each own_check}}    S({{k.ident}}){{#if notlast}} \{{/if}}
+{{/each}}#define IOTDATA_FIELDS_ERR_STRINGS_{{NAME}}(D) \
+{{#each own_check}}    D({{k.ident}}, "{{k.text}}"){{#if notlast}} \{{/if}}
+{{/each}}{{/if}}#else
+#define IOTDATA_FIELDS_DAT_{{NAME}}
+{{#if standalone}}#define IOTDATA_FIELDS_MEM_{{NAME}}
+#define IOTDATA_FIELDS_DEF_{{NAME}}(F)
+#define IOTDATA_FIELDS_OPS_{{NAME}}(E)
+{{/if}}{{#if checked}}#define IOTDATA_FIELDS_ERR_IDENTS_{{NAME}}(S)
+#define IOTDATA_FIELDS_ERR_STRINGS_{{NAME}}(D)
+{{/if}}#endif
+{{#if unchecked}}#define IOTDATA_FIELDS_ERR_IDENTS_{{NAME}}(S)
+#define IOTDATA_FIELDS_ERR_STRINGS_{{NAME}}(D)
+{{/if}}{{#if member}}#if defined(IOTDATA_ENABLE_{{NAME}})
+#define IOTDATA_FIELDS_MEM_{{NAME}} iotdata_field_{{name}}_t {{name}};
+#define IOTDATA_FIELD_ID_{{NAME}} {{id}}
+#define IOTDATA_FIELDS_DEF_{{NAME}}(F) F({{NAME}})
+#define IOTDATA_FIELDS_OPS_{{NAME}}(E) E({{NAME}}, _iotdata_field_def_{{name}})
+#else
+#define IOTDATA_FIELDS_MEM_{{NAME}}
+#define IOTDATA_FIELDS_DEF_{{NAME}}(F)
+#define IOTDATA_FIELDS_OPS_{{NAME}}(E)
+#endif
+{{/if}}{{/if}}{{/field}}
+
+/*
+ * GENERATED FILE -- DO NOT EDIT.
+ *
+ * Built by generators/iotdata-generator-fields.js from the field specification in
+ * specification/iotdata-fields-*.xml, through two templates:
+ * generators/templates/fields.c.h.tmpl for the declarations below, and
+ * generators/templates/fields.c.c.tmpl for the definitions in the second half.
+ * `make generate` rewrites it and `make generate-check` proves it reproduces.
+ */
+
+#if !defined(IOTDATA_FIELDS_H_DECLARATIONS)
+#define IOTDATA_FIELDS_H_DECLARATIONS
+
+/* ---------------------------------------------------------------------------
+ * Field identifiers
+ *
+ * EVERY FIELD CARRIES TWO NUMBERS, AND THEY ARE NOT THE SAME NUMBER.
+ *
+ *   IOTDATA_FIELD_<NAME>     the iotdata_field_type_t enum member    BUILD-LOCAL
+ *   IOTDATA_FIELD_ID_<NAME>  the identifier, defined in its block    STABLE
+ *
+ * The enum is dense and moves with IOTDATA_ENABLE_*, because it doubles as a bit position in the
+ * uint32_t presence mask and as an index into a flat ops table. That makes it a good handle
+ * inside one program and meaningless between two: enable one more field and every ordinal after
+ * it shifts. The identifier does not move, so it is the one that can be written down, kept, or
+ * handed to a peer that was built differently.
+ *
+ * NOTHING IN THE BASE PROTOCOL USES THEM, and that is the point of having them separate. A
+ * point-to-point, mesh or relay implementation encodes and decodes entirely from its own
+ * compiled-in fields and never needs a number anyone else agrees with. The identifiers exist for
+ * the layer above: the node VARIANT TLV in iotdata_node.h puts them on the wire so a peer can
+ * learn what this node's presence slots carry, which is what turns a purely local map into
+ * something a stranger can read. See that header's VARIANT notes.
+ *
+ * NUMBERING. Identifiers are opaque -- compared, never calculated with. They are grouped only so
+ * a person reading a capture can see the shape: sixteen to a family, and by convention x0..x7 are
+ * a family's atomic fields while x8..xF are the composites over them, so ENVIRONMENT at 0x0018 is
+ * temperature, pressure and humidity in one slot. The gaps let a new sibling sit beside its
+ * relatives instead of on the end. 0x0000 is left unassigned so that a zeroed buffer is not a
+ * valid field, and the upper half of the space is the implementer's -- iotdata_node.h states the
+ * boundary, because it owns the wire.
+ *
+ * TLV HAS NO IDENTIFIER. It is reserved, it never occupies a data presence slot, and it is the
+ * escape hatch from typed telemetry rather than a kind of it.
+ * -------------------------------------------------------------------------*/
+
+{{field battery_level}}{{field battery_charge}}{{field battery}}
+{{field link_rssi}}{{field link_snr}}{{field link}}
+{{field temperature}}{{field pressure}}{{field humidity}}{{field environment}}
+{{field wind_speed}}{{field wind_direction}}{{field wind_gust}}{{field wind}}
+{{field rain_rate}}{{field rain_size}}{{field rain}}
+{{field solar_irradiance}}{{field solar_ultraviolet}}{{field solar}}
+{{field clouds}}
+{{field air_quality_index}}{{field air_quality_pm}}{{field air_quality_gas}}{{field air_quality}}
+{{field radiation_cpm}}{{field radiation_dose}}{{field radiation}}
+{{field depth}}
+{{field position}}
+{{field datetime}}
+static inline uint32_t iotdata_datetime_convert_utc_to_seconds_from_year_start(const int64_t utc) {
+    if (utc <= 0)
+        return 0;
+    const int d = (int)(utc / 86400), r = (int)(utc % 86400);
+    int y = (int)((10000LL * (long long)d + 14780) / 3652425) + 1970;
+    int j = y * 365 + y / 4 - y / 100 + y / 400 - 719527;
+    if (j > d) {
+        y--;
+        j = y * 365 + y / 4 - y / 100 + y / 400 - 719527;
+    }
+    return (uint32_t)((d - j) * 86400 + r);
+}
+{{field flags}}
+{{field bits32}}
+
+/* ---------------------------------------------------------------------------
+ * Master
+ * -------------------------------------------------------------------------*/
+
+#define IOTDATA_FIELDS_SELECTED(F) \
+{{#each field}}    IOTDATA_FIELDS_DEF_{{NAME}}(F){{#if notlast}} \{{/if}}
+{{/each}}
+#define IOTDATA_FIELDS_RESERVED(F) IOTDATA_FIELDS_DEF_TLV(F)
+
+#define IOTDATA_FIELDS_MEM_ENCODER_FIELDS \
+{{#each field}}{{#if mem_single}}    IOTDATA_FIELDS_MEM_{{NAME}}{{/if}}{{#if mem_split}}    IOTDATA_FIELDS_MEM_{{NAME}}_ENCODE{{/if}}{{#if notlast}} \{{/if}}
+{{/each}}
+#if defined(IOTDATA_OPERATE_ORDERED)
+#define IOTDATA_FIELDS_MEM_ENCODER IOTDATA_FIELDS_DAT_TLV_ENCODE
+#else
+#define IOTDATA_FIELDS_MEM_ENCODER \
+    IOTDATA_FIELDS_MEM_ENCODER_FIELDS \
+    IOTDATA_FIELDS_DAT_TLV_ENCODE
+#endif
+
+#define IOTDATA_FIELDS_MEM_DECODER_FIELDS \
+{{#each field}}{{#if mem_single}}    IOTDATA_FIELDS_MEM_{{NAME}}{{/if}}{{#if mem_split}}    IOTDATA_FIELDS_MEM_{{NAME}}_DECODE{{/if}}{{#if notlast}} \{{/if}}
+{{/each}}
+#if defined(IOTDATA_OPERATE_ORDERED)
+#define IOTDATA_FIELDS_MEM_DECODER IOTDATA_FIELDS_DAT_TLV_DECODE
+#else
+#define IOTDATA_FIELDS_MEM_DECODER \
+    IOTDATA_FIELDS_MEM_DECODER_FIELDS \
+    IOTDATA_FIELDS_DAT_TLV_DECODE
+#endif
+
+#define IOTDATA_FIELDS_OPS(E) \
+{{#each field}}    IOTDATA_FIELDS_OPS_{{NAME}}(E){{#if notlast}} \{{/if}}
+{{/each}}
+#define IOTDATA_FIELDS_ERR_IDENTS(S) \
+    IOTDATA_FIELDS_ERR_IDENTS_TLV(S) \
+{{#each field}}    IOTDATA_FIELDS_ERR_IDENTS_{{NAME}}(S){{#if notlast}} \{{/if}}
+{{/each}}
+#define IOTDATA_FIELDS_ERR_STRINGS(D) \
+    IOTDATA_FIELDS_ERR_STRINGS_TLV(D) \
+{{#each field}}    IOTDATA_FIELDS_ERR_STRINGS_{{NAME}}(D){{#if notlast}} \{{/if}}
+{{/each}}
+#define IOTDATA_FIELDS_ENCODE_FROM_JSON_SCRATCH \
+    IOTDATA_IMAGE_ENCODE_FROM_JSON_SCRATCH \
+    IOTDATA_TLV_ENCODE_FROM_JSON_SCRATCH
+
+#define IOTDATA_FIELDS_DECODE_TO_JSON_SCRATCH \
+    IOTDATA_IMAGE_DECODE_TO_JSON_SCRATCH \
+    IOTDATA_TLV_DECODE_TO_JSON_SCRATCH
+
+#if !defined(IOTDATA_NO_DECODE)
+typedef union {
+    uint32_t _any; /* so the union is never empty, however few fields are enabled */
+    IOTDATA_FIELDS_MEM_DECODER_FIELDS
+} iotdata_field_any_t;
+#endif
+
+/* ---------------------------------------------------------------------------
+ * End
+ * -------------------------------------------------------------------------*/
+
+#endif /* IOTDATA_FIELDS_H_DECLARATIONS */

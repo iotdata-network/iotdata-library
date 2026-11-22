@@ -1,0 +1,29 @@
+#
+# iotdata_fields.csv - the field registry
+#
+# GENERATED from specification/iotdata-fields-*.xml. Do not edit: the next
+# `make generate` discards it.
+#
+# THE WHOLE-SET VIEW, which is the one thing no single specification document
+# has. Rows are in IDENTIFIER order, so the family blocks and the gaps between
+# them are visible at a glance and the next free identifier is the obvious one.
+# Identifiers are grouped in blocks of 16 per family, x0..x7 atomic and x8..xF
+# composite; 0x0000 is unassigned, 0x8000 and above belong to the implementer,
+# 0xFFFF means none. TLV has no identifier and so has no row.
+#
+# This file is for people and for tools that are not the C generator -- a
+# documentation build, a binding generator for another language, or anyone asking
+# what identifier a field carries without reading a template. The C output does
+# not consume it.
+#
+# A WIDTH OF 0 MEANS VARIABLE, not empty: a field carrying a presence mask over an
+# array costs only what its filled slots cost, so there is no fixed number to state.
+# The air quality particulate and gas fields and their composite are the three.
+#
+# bits is the wire width where the specification states it as a plain number;
+# where it is an expression (a sum across a composite's parts, say) the column is
+# empty and the bits_expr column carries the expression instead.
+#
+id,name,kind,bits,bits_expr,quantities,parameters,errors,document
+{{#each field}}{{r.id}},{{name}},{{r.kind}},{{r.bits}},{{bits}},{{r.quantities}},"{{r.params}}","{{r.errors}}",{{r.document}}
+{{/each}}

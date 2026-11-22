@@ -1,0 +1,237 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    IoT Sensor Telemetry Protocol
+    Copyright(C) 2026 Matthew Gream (https://libiotdata.org)
+
+    iotdata-fields-radiation.xml - radiation fields
+
+    THIS IS THE SOURCE. iotdata_fields.h and iotdata_fields.c are generated from
+    it by generators/iotdata-generator-fields.js through the templates in
+    generators/templates, and editing them directly loses the edit at the next
+    `make generate`.
+
+    WHAT IS HERE AND WHAT IS IN THE TEMPLATE. This document carries what is true
+    of a field in any language: its identifier, its quantities, their ranges and
+    wire widths, the errors it can raise, its documentation -- and, for now, the
+    bodies of its operations as literal C. The template carries what is true of
+    the LANGUAGE: every brace, guard, typedef and macro form. So a toolchain that
+    needs the C shaped differently is a template edit, not a generator change.
+
+    <impl> IS LANGUAGE-SPECIFIC AND DELIBERATELY VERBATIM. Lifting the existing
+    bodies in unchanged is the whole approach: nothing is re-derived, so nothing
+    silently changes behaviour. A later <abstract> element may describe a
+    quantisation rule declaratively, and the generator will use it only where no
+    <impl> for that language and hook exists -- so a field migrates when someone
+    chooses to migrate it, and until then the C that has been in service stays
+    the definition.
+
+    WHEN AN <impl> HAS A 'when' ATTRIBUTE it is selected by build configuration:
+    'floating' and 'integer' are the two forms of iotdata_float_t. Several
+    quantities need genuinely different arithmetic in the two, not the same
+    expression at two widths, which is why they are separate bodies rather than
+    one body and a cast.
+
+    IDENTIFIERS are grouped in blocks of 16 per family, x0..x7 atomic and
+    x8..xF composite. A convention only: identifiers are compared, never
+    calculated with. 0x0000 is unassigned, 0x8000 and above belong to the
+    implementer, 0xFFFF means none. TLV has no identifier.
+
+    Ionising radiation: a count rate and an absorbed dose. Its own document
+    because a geiger counter is not a weather station -- the two share a protocol
+    and nothing else, and a build that wants one rarely wants the other.
+-->
+<fields>
+
+    <!-- ---------------------------------------------------------------------------
+        RADIATION_CPM - counts per minute, straight off the tube.
+
+        Its error message said "above 65535" where the ceiling is 16383: the
+        field is fourteen bits and 65535 is sixteen, so it was narrowed at some
+        point and the message was left behind. Corrected here, which is the kind
+        of thing that only shows up when every number has to be written down in
+        one place.
+    -->
+    <field name="radiation_cpm" id="0x0060u" bits="IOTDATA_RADIATION_CPM_BITS">
+
+        <documentation>
+            <note for="field"><![CDATA[Field RADIATION, RADIATION_CPM, RADIATION_DOSE]]></note>
+        </documentation>
+
+        <constants>
+            <constant name="MAX" value="16383"/>
+            <constant name="BITS" value="14"/>
+        </constants>
+
+        <quantity name="radiation_cpm" type="uint16_t" param="cpm">
+            <check expr="cpm &gt; IOTDATA_RADIATION_CPM_MAX" error="HIGH" text="Radiation CPM above 16383"/>
+            <impl lang="c" hook="quantise" arg="uint16_t cpm"><![CDATA[    return (uint32_t)cpm;
+]]></impl>
+            <impl lang="c" hook="dequantise" ret="uint16_t"><![CDATA[    return (uint16_t)raw;
+]]></impl>
+        </quantity>
+
+        <impl lang="c" hook="pack"><![CDATA[    const iotdata_field_radiation_cpm_t *const v = vv;
+    return bits_write(buf, bb, bp, quantise_radiation_cpm(v->radiation_cpm), IOTDATA_RADIATION_CPM_BITS);
+]]></impl>
+        <impl lang="c" hook="unpack"><![CDATA[    iotdata_field_radiation_cpm_t *const v = vv;
+    if (*bp + IOTDATA_RADIATION_CPM_BITS > bb)
+        return false;
+    v->radiation_cpm = dequantise_radiation_cpm(bits_read(buf, bb, bp, IOTDATA_RADIATION_CPM_BITS));
+    return true;
+]]></impl>
+        <impl lang="c" hook="json_get"><![CDATA[    (void)scratch;
+    cJSON *j = cJSON_GetObjectItem(root, label);
+    if (!j)
+        return IOTDATA_OK;
+    return iotdata_encode_radiation_cpm(enc, (uint16_t)j->valueint);
+]]></impl>
+        <impl lang="c" hook="json_set"><![CDATA[    const iotdata_field_radiation_cpm_t *const v = vv;
+    (void)scratch;
+    cJSON_AddNumberToObject(root, label, v->radiation_cpm);
+]]></impl>
+        <impl lang="c" hook="dump"><![CDATA[    (void)label;
+    size_t s = *bp;
+    uint32_t r = bits_read(buf, bb, bp, IOTDATA_RADIATION_CPM_BITS);
+    snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "%" PRIu16 " CPM", dequantise_radiation_cpm(r));
+    n = dump_add(dump, n, s, IOTDATA_RADIATION_CPM_BITS, r, dump->_dec_buf, "0..65535 CPM", "radiation_cpm");
+    return n;
+]]></impl>
+        <impl lang="c" hook="print"><![CDATA[    const iotdata_field_radiation_cpm_t *const v = vv;
+    bprintf(bp, "  %s:%s %" PRIu16 " CPM\n", label, _padd(label), v->radiation_cpm);
+]]></impl>
+
+    </field>
+
+    <!-- ---------------------------------------------------------------------------
+        RADIATION_DOSE - absorbed dose rate in microsieverts per hour.
+
+        The asymmetric case for conditioned constants: the floating build needs
+        three of them (a raw ceiling, a resolution and a real ceiling) while the
+        integer build needs one, because in hundredths the raw ceiling IS the
+        ceiling. One #if with two unequal arms.
+    -->
+    <field name="radiation_dose" id="0x0061u" bits="IOTDATA_RADIATION_DOSE_BITS">
+
+        <!-- no <note for="field">: shares the family's section banner -->
+
+        <constants>
+            <constant name="MAX_RAW" value="16383" when="floating"/>
+            <constant name="RES" value="(0.01f)" when="floating"/>
+            <constant name="MAX" value="(163.83f)" when="floating"/>
+            <constant name="MAX" value="16383" when="integer"/>
+            <!-- every other quantised field defines RES in BOTH builds (temperature 25,
+                 wind speed and gust 50); this one defined it only for floating, which left
+                 portable code with no way to say "one step" for this field alone. The integer
+                 form holds hundredths, so one step is 1. -->
+            <constant name="RES" value="1" when="integer"/>
+            <constant name="BITS" value="14"/>
+        </constants>
+
+        <quantity name="radiation_dose" type="iotdata_float_t" param="usvh">
+            <check expr="usvh &lt; 0 || usvh &gt; IOTDATA_RADIATION_DOSE_MAX" error="HIGH" text="Radiation dose above 163.83 uSv/h"/>
+            <impl lang="c" hook="quantise" when="floating" arg="float dose"><![CDATA[    return (uint32_t)roundf(dose / IOTDATA_RADIATION_DOSE_RES);
+]]></impl>
+            <impl lang="c" hook="dequantise" when="floating" ret="float"><![CDATA[    return (float)raw * IOTDATA_RADIATION_DOSE_RES;
+]]></impl>
+            <impl lang="c" hook="quantise" when="integer" arg="int32_t dose100"><![CDATA[    return (uint32_t)dose100;
+]]></impl>
+            <impl lang="c" hook="dequantise" when="integer" ret="int32_t"><![CDATA[    return (int32_t)raw;
+]]></impl>
+        </quantity>
+
+        <impl lang="c" hook="pack"><![CDATA[    const iotdata_field_radiation_dose_t *const v = vv;
+    return bits_write(buf, bb, bp, quantise_radiation_dose(v->radiation_dose), IOTDATA_RADIATION_DOSE_BITS);
+]]></impl>
+        <impl lang="c" hook="unpack"><![CDATA[    iotdata_field_radiation_dose_t *const v = vv;
+    if (*bp + IOTDATA_RADIATION_DOSE_BITS > bb)
+        return false;
+    v->radiation_dose = dequantise_radiation_dose(bits_read(buf, bb, bp, IOTDATA_RADIATION_DOSE_BITS));
+    return true;
+]]></impl>
+        <impl lang="c" hook="json_get"><![CDATA[    (void)scratch;
+    cJSON *j = cJSON_GetObjectItem(root, label);
+    if (!j)
+        return IOTDATA_OK;
+    return iotdata_encode_radiation_dose(enc, (iotdata_float_t)j->valuedouble);
+]]></impl>
+        <impl lang="c" hook="json_set"><![CDATA[    const iotdata_field_radiation_dose_t *const v = vv;
+    (void)scratch;
+#if !defined(IOTDATA_NO_FLOATING)
+    json_add_number_fixed(root, label, (double)v->radiation_dose, 2);
+#else
+    cJSON_AddNumberToObject(root, label, v->radiation_dose);
+#endif
+]]></impl>
+        <impl lang="c" hook="dump"><![CDATA[    (void)label;
+    size_t s = *bp;
+    uint32_t r = bits_read(buf, bb, bp, IOTDATA_RADIATION_DOSE_BITS);
+#if !defined(IOTDATA_NO_FLOATING)
+    snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "%.2f uSv/h", (double)dequantise_radiation_dose(r));
+#else
+    fmt_scaled(dump->_dec_buf, sizeof(dump->_dec_buf), dequantise_radiation_dose(r), 100, "uSv/h");
+#endif
+    n = dump_add(dump, n, s, IOTDATA_RADIATION_DOSE_BITS, r, dump->_dec_buf, "0..163.83, 0.01", "radiation_dose");
+    return n;
+]]></impl>
+        <impl lang="c" hook="print"><![CDATA[    const iotdata_field_radiation_dose_t *const v = vv;
+#if !defined(IOTDATA_NO_FLOATING)
+    bprintf(bp, "  %s:%s %.1f uSv/h\n", label, _padd(label), (double)v->radiation_dose);
+#else
+    bprintf(bp, "  %s:%s %d.%02d uSv/h\n", label, _padd(label), v->radiation_dose / 100, v->radiation_dose % 100);
+#endif
+]]></impl>
+
+    </field>
+
+    <!-- ---------------------------------------------------------------------------
+        RADIATION - count rate and dose as one slot.
+    -->
+    <field name="radiation" id="0x0068u" bits="IOTDATA_RADIATION_CPM_BITS + IOTDATA_RADIATION_DOSE_BITS" parts="radiation_cpm radiation_dose">
+
+        <!-- no <note for="field">: shares the family's section banner -->
+
+        <constants/>
+
+        <quantity name="radiation_cpm.radiation_cpm" type="uint16_t" param="cpm">
+            <check expr="cpm &gt; IOTDATA_RADIATION_CPM_MAX" field="radiation_cpm" error="HIGH" text=""/>
+        </quantity>
+
+        <quantity name="radiation_dose.radiation_dose" type="iotdata_float_t" param="usvh">
+            <check expr="usvh &lt; 0 || usvh &gt; IOTDATA_RADIATION_DOSE_MAX" field="radiation_dose" error="HIGH" text=""/>
+        </quantity>
+
+        <impl lang="c" hook="pack"><![CDATA[    const iotdata_field_radiation_t *const v = vv;
+    return pack_radiation_cpm(buf, bb, bp, &v->radiation_cpm) && pack_radiation_dose(buf, bb, bp, &v->radiation_dose);
+]]></impl>
+        <impl lang="c" hook="unpack"><![CDATA[    iotdata_field_radiation_t *const v = vv;
+    return unpack_radiation_cpm(buf, bb, bp, &v->radiation_cpm) && unpack_radiation_dose(buf, bb, bp, &v->radiation_dose);
+]]></impl>
+        <impl lang="c" hook="json_get"><![CDATA[    (void)scratch;
+    cJSON *j = cJSON_GetObjectItem(root, label);
+    if (!j)
+        return IOTDATA_OK;
+    cJSON *j_cpm = cJSON_GetObjectItem(j, "cpm"), *j_dose = cJSON_GetObjectItem(j, "dose");
+    if (!j_cpm || !j_dose)
+        return IOTDATA_OK;
+    return iotdata_encode_radiation(enc, (uint16_t)j_cpm->valueint, (iotdata_float_t)j_dose->valuedouble);
+]]></impl>
+        <impl lang="c" hook="json_set"><![CDATA[    const iotdata_field_radiation_t *const v = vv;
+    cJSON *obj = cJSON_AddObjectToObject(root, label);
+    json_set_radiation_cpm(obj, &v->radiation_cpm, "cpm", scratch);
+    json_set_radiation_dose(obj, &v->radiation_dose, "dose", scratch);
+]]></impl>
+        <impl lang="c" hook="dump"><![CDATA[    n = dump_radiation_cpm(buf, bb, bp, dump, n, label);
+    n = dump_radiation_dose(buf, bb, bp, dump, n, label);
+    return n;
+]]></impl>
+        <impl lang="c" hook="print"><![CDATA[    const iotdata_field_radiation_t *const v = vv;
+#if !defined(IOTDATA_NO_FLOATING)
+    bprintf(bp, "  %s:%s %" PRIu16 " CPM, %.2f uSv/h\n", label, _padd(label), v->radiation_cpm.radiation_cpm, (double)v->radiation_dose.radiation_dose);
+#else
+    bprintf(bp, "  %s:%s %" PRIu16 " CPM, %d.%02d uSv/h\n", label, _padd(label), v->radiation_cpm.radiation_cpm, v->radiation_dose.radiation_dose / 100, v->radiation_dose.radiation_dose % 100);
+#endif
+]]></impl>
+
+    </field>
+
+</fields>

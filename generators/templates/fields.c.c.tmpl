@@ -1,0 +1,149 @@
+{{#field}}{{#if has_banner}}
+/* =========================================================================
+ * {{doc field}}
+ * ========================================================================= */
+
+{{/if}}{{#if has_tables}}{{impl tables}}
+
+{{/if}}#if {{enable_guard}}
+{{#each quantity}}{{#if quantised_plain}}#if !defined(IOTDATA_NO_ENCODE)
+static {{ret quantise}} quantise_{{q.stem}}({{arg quantise}}) {
+{{impl quantise}}}
+#endif
+#if !defined(IOTDATA_NO_DECODE) || !defined(IOTDATA_NO_DUMP)
+static {{ret dequantise}} dequantise_{{q.stem}}({{arg dequantise}}) {
+{{impl dequantise}}}
+#endif
+{{/if}}{{#if quantised_by_build}}#if !defined(IOTDATA_NO_FLOATING)
+#if !defined(IOTDATA_NO_ENCODE)
+static {{ret quantise.floating}} quantise_{{q.stem}}({{arg quantise.floating}}) {
+{{impl quantise.floating}}}
+#endif
+#if !defined(IOTDATA_NO_DECODE) || !defined(IOTDATA_NO_DUMP)
+static {{ret dequantise.floating}} dequantise_{{q.stem}}({{arg dequantise.floating}}) {
+{{impl dequantise.floating}}}
+#endif
+#else
+#if !defined(IOTDATA_NO_ENCODE)
+static {{ret quantise.integer}} quantise_{{q.stem}}({{arg quantise.integer}}) {
+{{impl quantise.integer}}}
+#endif
+#if !defined(IOTDATA_NO_DECODE) || !defined(IOTDATA_NO_DUMP)
+static {{ret dequantise.integer}} dequantise_{{q.stem}}({{arg dequantise.integer}}) {
+{{impl dequantise.integer}}}
+#endif
+#endif
+{{/if}}{{/each}}#if !defined(IOTDATA_NO_ENCODE)
+static bool pack_{{name}}(uint8_t * const buf, const size_t bb, size_t * const bp, const void * const vv) {
+{{impl pack}}}
+#endif
+#if {{member_guard}}!defined(IOTDATA_NO_ENCODE)
+#if defined(IOTDATA_OPERATE_ORDERED)
+iotdata_status_t iotdata_encode_{{name}}_by_slot(iotdata_encoder_t * const enc, const int slot{{#each quantity}}, {{q.arg}}{{/each}}) {
+    CHECK_CTX_ACTIVE(enc);
+    int si = slot;
+    RESOLVE_SLOT_EXACT(enc, IOTDATA_FIELD_{{NAME}}, si);
+{{#if checked}}#if !defined(IOTDATA_NO_CHECKS_TYPES)
+{{#each check}}{{k.test}}{{/each}}#endif
+{{/if}}    iotdata_field_{{name}}_t v;
+{{#each quantity}}{{q.store_local}}{{/each}}    PACK_DIRECT(enc, pack_{{name}}, &v);
+    COMMIT_SLOT(enc, si, IOTDATA_FIELD_{{NAME}});
+    return IOTDATA_OK;
+}
+iotdata_status_t iotdata_encode_{{name}}(iotdata_encoder_t * const enc{{#each quantity}}, {{q.arg}}{{/each}}) {
+    CHECK_CTX_ACTIVE(enc);
+    int si = IOTDATA_SLOT_NONE;
+    RESOLVE_SLOT(enc, IOTDATA_FIELD_{{NAME}}, si);
+    return iotdata_encode_{{name}}_by_slot(enc, si{{#each quantity}}, {{q.param}}{{/each}});
+}
+#else
+iotdata_status_t iotdata_encode_{{name}}(iotdata_encoder_t * const enc{{#each quantity}}, {{q.arg}}{{/each}}) {
+    CHECK_CTX_ACTIVE(enc);
+    int si = IOTDATA_SLOT_NONE;
+    RESOLVE_SLOT(enc, IOTDATA_FIELD_{{NAME}}, si);
+{{#if checked}}#if !defined(IOTDATA_NO_CHECKS_TYPES)
+{{#each check}}{{k.test}}{{/each}}#endif
+{{/if}}{{#each quantity}}{{q.store_member}}{{/each}}    COMMIT_SLOT(enc, si, IOTDATA_FIELD_{{NAME}});
+    return IOTDATA_OK;
+}
+#endif
+#endif
+#if !defined(IOTDATA_NO_DECODE)
+static bool unpack_{{name}}(const uint8_t * const buf, const size_t bb, size_t * const bp, void * const vv) {
+{{impl unpack}}}
+#endif
+#if {{member_guard}}!defined(IOTDATA_NO_DECODE)
+iotdata_status_t iotdata_decode_{{name}}(iotdata_decoder_t *dec{{#each quantity}}, {{q.arg_out}}{{/each}}) {
+#if defined(IOTDATA_OPERATE_ORDERED)
+    iotdata_field_{{name}}_t v;
+    RESOLVE_DEC_FIELD(dec, IOTDATA_FIELD_{{NAME}}, unpack_{{name}}, &v);
+{{#each quantity}}{{q.fetch_local}}{{/each}}#else
+    CHECK_DEC_FIELD(dec, IOTDATA_FIELD_{{NAME}});
+{{#each quantity}}{{q.fetch_member}}{{/each}}#endif
+    return IOTDATA_OK;
+}
+#endif
+#if {{member_guard}}!defined(IOTDATA_NO_JSON) && !defined(IOTDATA_NO_ENCODE)
+static iotdata_status_t json_get_{{name}}(cJSON * const root, iotdata_encoder_t * const enc, const char * const label, iotdata_encode_from_json_scratch_t * const scratch) {
+{{impl json_get}}}
+#endif
+#if !defined(IOTDATA_NO_JSON) && !defined(IOTDATA_NO_DECODE)
+static void json_set_{{name}}(cJSON * const root, const void * const vv, const char * const label, iotdata_decode_to_json_scratch_t * const scratch) {
+{{impl json_set}}}
+#endif
+#if !defined(IOTDATA_NO_DUMP)
+static int dump_{{name}}(const uint8_t * const buf, const size_t bb, size_t * const bp, iotdata_dump_t * const dump, int n, const char * const label) {
+{{impl dump}}}
+#endif
+#if {{ops_guard}}!defined(IOTDATA_NO_PRINT) && !defined(IOTDATA_NO_DECODE)
+static void print_{{name}}(const void * const vv, iotdata_buf_t * const bp, const char * const label) {
+{{impl print}}}
+#endif
+{{#if member}}#if defined(IOTDATA_ENABLE_{{NAME}})
+{{/if}}static const iotdata_field_ops_t _iotdata_field_def_{{name}} = {
+    _IOTDATA_OP_ENC_OFF(offsetof(iotdata_encoder_t, {{name}}))
+    _IOTDATA_OP_DEC_OFF(offsetof(iotdata_decoder_t, {{name}}))
+    _IOTDATA_OP_NAME("{{name}}")
+    _IOTDATA_OP_BITS({{bits}})
+    _IOTDATA_OP_PACK(pack_{{name}})
+    _IOTDATA_OP_UNPACK(unpack_{{name}})
+    _IOTDATA_OP_DUMP(dump_{{name}})
+    _IOTDATA_OP_PRINT(print_{{name}})
+    _IOTDATA_OP_JSON_SET(json_set_{{name}})
+    _IOTDATA_OP_JSON_GET(json_get_{{name}})
+};
+{{#if member}}#endif
+{{/if}}#endif
+{{/field}}
+
+/* ---------------------------------------------------------------------------
+ * Definitions -- from generators/templates/fields.c.c.tmpl.
+ * -------------------------------------------------------------------------*/
+
+{{field battery_level}}{{field battery_charge}}{{field battery}}
+{{field link_rssi}}{{field link_snr}}{{field link}}
+{{field temperature}}
+{{field pressure}}
+{{field humidity}}
+{{field environment}}
+{{field wind_speed}}
+{{field wind_direction}}
+{{field wind_gust}}
+{{field wind}}
+{{field rain_rate}}
+{{field rain_size}}
+{{field rain}}
+{{field solar_irradiance}}{{field solar_ultraviolet}}{{field solar}}
+{{field clouds}}
+{{field air_quality_index}}
+{{field air_quality_pm}}
+{{field air_quality_gas}}
+{{field air_quality}}
+{{field radiation_cpm}}
+{{field radiation_dose}}
+{{field radiation}}
+{{field depth}}
+{{field position}}
+{{field datetime}}
+{{field flags}}
+{{field bits32}}

@@ -1,0 +1,1051 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    IoT Sensor Telemetry Protocol
+    Copyright(C) 2026 Matthew Gream (https://libiotdata.org)
+
+    iotdata-fields-weather.xml - weather fields
+
+    THIS IS THE SOURCE. iotdata_fields.h and iotdata_fields.c are generated from
+    it by generators/iotdata-generator-fields.js through the templates in
+    generators/templates, and editing them directly loses the edit at the next
+    `make generate`.
+
+    WHAT IS HERE AND WHAT IS IN THE TEMPLATE. This document carries what is true
+    of a field in any language: its identifier, its quantities, their ranges and
+    wire widths, the errors it can raise, its documentation -- and, for now, the
+    bodies of its operations as literal C. The template carries what is true of
+    the LANGUAGE: every brace, guard, typedef and macro form. So a toolchain that
+    needs the C shaped differently is a template edit, not a generator change.
+
+    <impl> IS LANGUAGE-SPECIFIC AND DELIBERATELY VERBATIM. Lifting the existing
+    bodies in unchanged is the whole approach: nothing is re-derived, so nothing
+    silently changes behaviour. A later <abstract> element may describe a
+    quantisation rule declaratively, and the generator will use it only where no
+    <impl> for that language and hook exists -- so a field migrates when someone
+    chooses to migrate it, and until then the C that has been in service stays
+    the definition.
+
+    WHEN AN <impl> HAS A 'when' ATTRIBUTE it is selected by build configuration:
+    'floating' and 'integer' are the two forms of iotdata_float_t. Several
+    quantities need genuinely different arithmetic in the two, not the same
+    expression at two widths, which is why they are separate bodies rather than
+    one body and a cast.
+
+    IDENTIFIERS are grouped in blocks of 16 per family, x0..x7 atomic and
+    x8..xF composite. A convention only: identifiers are compared, never
+    calculated with. 0x0000 is unassigned, 0x8000 and above belong to the
+    implementer, 0xFFFF means none. TLV has no identifier.
+
+    Fields that describe the weather and the ground: what a station in a field
+    measures. The protocol's largest family, and the one whose quantities have
+    real units, real ranges and real quantisation.
+-->
+<fields>
+
+    <!-- ---------------------------------------------------------------------------
+        CLOUDS - total cloud cover.
+
+        The first field moved into the specification, and so the one that proves
+        the seam. It is the simplest field in the protocol: one quantity, no
+        quantisation, no composite parts, and a range that fits its wire width
+        exactly.
+    -->
+    <field name="clouds" id="0x0041u" bits="IOTDATA_CLOUDS_BITS">
+
+        <documentation>
+            <note for="field"><![CDATA[Field CLOUDS]]></note>
+        </documentation>
+
+        <constants>
+            <constant name="MAX" value="8"/>
+            <constant name="BITS" value="4"/>
+        </constants>
+
+        <quantity name="clouds" type="uint8_t" param="okta">
+            <check expr="okta &gt; IOTDATA_CLOUDS_MAX" error="HIGH" text="Cloud cover above 8 okta"/>
+            <impl lang="c" hook="quantise"><![CDATA[    return (uint32_t)clouds;
+]]></impl>
+            <impl lang="c" hook="dequantise"><![CDATA[    return (uint8_t)raw;
+]]></impl>
+        </quantity>
+
+        <impl lang="c" hook="pack"><![CDATA[    const iotdata_field_clouds_t *const v = vv;
+    return bits_write(buf, bb, bp, quantise_clouds(v->clouds), IOTDATA_CLOUDS_BITS);
+]]></impl>
+        <impl lang="c" hook="unpack"><![CDATA[    iotdata_field_clouds_t *const v = vv;
+    if (*bp + IOTDATA_CLOUDS_BITS > bb)
+        return false;
+    v->clouds = dequantise_clouds(bits_read(buf, bb, bp, IOTDATA_CLOUDS_BITS));
+    return true;
+]]></impl>
+        <impl lang="c" hook="json_get"><![CDATA[    (void)scratch;
+    cJSON *j = cJSON_GetObjectItem(root, label);
+    if (!j)
+        return IOTDATA_OK;
+    return iotdata_encode_clouds(enc, (uint8_t)j->valueint);
+]]></impl>
+        <impl lang="c" hook="json_set"><![CDATA[    const iotdata_field_clouds_t *const v = vv;
+    (void)scratch;
+    cJSON_AddNumberToObject(root, label, v->clouds);
+]]></impl>
+        <impl lang="c" hook="dump"><![CDATA[    (void)label;
+    size_t s = *bp;
+    uint32_t r = bits_read(buf, bb, bp, IOTDATA_CLOUDS_BITS);
+    snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "%" PRIu8 " okta", dequantise_clouds(r));
+    n = dump_add(dump, n, s, IOTDATA_CLOUDS_BITS, r, dump->_dec_buf, "0..8 okta", "clouds");
+    return n;
+]]></impl>
+        <impl lang="c" hook="print"><![CDATA[    const iotdata_field_clouds_t *const v = vv;
+    bprintf(bp, "  %s:%s %" PRIu8 " okta\n", label, _padd(label), v->clouds);
+]]></impl>
+
+    </field>
+
+    <!-- ---------------------------------------------------------------------------
+        DEPTH - distance to a surface, used for snow depth and water level.
+
+        The second field in, and chosen because it is structurally a twin of
+        CLOUDS, and chosen second for exactly that reason -- a field that reveals
+        no new shape is evidence the block has settled. Its dump used to name
+        itself from the variant's label where all twenty-seven others use their
+        own canonical name; that was normalised rather than carried over.
+    -->
+    <field name="depth" id="0x0070u" bits="IOTDATA_DEPTH_BITS">
+
+        <documentation>
+            <note for="field"><![CDATA[Field DEPTH]]></note>
+        </documentation>
+
+        <constants>
+            <constant name="MAX" value="1023"/>
+            <constant name="BITS" value="10"/>
+        </constants>
+
+        <quantity name="depth" type="uint16_t" param="depth_cm">
+            <check expr="depth_cm &gt; IOTDATA_DEPTH_MAX" error="HIGH" text="Depth above 1023 cm"/>
+            <impl lang="c" hook="quantise"><![CDATA[    return (uint32_t)depth;
+]]></impl>
+            <impl lang="c" hook="dequantise"><![CDATA[    return (uint16_t)raw;
+]]></impl>
+        </quantity>
+
+        <impl lang="c" hook="pack"><![CDATA[    const iotdata_field_depth_t *const v = vv;
+    return bits_write(buf, bb, bp, quantise_depth(v->depth), IOTDATA_DEPTH_BITS);
+]]></impl>
+        <impl lang="c" hook="unpack"><![CDATA[    iotdata_field_depth_t *const v = vv;
+    if (*bp + IOTDATA_DEPTH_BITS > bb)
+        return false;
+    v->depth = dequantise_depth(bits_read(buf, bb, bp, IOTDATA_DEPTH_BITS));
+    return true;
+]]></impl>
+        <impl lang="c" hook="json_get"><![CDATA[    (void)scratch;
+    cJSON *j = cJSON_GetObjectItem(root, label);
+    if (!j)
+        return IOTDATA_OK;
+    return iotdata_encode_depth(enc, (uint16_t)j->valueint);
+]]></impl>
+        <impl lang="c" hook="json_set"><![CDATA[    const iotdata_field_depth_t *const v = vv;
+    (void)scratch;
+    cJSON_AddNumberToObject(root, label, v->depth);
+]]></impl>
+        <impl lang="c" hook="dump"><![CDATA[    (void)label;
+    size_t s = *bp;
+    uint32_t r = bits_read(buf, bb, bp, IOTDATA_DEPTH_BITS);
+    snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "%" PRIu16 " cm", dequantise_depth(r));
+    n = dump_add(dump, n, s, IOTDATA_DEPTH_BITS, r, dump->_dec_buf, "0..1023 cm", "depth");
+    return n;
+]]></impl>
+        <impl lang="c" hook="print"><![CDATA[    const iotdata_field_depth_t *const v = vv;
+    bprintf(bp, "  %s:%s %" PRIu16 " cm\n", label, _padd(label), v->depth);
+]]></impl>
+
+    </field>
+
+    <!-- ---------------------------------------------------------------------------
+        SOLAR_IRRADIANCE - incident power per unit area, 0..1023 W/m2.
+
+        A STANDALONE PART OF THE SOLAR FAMILY, keeping 0x0040 where the bundle
+        was; the bundle moved to 0x0048. Split out because a pyranometer and a
+        UV sensor are different parts, and a station with one of them had to
+        send a figure for the other.
+
+        IRRADIANCE, NOT IRRADIATION. The member, the quantisers and the JSON
+        key all said irradiance already -- power per unit area, W/m2, which is
+        what this field carries. Only the two constants and the error code said
+        irradiation, which is energy per unit area and a different quantity.
+        They are renamed rather than carried into the new public functions.
+    -->
+    <field name="solar_irradiance" id="0x0040u" bits="IOTDATA_SOLAR_IRRADIANCE_BITS">
+
+        <documentation>
+            <note for="field"><![CDATA[Field SOLAR, SOLAR_IRRADIANCE, SOLAR_ULTRAVIOLET]]></note>
+        </documentation>
+
+        <constants>
+            <constant name="MAX" value="1023"/>
+            <constant name="BITS" value="10"/>
+        </constants>
+
+        <quantity name="solar_irradiance" type="uint16_t" param="irradiance_wm2">
+            <check expr="irradiance_wm2 &gt; IOTDATA_SOLAR_IRRADIANCE_MAX" error="HIGH" text="Solar irradiance above 1023 W/m2"/>
+            <impl lang="c" hook="quantise"><![CDATA[    return (uint32_t)solar_irradiance;
+]]></impl>
+            <impl lang="c" hook="dequantise"><![CDATA[    return (uint16_t)raw;
+]]></impl>
+        </quantity>
+
+        <impl lang="c" hook="pack"><![CDATA[    const iotdata_field_solar_irradiance_t *const v = vv;
+    return bits_write(buf, bb, bp, quantise_solar_irradiance(v->solar_irradiance), IOTDATA_SOLAR_IRRADIANCE_BITS);
+]]></impl>
+        <impl lang="c" hook="unpack"><![CDATA[    iotdata_field_solar_irradiance_t *const v = vv;
+    if (*bp + IOTDATA_SOLAR_IRRADIANCE_BITS > bb)
+        return false;
+    v->solar_irradiance = dequantise_solar_irradiance(bits_read(buf, bb, bp, IOTDATA_SOLAR_IRRADIANCE_BITS));
+    return true;
+]]></impl>
+        <impl lang="c" hook="json_get"><![CDATA[    (void)scratch;
+    cJSON *j = cJSON_GetObjectItem(root, label);
+    if (!j)
+        return IOTDATA_OK;
+    return iotdata_encode_solar_irradiance(enc, (uint16_t)j->valueint);
+]]></impl>
+        <impl lang="c" hook="json_set"><![CDATA[    const iotdata_field_solar_irradiance_t *const v = vv;
+    (void)scratch;
+    cJSON_AddNumberToObject(root, label, v->solar_irradiance);
+]]></impl>
+        <impl lang="c" hook="dump"><![CDATA[    (void)label;
+    size_t s = *bp;
+    uint32_t r = bits_read(buf, bb, bp, IOTDATA_SOLAR_IRRADIANCE_BITS);
+    snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "%" PRIu16 " W/m2", dequantise_solar_irradiance(r));
+    n = dump_add(dump, n, s, IOTDATA_SOLAR_IRRADIANCE_BITS, r, dump->_dec_buf, "0..1023 W/m2", "solar_ir");
+    return n;
+]]></impl>
+        <impl lang="c" hook="print"><![CDATA[    const iotdata_field_solar_irradiance_t *const v = vv;
+    bprintf(bp, "  %s:%s %" PRIu16 " W/m2\n", label, _padd(label), v->solar_irradiance);
+]]></impl>
+
+    </field>
+
+    <!-- ---------------------------------------------------------------------------
+        SOLAR_ULTRAVIOLET - UV index, 0..15, four bits.
+
+        Standalone because a UV sensor is its own part: plenty of stations
+        carry one without a pyranometer.
+    -->
+    <field name="solar_ultraviolet" id="0x0042u" bits="IOTDATA_SOLAR_ULTRAVIOLET_BITS">
+
+        <!-- no <note for="field">: shares the family's section banner -->
+
+        <constants>
+            <constant name="MAX" value="15"/>
+            <constant name="BITS" value="4"/>
+        </constants>
+
+        <quantity name="solar_ultraviolet" type="uint8_t" param="ultraviolet_index">
+            <check expr="ultraviolet_index &gt; IOTDATA_SOLAR_ULTRAVIOLET_MAX" error="HIGH" text="Solar UV index above 15"/>
+            <impl lang="c" hook="quantise"><![CDATA[    return (uint32_t)solar_ultraviolet;
+]]></impl>
+            <impl lang="c" hook="dequantise"><![CDATA[    return (uint8_t)raw;
+]]></impl>
+        </quantity>
+
+        <impl lang="c" hook="pack"><![CDATA[    const iotdata_field_solar_ultraviolet_t *const v = vv;
+    return bits_write(buf, bb, bp, quantise_solar_ultraviolet(v->solar_ultraviolet), IOTDATA_SOLAR_ULTRAVIOLET_BITS);
+]]></impl>
+        <impl lang="c" hook="unpack"><![CDATA[    iotdata_field_solar_ultraviolet_t *const v = vv;
+    if (*bp + IOTDATA_SOLAR_ULTRAVIOLET_BITS > bb)
+        return false;
+    v->solar_ultraviolet = dequantise_solar_ultraviolet(bits_read(buf, bb, bp, IOTDATA_SOLAR_ULTRAVIOLET_BITS));
+    return true;
+]]></impl>
+        <impl lang="c" hook="json_get"><![CDATA[    (void)scratch;
+    cJSON *j = cJSON_GetObjectItem(root, label);
+    if (!j)
+        return IOTDATA_OK;
+    return iotdata_encode_solar_ultraviolet(enc, (uint8_t)j->valueint);
+]]></impl>
+        <impl lang="c" hook="json_set"><![CDATA[    const iotdata_field_solar_ultraviolet_t *const v = vv;
+    (void)scratch;
+    cJSON_AddNumberToObject(root, label, v->solar_ultraviolet);
+]]></impl>
+        <impl lang="c" hook="dump"><![CDATA[    (void)label;
+    size_t s = *bp;
+    uint32_t r = bits_read(buf, bb, bp, IOTDATA_SOLAR_ULTRAVIOLET_BITS);
+    snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "%" PRIu8, dequantise_solar_ultraviolet(r));
+    n = dump_add(dump, n, s, IOTDATA_SOLAR_ULTRAVIOLET_BITS, r, dump->_dec_buf, "0..15", "solar_uv");
+    return n;
+]]></impl>
+        <impl lang="c" hook="print"><![CDATA[    const iotdata_field_solar_ultraviolet_t *const v = vv;
+    bprintf(bp, "  %s:%s UV %" PRIu8 "\n", label, _padd(label), v->solar_ultraviolet);
+]]></impl>
+
+    </field>
+
+    <!-- ---------------------------------------------------------------------------
+        SOLAR - irradiance and UV index as one slot.
+
+        THE WIRE FORMAT IS UNCHANGED: ten bits of irradiance then four of UV
+        index, as the bundle packed them. Only the identifier moved, 0x0040 to
+        0x0048.
+    -->
+    <field name="solar" id="0x0048u" bits="IOTDATA_SOLAR_IRRADIANCE_BITS + IOTDATA_SOLAR_ULTRAVIOLET_BITS" parts="solar_irradiance solar_ultraviolet">
+
+        <!-- no <note for="field">: shares the family's section banner -->
+
+        <constants/>
+
+        <quantity name="solar_irradiance.solar_irradiance" type="uint16_t" param="irradiance_wm2">
+            <check expr="irradiance_wm2 &gt; IOTDATA_SOLAR_IRRADIANCE_MAX" field="solar_irradiance" error="HIGH" text=""/>
+        </quantity>
+
+        <quantity name="solar_ultraviolet.solar_ultraviolet" type="uint8_t" param="ultraviolet_index">
+            <check expr="ultraviolet_index &gt; IOTDATA_SOLAR_ULTRAVIOLET_MAX" field="solar_ultraviolet" error="HIGH" text=""/>
+        </quantity>
+
+        <impl lang="c" hook="pack"><![CDATA[    const iotdata_field_solar_t *const v = vv;
+    return pack_solar_irradiance(buf, bb, bp, &v->solar_irradiance) && pack_solar_ultraviolet(buf, bb, bp, &v->solar_ultraviolet);
+]]></impl>
+        <impl lang="c" hook="unpack"><![CDATA[    iotdata_field_solar_t *const v = vv;
+    return unpack_solar_irradiance(buf, bb, bp, &v->solar_irradiance) && unpack_solar_ultraviolet(buf, bb, bp, &v->solar_ultraviolet);
+]]></impl>
+        <impl lang="c" hook="json_get"><![CDATA[    (void)scratch;
+    cJSON *j = cJSON_GetObjectItem(root, label);
+    if (!j)
+        return IOTDATA_OK;
+    cJSON *j_irradiance = cJSON_GetObjectItem(j, "irradiance"), *j_ultraviolet = cJSON_GetObjectItem(j, "ultraviolet");
+    if (!j_irradiance || !j_ultraviolet)
+        return IOTDATA_OK;
+    return iotdata_encode_solar(enc, (uint16_t)j_irradiance->valueint, (uint8_t)j_ultraviolet->valueint);
+]]></impl>
+        <impl lang="c" hook="json_set"><![CDATA[    const iotdata_field_solar_t *const v = vv;
+    cJSON *obj = cJSON_AddObjectToObject(root, label);
+    json_set_solar_irradiance(obj, &v->solar_irradiance, "irradiance", scratch);
+    json_set_solar_ultraviolet(obj, &v->solar_ultraviolet, "ultraviolet", scratch);
+]]></impl>
+        <impl lang="c" hook="dump"><![CDATA[    n = dump_solar_irradiance(buf, bb, bp, dump, n, label);
+    n = dump_solar_ultraviolet(buf, bb, bp, dump, n, label);
+    return n;
+]]></impl>
+        <impl lang="c" hook="print"><![CDATA[    const iotdata_field_solar_t *const v = vv;
+    bprintf(bp, "  %s:%s %" PRIu16 " W/m2, UV %" PRIu8 "\n", label, _padd(label), v->solar_irradiance.solar_irradiance, v->solar_ultraviolet.solar_ultraviolet);
+]]></impl>
+
+    </field>
+
+    <!-- ---------------------------------------------------------------------------
+        TEMPERATURE - air temperature.
+
+        A family member, and so the first field whose storage is guarded by
+        EITHER its own enable or its composite's: an ENVIRONMENT needs a
+        temperature's storage whether or not anyone asked for temperature on its
+        own. Only its ops answer to the part alone -- a slot in a variant belongs
+        to the field named in the map, not to the family. Its arithmetic also
+        depends on the build, like LINK's.
+    -->
+    <field name="temperature" id="0x0010u" bits="IOTDATA_TEMPERATURE_BITS">
+
+        <documentation>
+            <note for="field"><![CDATA[Field ENVIRONMENT, TEMPERATURE, PRESSURE, HUMIDITY]]></note>
+        </documentation>
+
+        <constants>
+            <constant name="MIN" value="(-40.0f)" when="floating"/>
+            <constant name="MAX" value="(80.0f)" when="floating"/>
+            <constant name="RES" value="(0.25f)" when="floating"/>
+            <constant name="MIN" value="(-4000)" when="integer"/>
+            <constant name="MAX" value="(8000)" when="integer"/>
+            <constant name="RES" value="(25)" when="integer"/>
+            <constant name="BITS" value="9"/>
+        </constants>
+
+        <quantity name="temperature" type="iotdata_float_t" param="temperature_c">
+            <check expr="temperature_c &lt; IOTDATA_TEMPERATURE_MIN" error="LOW" text="Temperature below -40C"/>
+            <check expr="temperature_c &gt; IOTDATA_TEMPERATURE_MAX" error="HIGH" text="Temperature above +80C"/>
+            <impl lang="c" hook="quantise" when="floating" arg="float temperature"><![CDATA[    return (uint32_t)roundf((temperature - IOTDATA_TEMPERATURE_MIN) / IOTDATA_TEMPERATURE_RES);
+]]></impl>
+            <impl lang="c" hook="dequantise" when="floating" ret="float"><![CDATA[    return IOTDATA_TEMPERATURE_MIN + (float)raw * IOTDATA_TEMPERATURE_RES;
+]]></impl>
+            <impl lang="c" hook="quantise" when="integer" arg="int32_t temperature100"><![CDATA[    return (uint32_t)((temperature100 - IOTDATA_TEMPERATURE_MIN + (IOTDATA_TEMPERATURE_RES / 2)) / IOTDATA_TEMPERATURE_RES);
+]]></impl>
+            <impl lang="c" hook="dequantise" when="integer" ret="int32_t"><![CDATA[    return (int32_t)raw * IOTDATA_TEMPERATURE_RES + IOTDATA_TEMPERATURE_MIN;
+]]></impl>
+        </quantity>
+
+        <impl lang="c" hook="pack"><![CDATA[    const iotdata_field_temperature_t *const v = vv;
+    return bits_write(buf, bb, bp, quantise_temperature(v->temperature), IOTDATA_TEMPERATURE_BITS);
+]]></impl>
+        <impl lang="c" hook="unpack"><![CDATA[    iotdata_field_temperature_t *const v = vv;
+    if (*bp + IOTDATA_TEMPERATURE_BITS > bb)
+        return false;
+    v->temperature = dequantise_temperature(bits_read(buf, bb, bp, IOTDATA_TEMPERATURE_BITS));
+    return true;
+]]></impl>
+        <impl lang="c" hook="json_get"><![CDATA[    (void)scratch;
+    cJSON *j = cJSON_GetObjectItem(root, label);
+    if (!j)
+        return IOTDATA_OK;
+    return iotdata_encode_temperature(enc, (iotdata_float_t)j->valuedouble);
+]]></impl>
+        <impl lang="c" hook="json_set"><![CDATA[    const iotdata_field_temperature_t *const v = vv;
+    (void)scratch;
+#if !defined(IOTDATA_NO_FLOATING)
+    json_add_number_fixed(root, label, (double)v->temperature, 2);
+#else
+    cJSON_AddNumberToObject(root, label, v->temperature);
+#endif
+]]></impl>
+        <impl lang="c" hook="dump"><![CDATA[    (void)label;
+    size_t s = *bp;
+    uint32_t r = bits_read(buf, bb, bp, IOTDATA_TEMPERATURE_BITS);
+#if !defined(IOTDATA_NO_FLOATING)
+    snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "%.2f C", (double)dequantise_temperature(r));
+#else
+    fmt_scaled(dump->_dec_buf, sizeof(dump->_dec_buf), dequantise_temperature(r), 100, "C");
+#endif
+    n = dump_add(dump, n, s, IOTDATA_TEMPERATURE_BITS, r, dump->_dec_buf, "-40..+80C, 0.25C", "temperature");
+    return n;
+]]></impl>
+        <impl lang="c" hook="print"><![CDATA[    const iotdata_field_temperature_t *const v = vv;
+#if !defined(IOTDATA_NO_FLOATING)
+    bprintf(bp, "  %s:%s %.2f C\n", label, _padd(label), (double)v->temperature);
+#else
+    const int32_t ta = v->temperature < 0 ? -(v->temperature) : v->temperature;
+    bprintf(bp, "  %s:%s %s%d.%02d C\n", label, _padd(label), v->temperature < 0 ? "-" : "", ta / 100, ta % 100);
+#endif
+]]></impl>
+
+    </field>
+
+
+    <!-- ---------------------------------------------------------------------------
+        PRESSURE - station pressure in whole hectopascals.
+
+        Quantised by offset alone: the wire carries the value less its minimum,
+        which is why eight bits hold a 255 hPa span exactly.
+    -->
+    <field name="pressure" id="0x0011u" bits="IOTDATA_PRESSURE_BITS">
+
+        <!-- no <note for="field">: this field shares its family's section banner -->
+
+        <constants>
+            <constant name="MIN" value="850"/>
+            <constant name="MAX" value="1105"/>
+            <constant name="BITS" value="8"/>
+        </constants>
+
+        <quantity name="pressure" type="uint16_t" param="pressure_hpa">
+            <check expr="pressure_hpa &lt; IOTDATA_PRESSURE_MIN" error="LOW" text="Pressure below 850 hPa"/>
+            <check expr="pressure_hpa &gt; IOTDATA_PRESSURE_MAX" error="HIGH" text="Pressure above 1105 hPa"/>
+            <impl lang="c" hook="quantise" arg="uint16_t pressure"><![CDATA[    return (uint32_t)(pressure - IOTDATA_PRESSURE_MIN);
+]]></impl>
+            <impl lang="c" hook="dequantise" ret="uint16_t"><![CDATA[    return (uint16_t)(raw + IOTDATA_PRESSURE_MIN);
+]]></impl>
+        </quantity>
+
+        <impl lang="c" hook="pack"><![CDATA[    const iotdata_field_pressure_t *const v = vv;
+    return bits_write(buf, bb, bp, quantise_pressure(v->pressure), IOTDATA_PRESSURE_BITS);
+]]></impl>
+        <impl lang="c" hook="unpack"><![CDATA[    iotdata_field_pressure_t *const v = vv;
+    if (*bp + IOTDATA_PRESSURE_BITS > bb)
+        return false;
+    v->pressure = dequantise_pressure(bits_read(buf, bb, bp, IOTDATA_PRESSURE_BITS));
+    return true;
+]]></impl>
+        <impl lang="c" hook="json_get"><![CDATA[    (void)scratch;
+    cJSON *j = cJSON_GetObjectItem(root, label);
+    if (!j)
+        return IOTDATA_OK;
+    return iotdata_encode_pressure(enc, (uint16_t)j->valueint);
+]]></impl>
+        <impl lang="c" hook="json_set"><![CDATA[    const iotdata_field_pressure_t *const v = vv;
+    (void)scratch;
+    cJSON_AddNumberToObject(root, label, v->pressure);
+]]></impl>
+        <impl lang="c" hook="dump"><![CDATA[    (void)label;
+    size_t s = *bp;
+    uint32_t r = bits_read(buf, bb, bp, IOTDATA_PRESSURE_BITS);
+    snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "%" PRIu16 " hPa", dequantise_pressure(r));
+    n = dump_add(dump, n, s, IOTDATA_PRESSURE_BITS, r, dump->_dec_buf, "850..1105 hPa", "pressure");
+    return n;
+]]></impl>
+        <impl lang="c" hook="print"><![CDATA[    const iotdata_field_pressure_t *const v = vv;
+    bprintf(bp, "  %s:%s %" PRIu16 " hPa\n", label, _padd(label), v->pressure);
+]]></impl>
+
+    </field>
+
+
+    <!-- ---------------------------------------------------------------------------
+        HUMIDITY - relative humidity as a whole percentage.
+
+        Seven bits hold 0..100 with room to spare and no quantisation at all.
+    -->
+    <field name="humidity" id="0x0012u" bits="IOTDATA_HUMIDITY_BITS">
+
+        <!-- no <note for="field">: this field shares its family's section banner -->
+
+        <constants>
+            <constant name="MAX" value="100"/>
+            <constant name="BITS" value="7"/>
+        </constants>
+
+        <quantity name="humidity" type="uint8_t" param="humidity_pct">
+            <check expr="humidity_pct &gt; IOTDATA_HUMIDITY_MAX" error="HIGH" text="Humidity above 100%"/>
+            <impl lang="c" hook="quantise" arg="uint8_t humidity"><![CDATA[    return (uint32_t)humidity;
+]]></impl>
+            <impl lang="c" hook="dequantise" ret="uint8_t"><![CDATA[    return (uint8_t)raw;
+]]></impl>
+        </quantity>
+
+        <impl lang="c" hook="pack"><![CDATA[    const iotdata_field_humidity_t *const v = vv;
+    return bits_write(buf, bb, bp, quantise_humidity(v->humidity), IOTDATA_HUMIDITY_BITS);
+]]></impl>
+        <impl lang="c" hook="unpack"><![CDATA[    iotdata_field_humidity_t *const v = vv;
+    if (*bp + IOTDATA_HUMIDITY_BITS > bb)
+        return false;
+    v->humidity = dequantise_humidity(bits_read(buf, bb, bp, IOTDATA_HUMIDITY_BITS));
+    return true;
+]]></impl>
+        <impl lang="c" hook="json_get"><![CDATA[    (void)scratch;
+    cJSON *j = cJSON_GetObjectItem(root, label);
+    if (!j)
+        return IOTDATA_OK;
+    return iotdata_encode_humidity(enc, (uint8_t)j->valueint);
+]]></impl>
+        <impl lang="c" hook="json_set"><![CDATA[    const iotdata_field_humidity_t *const v = vv;
+    (void)scratch;
+    cJSON_AddNumberToObject(root, label, v->humidity);
+]]></impl>
+        <impl lang="c" hook="dump"><![CDATA[    (void)label;
+    size_t s = *bp;
+    uint32_t r = bits_read(buf, bb, bp, IOTDATA_HUMIDITY_BITS);
+    snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "%" PRIu8 "%%", dequantise_humidity(r));
+    n = dump_add(dump, n, s, IOTDATA_HUMIDITY_BITS, r, dump->_dec_buf, "0..100%", "humidity");
+    return n;
+]]></impl>
+        <impl lang="c" hook="print"><![CDATA[    const iotdata_field_humidity_t *const v = vv;
+    bprintf(bp, "  %s:%s %" PRIu8 "%%\n", label, _padd(label), v->humidity);
+]]></impl>
+
+    </field>
+
+    <!-- ---------------------------------------------------------------------------
+        ENVIRONMENT - temperature, pressure and humidity as one slot.
+
+        THE FIRST COMPOSITE. Its storage is its parts' structs nested, not a copy
+        of their members, and its storage MACRO is the concatenation of theirs --
+        defined unconditionally at the end, outside the enable guard, because the
+        parts' own macros already answer to the right conditions.
+
+        Membership is declared HERE, in `parts`, and nowhere else: a part does not
+        repeat which family claims it, so the two cannot disagree. That is also
+        why a family migrates as a UNIT -- until the composite is specified,
+        nothing knows its parts are parts, and they generate as standalone fields
+        with the wrong guards.
+
+        Its quantities name the NESTED member path, because that is what the
+        setter assigns and the accessor reads. It declares no quantisation of its
+        own: pack and dump delegate to the parts, which quantise. Its parameter
+        was `temp_c` in the header and `temperature_c` in the source, which is
+        legal C and still two names for one thing; `temp_c` wins, being what the
+        accessor already used in both.
+    -->
+    <field name="environment" id="0x0018u" bits="IOTDATA_TEMPERATURE_BITS + IOTDATA_PRESSURE_BITS + IOTDATA_HUMIDITY_BITS" parts="temperature pressure humidity">
+
+        <!-- no <note for="field">: shares the family's section banner, carried by TEMPERATURE -->
+
+        <constants/>
+
+        <quantity name="temperature.temperature" type="iotdata_float_t" param="temp_c">
+            <check expr="temp_c &lt; IOTDATA_TEMPERATURE_MIN" field="temperature" error="LOW" text=""/>
+            <check expr="temp_c &gt; IOTDATA_TEMPERATURE_MAX" field="temperature" error="HIGH" text=""/>
+        </quantity>
+        <quantity name="pressure.pressure" type="uint16_t" param="pressure_hpa">
+            <check expr="pressure_hpa &lt; IOTDATA_PRESSURE_MIN" field="pressure" error="LOW" text=""/>
+            <check expr="pressure_hpa &gt; IOTDATA_PRESSURE_MAX" field="pressure" error="HIGH" text=""/>
+        </quantity>
+        <quantity name="humidity.humidity" type="uint8_t" param="humidity_pct">
+            <check expr="humidity_pct &gt; IOTDATA_HUMIDITY_MAX" field="humidity" error="HIGH" text=""/>
+        </quantity>
+
+        <impl lang="c" hook="pack"><![CDATA[    const iotdata_field_environment_t *const v = vv;
+    return pack_temperature(buf, bb, bp, &v->temperature) && pack_pressure(buf, bb, bp, &v->pressure) && pack_humidity(buf, bb, bp, &v->humidity);
+]]></impl>
+        <impl lang="c" hook="unpack"><![CDATA[    iotdata_field_environment_t *const v = vv;
+    return unpack_temperature(buf, bb, bp, &v->temperature) && unpack_pressure(buf, bb, bp, &v->pressure) && unpack_humidity(buf, bb, bp, &v->humidity);
+]]></impl>
+        <impl lang="c" hook="json_get"><![CDATA[    (void)scratch;
+    cJSON *j = cJSON_GetObjectItem(root, label);
+    if (!j)
+        return IOTDATA_OK;
+    cJSON *j_temperature = cJSON_GetObjectItem(j, "temperature"), *j_pressure = cJSON_GetObjectItem(j, "pressure"), *j_humidity = cJSON_GetObjectItem(j, "humidity");
+    if (!j_temperature || !j_pressure || !j_humidity)
+        return IOTDATA_OK;
+    return iotdata_encode_environment(enc, (iotdata_float_t)j_temperature->valuedouble, (uint16_t)j_pressure->valueint, (uint8_t)j_humidity->valueint);
+]]></impl>
+        <impl lang="c" hook="json_set"><![CDATA[    const iotdata_field_environment_t *const v = vv;
+    cJSON *obj = cJSON_AddObjectToObject(root, label);
+    json_set_temperature(obj, &v->temperature, "temperature", scratch);
+    json_set_pressure(obj, &v->pressure, "pressure", scratch);
+    json_set_humidity(obj, &v->humidity, "humidity", scratch);
+]]></impl>
+        <impl lang="c" hook="dump"><![CDATA[    n = dump_temperature(buf, bb, bp, dump, n, label);
+    n = dump_pressure(buf, bb, bp, dump, n, label);
+    n = dump_humidity(buf, bb, bp, dump, n, label);
+    return n;
+]]></impl>
+        <impl lang="c" hook="print"><![CDATA[    const iotdata_field_environment_t *const v = vv;
+#if !defined(IOTDATA_NO_FLOATING)
+    bprintf(bp, "  %s:%s %.2f C, %" PRIu16 " hPa, %" PRIu8 "%%\n", label, _padd(label), (double)v->temperature.temperature, v->pressure.pressure, v->humidity.humidity);
+#else
+    const int32_t ta = v->temperature.temperature < 0 ? -(v->temperature.temperature) : v->temperature.temperature;
+    bprintf(bp, "  %s:%s %s%d.%02d C, %" PRIu16 " hPa, %" PRIu8 "%%\n", label, _padd(label), v->temperature.temperature < 0 ? "-" : "", ta / 100, ta % 100, v->pressure.pressure, v->humidity.humidity);
+#endif
+]]></impl>
+
+    </field>
+
+    <!-- ---------------------------------------------------------------------------
+        WIND_SPEED - sustained wind speed.
+
+        Half-metre resolution, and like the other floating quantities its two
+        forms are different expressions rather than one at two widths.
+    -->
+    <field name="wind_speed" id="0x0020u" bits="IOTDATA_WIND_SPEED_BITS">
+
+        <documentation>
+            <note for="field"><![CDATA[Field WIND, WIND_SPEED, WIND_DIRECTION, WIND_GUST]]></note>
+        </documentation>
+
+        <constants>
+            <constant name="RES" value="(0.5f)" when="floating"/>
+            <constant name="MAX" value="(63.5f)" when="floating"/>
+            <constant name="RES" value="(50)" when="integer"/>
+            <constant name="MAX" value="(6350)" when="integer"/>
+            <constant name="BITS" value="7"/>
+        </constants>
+
+        <quantity name="wind_speed" type="iotdata_float_t" param="speed_ms">
+            <check expr="speed_ms &lt; 0 || speed_ms &gt; IOTDATA_WIND_SPEED_MAX" error="HIGH" text="Wind speed above 63.5 m/s"/>
+            <impl lang="c" hook="quantise" when="floating" arg="float speed"><![CDATA[    return (uint32_t)roundf(speed / IOTDATA_WIND_SPEED_RES);
+]]></impl>
+            <impl lang="c" hook="dequantise" when="floating" ret="float"><![CDATA[    return (float)raw * IOTDATA_WIND_SPEED_RES;
+]]></impl>
+            <impl lang="c" hook="quantise" when="integer" arg="int32_t speed100"><![CDATA[    return (uint32_t)((speed100 + (IOTDATA_WIND_SPEED_RES / 2)) / IOTDATA_WIND_SPEED_RES);
+]]></impl>
+            <impl lang="c" hook="dequantise" when="integer" ret="int32_t"><![CDATA[    return (int32_t)raw * IOTDATA_WIND_SPEED_RES;
+]]></impl>
+        </quantity>
+
+        <impl lang="c" hook="pack"><![CDATA[    const iotdata_field_wind_speed_t *const v = vv;
+    return bits_write(buf, bb, bp, quantise_wind_speed(v->wind_speed), IOTDATA_WIND_SPEED_BITS);
+]]></impl>
+        <impl lang="c" hook="unpack"><![CDATA[    iotdata_field_wind_speed_t *const v = vv;
+    if (*bp + IOTDATA_WIND_SPEED_BITS > bb)
+        return false;
+    v->wind_speed = dequantise_wind_speed(bits_read(buf, bb, bp, IOTDATA_WIND_SPEED_BITS));
+    return true;
+]]></impl>
+        <impl lang="c" hook="json_get"><![CDATA[    (void)scratch;
+    cJSON *j = cJSON_GetObjectItem(root, label);
+    if (!j)
+        return IOTDATA_OK;
+    return iotdata_encode_wind_speed(enc, (iotdata_float_t)j->valuedouble);
+]]></impl>
+        <impl lang="c" hook="json_set"><![CDATA[    const iotdata_field_wind_speed_t *const v = vv;
+    (void)scratch;
+#if !defined(IOTDATA_NO_FLOATING)
+    json_add_number_fixed(root, label, (double)v->wind_speed, 1);
+#else
+    cJSON_AddNumberToObject(root, label, v->wind_speed);
+#endif
+]]></impl>
+        <impl lang="c" hook="dump"><![CDATA[    (void)label;
+    size_t s = *bp;
+    uint32_t r = bits_read(buf, bb, bp, IOTDATA_WIND_SPEED_BITS);
+#if !defined(IOTDATA_NO_FLOATING)
+    snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "%.1f m/s", (double)dequantise_wind_speed(r));
+#else
+    fmt_scaled(dump->_dec_buf, sizeof(dump->_dec_buf), dequantise_wind_speed(r), 100, "m/s");
+#endif
+    n = dump_add(dump, n, s, IOTDATA_WIND_SPEED_BITS, r, dump->_dec_buf, "0..63.5, 0.5m/s", "wind_speed");
+    return n;
+]]></impl>
+        <impl lang="c" hook="print"><![CDATA[    const iotdata_field_wind_speed_t *const v = vv;
+#if !defined(IOTDATA_NO_FLOATING)
+    bprintf(bp, "  %s:%s %.1f m/s\n", label, _padd(label), (double)v->wind_speed);
+#else
+    bprintf(bp, "  %s:%s %d.%02d m/s\n", label, _padd(label), v->wind_speed / 100, v->wind_speed % 100);
+#endif
+]]></impl>
+
+    </field>
+
+    <!-- ---------------------------------------------------------------------------
+        WIND_DIRECTION - compass bearing in whole degrees.
+
+        The clearest case in the protocol for lifting bodies rather than deriving
+        them: its two forms are not one formula at two widths but two DIFFERENT
+        formulas. The floating one divides by a scale; the integer one multiplies
+        up by the wire width and divides by the span, to round without a float.
+        SCALE used to be defined in the source file, inside the floating branch --
+        the only field constant not in the header. Moved here with the rest, and
+        it is floating-only, which is why a conditional region has to work with
+        one arm as well as two.
+    -->
+    <field name="wind_direction" id="0x0021u" bits="IOTDATA_WIND_DIRECTION_BITS">
+
+        <!-- no <note for="field">: shares the family's section banner -->
+
+        <constants>
+            <constant name="MAX" value="359"/>
+            <constant name="BITS" value="8"/>
+            <constant name="SCALE" value="((float)(IOTDATA_WIND_DIRECTION_MAX + 1) / (float)(1 &lt;&lt; IOTDATA_WIND_DIRECTION_BITS))" when="floating"/>
+        </constants>
+
+        <quantity name="wind_direction" type="uint16_t" param="direction_deg">
+            <check expr="direction_deg &gt; IOTDATA_WIND_DIRECTION_MAX" error="HIGH" text="Wind direction above 359 degrees"/>
+            <impl lang="c" hook="quantise" when="floating" arg="uint16_t deg"><![CDATA[    return (uint32_t)roundf((float)deg / IOTDATA_WIND_DIRECTION_SCALE);
+]]></impl>
+            <impl lang="c" hook="dequantise" when="floating" ret="uint16_t"><![CDATA[    return (uint16_t)roundf((float)raw * IOTDATA_WIND_DIRECTION_SCALE);
+]]></impl>
+            <impl lang="c" hook="quantise" when="integer" arg="uint16_t deg"><![CDATA[    return (uint32_t)((deg * (1 << IOTDATA_WIND_DIRECTION_BITS) + (IOTDATA_WIND_DIRECTION_MAX + 1) / 2) / (IOTDATA_WIND_DIRECTION_MAX + 1));
+]]></impl>
+            <impl lang="c" hook="dequantise" when="integer" ret="uint16_t"><![CDATA[    return (uint16_t)((raw * (IOTDATA_WIND_DIRECTION_MAX + 1) + (1 << IOTDATA_WIND_DIRECTION_BITS) / 2) / (1 << IOTDATA_WIND_DIRECTION_BITS));
+]]></impl>
+        </quantity>
+
+        <impl lang="c" hook="pack"><![CDATA[    const iotdata_field_wind_direction_t *const v = vv;
+    return bits_write(buf, bb, bp, quantise_wind_direction(v->wind_direction), IOTDATA_WIND_DIRECTION_BITS);
+]]></impl>
+        <impl lang="c" hook="unpack"><![CDATA[    iotdata_field_wind_direction_t *const v = vv;
+    if (*bp + IOTDATA_WIND_DIRECTION_BITS > bb)
+        return false;
+    v->wind_direction = dequantise_wind_direction(bits_read(buf, bb, bp, IOTDATA_WIND_DIRECTION_BITS));
+    return true;
+]]></impl>
+        <impl lang="c" hook="json_get"><![CDATA[    (void)scratch;
+    cJSON *j = cJSON_GetObjectItem(root, label);
+    if (!j)
+        return IOTDATA_OK;
+    return iotdata_encode_wind_direction(enc, (uint16_t)j->valueint);
+]]></impl>
+        <impl lang="c" hook="json_set"><![CDATA[    const iotdata_field_wind_direction_t *const v = vv;
+    (void)scratch;
+    cJSON_AddNumberToObject(root, label, v->wind_direction);
+]]></impl>
+        <impl lang="c" hook="dump"><![CDATA[    (void)label;
+    size_t s = *bp;
+    uint32_t r = bits_read(buf, bb, bp, IOTDATA_WIND_DIRECTION_BITS);
+    snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "%" PRIu16 " deg", dequantise_wind_direction(r));
+    n = dump_add(dump, n, s, IOTDATA_WIND_DIRECTION_BITS, r, dump->_dec_buf, "0..355, ~1.4deg", "wind_direction");
+    return n;
+]]></impl>
+        <impl lang="c" hook="print"><![CDATA[    const iotdata_field_wind_direction_t *const v = vv;
+    bprintf(bp, "  %s:%s %" PRIu16 " deg\n", label, _padd(label), v->wind_direction);
+]]></impl>
+
+    </field>
+
+    <!-- ---------------------------------------------------------------------------
+        WIND_GUST - peak gust speed.
+
+        Quantises exactly as the speed does and now says so in its own functions
+        and its own constants, rather than calling into WIND_SPEED's. That was
+        the only cross-field borrow in the protocol; duplicating four lines was
+        cheaper than a dependency mechanism, and it made WIND_GUST enableable on
+        its own for the first time.
+    -->
+    <field name="wind_gust" id="0x0022u" bits="IOTDATA_WIND_GUST_BITS">
+
+        <!-- no <note for="field">: shares the family's section banner -->
+
+        <constants>
+            <constant name="RES" value="(0.5f)" when="floating"/>
+            <constant name="MAX" value="(63.5f)" when="floating"/>
+            <constant name="RES" value="(50)" when="integer"/>
+            <constant name="MAX" value="(6350)" when="integer"/>
+            <constant name="BITS" value="7"/>
+        </constants>
+
+        <quantity name="wind_gust" type="iotdata_float_t" param="gust_ms">
+            <check expr="gust_ms &lt; 0 || gust_ms &gt; IOTDATA_WIND_GUST_MAX" error="HIGH" text="Wind gust above 63.5 m/s"/>
+            <impl lang="c" hook="quantise" when="floating" arg="float gust"><![CDATA[    return (uint32_t)roundf(gust / IOTDATA_WIND_GUST_RES);
+]]></impl>
+            <impl lang="c" hook="dequantise" when="floating" ret="float"><![CDATA[    return (float)raw * IOTDATA_WIND_GUST_RES;
+]]></impl>
+            <impl lang="c" hook="quantise" when="integer" arg="int32_t gust100"><![CDATA[    return (uint32_t)((gust100 + (IOTDATA_WIND_GUST_RES / 2)) / IOTDATA_WIND_GUST_RES);
+]]></impl>
+            <impl lang="c" hook="dequantise" when="integer" ret="int32_t"><![CDATA[    return (int32_t)raw * IOTDATA_WIND_GUST_RES;
+]]></impl>
+        </quantity>
+
+        <impl lang="c" hook="pack"><![CDATA[    const iotdata_field_wind_gust_t *const v = vv;
+    return bits_write(buf, bb, bp, quantise_wind_gust(v->wind_gust), IOTDATA_WIND_GUST_BITS);
+]]></impl>
+        <impl lang="c" hook="unpack"><![CDATA[    iotdata_field_wind_gust_t *const v = vv;
+    if (*bp + IOTDATA_WIND_GUST_BITS > bb)
+        return false;
+    v->wind_gust = dequantise_wind_gust(bits_read(buf, bb, bp, IOTDATA_WIND_GUST_BITS));
+    return true;
+]]></impl>
+        <impl lang="c" hook="json_get"><![CDATA[    (void)scratch;
+    cJSON *j = cJSON_GetObjectItem(root, label);
+    if (!j)
+        return IOTDATA_OK;
+    return iotdata_encode_wind_gust(enc, (iotdata_float_t)j->valuedouble);
+]]></impl>
+        <impl lang="c" hook="json_set"><![CDATA[    const iotdata_field_wind_gust_t *const v = vv;
+    (void)scratch;
+#if !defined(IOTDATA_NO_FLOATING)
+    json_add_number_fixed(root, label, (double)v->wind_gust, 1);
+#else
+    cJSON_AddNumberToObject(root, label, v->wind_gust);
+#endif
+]]></impl>
+        <impl lang="c" hook="dump"><![CDATA[    (void)label;
+    size_t s = *bp;
+    uint32_t r = bits_read(buf, bb, bp, IOTDATA_WIND_GUST_BITS);
+#if !defined(IOTDATA_NO_FLOATING)
+    snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "%.1f m/s", (double)dequantise_wind_gust(r));
+#else
+    fmt_scaled(dump->_dec_buf, sizeof(dump->_dec_buf), dequantise_wind_gust(r), 100, "m/s");
+#endif
+    n = dump_add(dump, n, s, IOTDATA_WIND_GUST_BITS, r, dump->_dec_buf, "0..63.5, 0.5m/s", "wind_gust");
+    return n;
+]]></impl>
+        <impl lang="c" hook="print"><![CDATA[    const iotdata_field_wind_gust_t *const v = vv;
+#if !defined(IOTDATA_NO_FLOATING)
+    bprintf(bp, "  %s:%s %.1f m/s\n", label, _padd(label), (double)v->wind_gust);
+#else
+    bprintf(bp, "  %s:%s %d.%02d m/s\n", label, _padd(label), v->wind_gust / 100, v->wind_gust % 100);
+#endif
+]]></impl>
+
+    </field>
+
+    <!-- ---------------------------------------------------------------------------
+        WIND - speed, bearing and gust as one slot.
+
+        The second composite, and the same shape as ENVIRONMENT: nested storage,
+        a concatenated storage macro, its parts' errors rather than its own.
+    -->
+    <field name="wind" id="0x0028u" bits="IOTDATA_WIND_SPEED_BITS + IOTDATA_WIND_DIRECTION_BITS + IOTDATA_WIND_GUST_BITS" parts="wind_speed wind_direction wind_gust">
+
+        <!-- no <note for="field">: shares the family's section banner -->
+
+        <constants/>
+
+        <quantity name="wind_speed.wind_speed" type="iotdata_float_t" param="speed_ms">
+            <check expr="speed_ms &lt; 0 || speed_ms &gt; IOTDATA_WIND_SPEED_MAX" field="wind_speed" error="HIGH" text=""/>
+        </quantity>
+
+        <quantity name="wind_direction.wind_direction" type="uint16_t" param="direction_deg">
+            <check expr="direction_deg &gt; IOTDATA_WIND_DIRECTION_MAX" field="wind_direction" error="HIGH" text=""/>
+        </quantity>
+
+        <quantity name="wind_gust.wind_gust" type="iotdata_float_t" param="gust_ms">
+            <check expr="gust_ms &lt; 0 || gust_ms &gt; IOTDATA_WIND_GUST_MAX" field="wind_gust" error="HIGH" text=""/>
+        </quantity>
+
+        <impl lang="c" hook="pack"><![CDATA[    const iotdata_field_wind_t *const v = vv;
+    return pack_wind_speed(buf, bb, bp, &v->wind_speed) && pack_wind_direction(buf, bb, bp, &v->wind_direction) && pack_wind_gust(buf, bb, bp, &v->wind_gust);
+]]></impl>
+        <impl lang="c" hook="unpack"><![CDATA[    iotdata_field_wind_t *const v = vv;
+    return unpack_wind_speed(buf, bb, bp, &v->wind_speed) && unpack_wind_direction(buf, bb, bp, &v->wind_direction) && unpack_wind_gust(buf, bb, bp, &v->wind_gust);
+]]></impl>
+        <impl lang="c" hook="json_get"><![CDATA[    (void)scratch;
+    cJSON *j = cJSON_GetObjectItem(root, label);
+    if (!j)
+        return IOTDATA_OK;
+    cJSON *j_speed = cJSON_GetObjectItem(j, "speed"), *j_direction = cJSON_GetObjectItem(j, "direction"), *j_gust = cJSON_GetObjectItem(j, "gust");
+    if (!j_speed || !j_direction || !j_gust)
+        return IOTDATA_OK;
+    return iotdata_encode_wind(enc, (iotdata_float_t)j_speed->valuedouble, (uint16_t)j_direction->valueint, (iotdata_float_t)j_gust->valuedouble);
+]]></impl>
+        <impl lang="c" hook="json_set"><![CDATA[    const iotdata_field_wind_t *const v = vv;
+    cJSON *obj = cJSON_AddObjectToObject(root, label);
+    json_set_wind_speed(obj, &v->wind_speed, "speed", scratch);
+    json_set_wind_direction(obj, &v->wind_direction, "direction", scratch);
+    json_set_wind_gust(obj, &v->wind_gust, "gust", scratch);
+]]></impl>
+        <impl lang="c" hook="dump"><![CDATA[    n = dump_wind_speed(buf, bb, bp, dump, n, label);
+    n = dump_wind_direction(buf, bb, bp, dump, n, label);
+    n = dump_wind_gust(buf, bb, bp, dump, n, label);
+    return n;
+]]></impl>
+        <impl lang="c" hook="print"><![CDATA[    const iotdata_field_wind_t *const v = vv;
+#if !defined(IOTDATA_NO_FLOATING)
+    bprintf(bp, "  %s:%s %.1f m/s, %" PRIu16 " deg, gust %.1f m/s\n", label, _padd(label), (double)v->wind_speed.wind_speed, v->wind_direction.wind_direction, (double)v->wind_gust.wind_gust);
+#else
+    bprintf(bp, "  %s:%s %d.%02d m/s, %" PRIu16 " deg, gust %d.%02d m/s\n", label, _padd(label), v->wind_speed.wind_speed / 100, v->wind_speed.wind_speed % 100, v->wind_direction.wind_direction, v->wind_gust.wind_gust / 100,
+            v->wind_gust.wind_gust % 100);
+#endif
+]]></impl>
+
+    </field>
+
+    <!-- ---------------------------------------------------------------------------
+        RAIN_RATE - rainfall rate in whole millimetres per hour.
+
+        Eight bits carry a uint8_t exactly, so there is nothing to quantise and
+        nothing to reject. IOTDATA_ERR_RAIN_RATE_HIGH was declared and given a
+        message but never raised -- a value of this type CANNOT exceed 255, so
+        the check would have been always-false. Dropped rather than carried
+        forward as an error code a caller could switch on and never see.
+    -->
+    <field name="rain_rate" id="0x0030u" bits="IOTDATA_RAIN_RATE_BITS">
+
+        <documentation>
+            <note for="field"><![CDATA[Field RAIN, RAIN_RATE, RAIN_SIZE]]></note>
+        </documentation>
+
+        <constants>
+            <constant name="MAX" value="255"/>
+            <constant name="BITS" value="8"/>
+        </constants>
+
+        <quantity name="rain_rate" type="uint8_t" param="rate_mmhr">
+            <impl lang="c" hook="quantise" arg="uint8_t rain_rate"><![CDATA[    return (uint32_t)rain_rate;
+]]></impl>
+            <impl lang="c" hook="dequantise" ret="uint8_t"><![CDATA[    return (uint8_t)raw;
+]]></impl>
+        </quantity>
+
+        <impl lang="c" hook="pack"><![CDATA[    const iotdata_field_rain_rate_t *const v = vv;
+    return bits_write(buf, bb, bp, quantise_rain_rate(v->rain_rate), IOTDATA_RAIN_RATE_BITS);
+]]></impl>
+        <impl lang="c" hook="unpack"><![CDATA[    iotdata_field_rain_rate_t *const v = vv;
+    if (*bp + IOTDATA_RAIN_RATE_BITS > bb)
+        return false;
+    v->rain_rate = dequantise_rain_rate(bits_read(buf, bb, bp, IOTDATA_RAIN_RATE_BITS));
+    return true;
+]]></impl>
+        <impl lang="c" hook="json_get"><![CDATA[    (void)scratch;
+    cJSON *j = cJSON_GetObjectItem(root, label);
+    if (!j)
+        return IOTDATA_OK;
+    return iotdata_encode_rain_rate(enc, (uint8_t)j->valueint);
+]]></impl>
+        <impl lang="c" hook="json_set"><![CDATA[    const iotdata_field_rain_rate_t *const v = vv;
+    (void)scratch;
+    cJSON_AddNumberToObject(root, label, v->rain_rate);
+]]></impl>
+        <impl lang="c" hook="dump"><![CDATA[    (void)label;
+    size_t s = *bp;
+    uint32_t r = bits_read(buf, bb, bp, IOTDATA_RAIN_RATE_BITS);
+    snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "%" PRIu8 " mm/hr", dequantise_rain_rate(r));
+    n = dump_add(dump, n, s, IOTDATA_RAIN_RATE_BITS, r, dump->_dec_buf, "0..255 mm/hr", "rain_rate");
+    return n;
+]]></impl>
+        <impl lang="c" hook="print"><![CDATA[    const iotdata_field_rain_rate_t *const v = vv;
+    bprintf(bp, "  %s:%s %" PRIu8 " mm/hr\n", label, _padd(label), v->rain_rate);
+]]></impl>
+
+    </field>
+
+    <!-- ---------------------------------------------------------------------------
+        RAIN_SIZE - median raindrop size, in tenths of a millimetre per day.
+
+        The member carries tenths and the wire carries quarters of that, which is
+        why the quantity is named rain_size10 and the setter's parameter
+        size10_mmd: the unit is in the name, as it is everywhere in this
+        protocol.
+    -->
+    <field name="rain_size" id="0x0031u" bits="IOTDATA_RAIN_SIZE_BITS">
+
+        <!-- no <note for="field">: shares the family's section banner -->
+
+        <constants>
+            <constant name="MAX" value="15"/>
+            <constant name="BITS" value="4"/>
+            <constant name="SCALE" value="4"/>
+        </constants>
+
+        <quantity name="rain_size10" type="uint8_t" param="size10_mmd" stem="rain_size">
+            <check expr="size10_mmd &gt; IOTDATA_RAIN_SIZE_MAX * IOTDATA_RAIN_SIZE_SCALE" error="HIGH" text="Rain size above 6.0 mm/d"/>
+            <impl lang="c" hook="quantise" arg="uint8_t rain_size10"><![CDATA[    return (uint32_t)(rain_size10 / IOTDATA_RAIN_SIZE_SCALE);
+]]></impl>
+            <impl lang="c" hook="dequantise" ret="uint8_t"><![CDATA[    return (uint8_t)(raw * IOTDATA_RAIN_SIZE_SCALE);
+]]></impl>
+        </quantity>
+
+        <impl lang="c" hook="pack"><![CDATA[    const iotdata_field_rain_size_t *const v = vv;
+    return bits_write(buf, bb, bp, quantise_rain_size(v->rain_size10), IOTDATA_RAIN_SIZE_BITS);
+]]></impl>
+        <impl lang="c" hook="unpack"><![CDATA[    iotdata_field_rain_size_t *const v = vv;
+    if (*bp + IOTDATA_RAIN_SIZE_BITS > bb)
+        return false;
+    v->rain_size10 = dequantise_rain_size(bits_read(buf, bb, bp, IOTDATA_RAIN_SIZE_BITS));
+    return true;
+]]></impl>
+        <impl lang="c" hook="json_get"><![CDATA[    (void)scratch;
+    cJSON *j = cJSON_GetObjectItem(root, label);
+    if (!j)
+        return IOTDATA_OK;
+    return iotdata_encode_rain_size(enc, (uint8_t)j->valueint);
+]]></impl>
+        <impl lang="c" hook="json_set"><![CDATA[    const iotdata_field_rain_size_t *const v = vv;
+    (void)scratch;
+    cJSON_AddNumberToObject(root, label, v->rain_size10);
+]]></impl>
+        <impl lang="c" hook="dump"><![CDATA[    (void)label;
+    size_t s = *bp;
+    uint32_t r = bits_read(buf, bb, bp, IOTDATA_RAIN_SIZE_BITS);
+    snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "%" PRIu8 ".%" PRIu8 " mm/d", dequantise_rain_size(r) / 10, dequantise_rain_size(r) % 10);
+    n = dump_add(dump, n, s, IOTDATA_RAIN_SIZE_BITS, r, dump->_dec_buf, "0..6.3 mm/d", "rain_size");
+    return n;
+]]></impl>
+        <impl lang="c" hook="print"><![CDATA[    const iotdata_field_rain_size_t *const v = vv;
+    bprintf(bp, "  %s:%s %" PRIu8 ".%" PRIu8 " mm/d\n", label, _padd(label), v->rain_size10 / 10, v->rain_size10 % 10);
+]]></impl>
+
+    </field>
+
+    <!-- ---------------------------------------------------------------------------
+        RAIN - rate and drop size as one slot.
+    -->
+    <field name="rain" id="0x0038u" bits="IOTDATA_RAIN_RATE_BITS + IOTDATA_RAIN_SIZE_BITS" parts="rain_rate rain_size">
+
+        <!-- no <note for="field">: shares the family's section banner -->
+
+        <constants/>
+
+        <quantity name="rain_rate.rain_rate" type="uint8_t" param="rate_mmhr">
+        </quantity>
+
+        <quantity name="rain_size.rain_size10" type="uint8_t" param="size10_mmd">
+            <check expr="size10_mmd &gt; IOTDATA_RAIN_SIZE_MAX * IOTDATA_RAIN_SIZE_SCALE" field="rain_size" error="HIGH" text=""/>
+        </quantity>
+
+        <impl lang="c" hook="pack"><![CDATA[    const iotdata_field_rain_t *const v = vv;
+    return pack_rain_rate(buf, bb, bp, &v->rain_rate) && pack_rain_size(buf, bb, bp, &v->rain_size);
+]]></impl>
+        <impl lang="c" hook="unpack"><![CDATA[    iotdata_field_rain_t *const v = vv;
+    return unpack_rain_rate(buf, bb, bp, &v->rain_rate) && unpack_rain_size(buf, bb, bp, &v->rain_size);
+]]></impl>
+        <impl lang="c" hook="json_get"><![CDATA[    (void)scratch;
+    cJSON *j = cJSON_GetObjectItem(root, label);
+    if (!j)
+        return IOTDATA_OK;
+    cJSON *j_rate = cJSON_GetObjectItem(j, "rate"), *j_size = cJSON_GetObjectItem(j, "size");
+    if (!j_rate || !j_size)
+        return IOTDATA_OK;
+    return iotdata_encode_rain(enc, (uint8_t)j_rate->valueint, (uint8_t)j_size->valueint);
+]]></impl>
+        <impl lang="c" hook="json_set"><![CDATA[    const iotdata_field_rain_t *const v = vv;
+    cJSON *obj = cJSON_AddObjectToObject(root, label);
+    json_set_rain_rate(obj, &v->rain_rate, "rate", scratch);
+    json_set_rain_size(obj, &v->rain_size, "size", scratch);
+]]></impl>
+        <impl lang="c" hook="dump"><![CDATA[    n = dump_rain_rate(buf, bb, bp, dump, n, label);
+    n = dump_rain_size(buf, bb, bp, dump, n, label);
+    return n;
+]]></impl>
+        <impl lang="c" hook="print"><![CDATA[    const iotdata_field_rain_t *const v = vv;
+    bprintf(bp, "  %s:%s %" PRIu8 " mm/hr, %" PRIu8 ".%" PRIu8 " mm/d\n", label, _padd(label), v->rain_rate.rain_rate, v->rain_size.rain_size10 / 10, v->rain_size.rain_size10 % 10);
+]]></impl>
+
+    </field>
+
+</fields>
