@@ -98,11 +98,17 @@ static void test_aq_pm_round_trip(void) {
     decode_pkt();
 
     ASSERT_EQ(!!IOTDATA_FIELD_PRESENT(dec.fields, IOTDATA_FIELD_AIR_QUALITY_PM), 1, "present");
-    ASSERT_EQ_U(dec.aq_pm_present, 0x0F, "mask");
-    ASSERT_EQ_U(dec.aq_pm[0], 100, "pm1.0");
-    ASSERT_EQ_U(dec.aq_pm[1], 250, "pm2.5");
-    ASSERT_EQ_U(dec.aq_pm[2], 75, "pm4.0");
-    ASSERT_EQ_U(dec.aq_pm[3], 500, "pm10");
+    {
+        uint8_t pm_present;
+        uint16_t pm_out[IOTDATA_AIR_QUALITY_PM_COUNT];
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_air_quality_pm(&dec, &pm_present, pm_out), "decode air_quality_pm");
+        ASSERT_EQ_U(pm_present, 0x0F, "mask");
+        ASSERT_EQ_U(pm_out[0], 100, "pm1.0");
+        ASSERT_EQ_U(pm_out[1], 250, "pm2.5");
+        ASSERT_EQ_U(pm_out[2], 75, "pm4.0");
+        ASSERT_EQ_U(pm_out[3], 500, "pm10");
+    }
     PASS();
 }
 
@@ -115,9 +121,15 @@ static void test_aq_pm_partial(void) {
     finish();
     decode_pkt();
 
-    ASSERT_EQ_U(dec.aq_pm_present, 0x09, "mask");
-    ASSERT_EQ_U(dec.aq_pm[0], 50, "pm1.0");
-    ASSERT_EQ_U(dec.aq_pm[3], 200, "pm10");
+    {
+        uint8_t pm_present;
+        uint16_t pm_out[IOTDATA_AIR_QUALITY_PM_COUNT];
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_air_quality_pm(&dec, &pm_present, pm_out), "decode air_quality_pm");
+        ASSERT_EQ_U(pm_present, 0x09, "mask");
+        ASSERT_EQ_U(pm_out[0], 50, "pm1.0");
+        ASSERT_EQ_U(pm_out[3], 200, "pm10");
+    }
     PASS();
 }
 
@@ -131,13 +143,19 @@ static void test_aq_gas_round_trip(void) {
     decode_pkt();
 
     ASSERT_EQ(!!IOTDATA_FIELD_PRESENT(dec.fields, IOTDATA_FIELD_AIR_QUALITY_GAS), 1, "present");
-    ASSERT_EQ_U(dec.aq_gas_present, 0x3F, "mask");
-    ASSERT_EQ_U(dec.aq_gas[0], 200, "voc");
-    ASSERT_EQ_U(dec.aq_gas[1], 100, "nox");
-    ASSERT_EQ_U(dec.aq_gas[2], 5000, "co2");
-    ASSERT_EQ_U(dec.aq_gas[3], 500, "co");
-    ASSERT_EQ_U(dec.aq_gas[4], 250, "hcho");
-    ASSERT_EQ_U(dec.aq_gas[5], 100, "o3");
+    {
+        uint8_t gas_present;
+        uint16_t gas_out[IOTDATA_AIR_QUALITY_GAS_COUNT];
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_air_quality_gas(&dec, &gas_present, gas_out), "decode air_quality_gas");
+        ASSERT_EQ_U(gas_present, 0x3F, "mask");
+        ASSERT_EQ_U(gas_out[0], 200, "voc");
+        ASSERT_EQ_U(gas_out[1], 100, "nox");
+        ASSERT_EQ_U(gas_out[2], 5000, "co2");
+        ASSERT_EQ_U(gas_out[3], 500, "co");
+        ASSERT_EQ_U(gas_out[4], 250, "hcho");
+        ASSERT_EQ_U(gas_out[5], 100, "o3");
+    }
     PASS();
 }
 
@@ -150,7 +168,12 @@ static void test_depth_round_trip(void) {
     decode_pkt();
 
     ASSERT_EQ(!!IOTDATA_FIELD_PRESENT(dec.fields, IOTDATA_FIELD_DEPTH), 1, "present");
-    ASSERT_EQ_U(dec.depth, 500, "depth");
+    {
+        uint16_t depth_cm;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_depth(&dec, &depth_cm), "decode depth");
+        ASSERT_EQ_U(depth_cm, 500, "depth");
+    }
     PASS();
 }
 
@@ -164,15 +187,26 @@ static void test_image_round_trip(void) {
     decode_pkt();
 
     ASSERT_EQ(!!IOTDATA_FIELD_PRESENT(dec.fields, IOTDATA_FIELD_IMAGE), 1, "present");
-    ASSERT_EQ(dec.image_pixel_format, IOTDATA_IMAGE_FMT_BILEVEL, "fmt");
-    ASSERT_EQ(dec.image_size_tier, IOTDATA_IMAGE_SIZE_24x18, "size");
-    ASSERT_EQ(dec.image_compression, IOTDATA_IMAGE_COMP_RAW, "comp");
-    ASSERT_EQ(dec.image_flags & IOTDATA_IMAGE_FLAG_INVERT, IOTDATA_IMAGE_FLAG_INVERT, "invert");
-    ASSERT_EQ(dec.image_data_len, 4, "len");
-    ASSERT_EQ(dec.image_data[0], 0xFF, "px0");
-    ASSERT_EQ(dec.image_data[1], 0x00, "px1");
-    ASSERT_EQ(dec.image_data[2], 0xAA, "px2");
-    ASSERT_EQ(dec.image_data[3], 0x55, "px3");
+    {
+        iotdata_field_image_scratch_t img_scratch;
+        uint8_t pixel_format;
+        uint8_t size_tier;
+        uint8_t compression;
+        uint8_t flags;
+        const uint8_t *data;
+        uint8_t data_len;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_image(&dec, &pixel_format, &size_tier, &compression, &flags, &data, &data_len, &img_scratch), "decode image");
+        ASSERT_EQ(pixel_format, IOTDATA_IMAGE_FMT_BILEVEL, "fmt");
+        ASSERT_EQ(size_tier, IOTDATA_IMAGE_SIZE_24x18, "size");
+        ASSERT_EQ(compression, IOTDATA_IMAGE_COMP_RAW, "comp");
+        ASSERT_EQ(flags & IOTDATA_IMAGE_FLAG_INVERT, IOTDATA_IMAGE_FLAG_INVERT, "invert");
+        ASSERT_EQ(data_len, 4, "len");
+        ASSERT_EQ(data[0], 0xFF, "px0");
+        ASSERT_EQ(data[1], 0x00, "px1");
+        ASSERT_EQ(data[2], 0xAA, "px2");
+        ASSERT_EQ(data[3], 0x55, "px3");
+    }
     PASS();
 }
 
@@ -207,15 +241,49 @@ static void test_complete_variant_all_fields(void) {
     decode_pkt();
 
     /* Spot-check a selection of fields (90% round-trips exactly with 5-bit quantisation) */
-    ASSERT_EQ(dec.battery_level, 90, "bat");
-    ASSERT_EQ_U(dec.aq_pm_present, 0x0F, "pm_mask");
-    ASSERT_EQ_U(dec.aq_pm[1], 120, "pm25");
-    ASSERT_EQ_U(dec.aq_gas_present, 0x3F, "gas_mask");
-    ASSERT_EQ_U(dec.aq_gas[2], 5000, "co2");
-    ASSERT_EQ_U(dec.depth, 250, "depth");
-    ASSERT_EQ(dec.image_data_len, 2, "img_len");
-    ASSERT_EQ(dec.image_data[0], 0xDE, "img0");
-    ASSERT_EQ(dec.flags, 0x42, "flags");
+    {
+        uint8_t level_percent;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_battery(&dec, &level_percent, NULL), "decode battery");
+        ASSERT_EQ(level_percent, 90, "bat");
+    }
+    {
+        uint8_t pm_present;
+        uint16_t pm_out[IOTDATA_AIR_QUALITY_PM_COUNT];
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_air_quality_pm(&dec, &pm_present, pm_out), "decode air_quality_pm");
+        ASSERT_EQ_U(pm_present, 0x0F, "pm_mask");
+        ASSERT_EQ_U(pm_out[1], 120, "pm25");
+    }
+    {
+        uint8_t gas_present;
+        uint16_t gas_out[IOTDATA_AIR_QUALITY_GAS_COUNT];
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_air_quality_gas(&dec, &gas_present, gas_out), "decode air_quality_gas");
+        ASSERT_EQ_U(gas_present, 0x3F, "gas_mask");
+        ASSERT_EQ_U(gas_out[2], 5000, "co2");
+    }
+    {
+        uint16_t depth_cm;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_depth(&dec, &depth_cm), "decode depth");
+        ASSERT_EQ_U(depth_cm, 250, "depth");
+    }
+    {
+        iotdata_field_image_scratch_t img_scratch;
+        const uint8_t *data;
+        uint8_t data_len;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_image(&dec, NULL, NULL, NULL, NULL, &data, &data_len, &img_scratch), "decode image");
+        ASSERT_EQ(data_len, 2, "img_len");
+        ASSERT_EQ(data[0], 0xDE, "img0");
+    }
+    {
+        uint8_t flags;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_flags(&dec, &flags), "decode flags");
+        ASSERT_EQ(flags, 0x42, "flags");
+    }
     PASS();
 }
 
@@ -242,19 +310,80 @@ static void test_standalone_variant_all_fields(void) {
     decode_pkt();
 
     /* Spot-check standalone fields */
-    ASSERT_NEAR(dec.temperature, 22.5, 0.25, "temp");
-    ASSERT_EQ(dec.pressure, 1013, "pres");
-    ASSERT_EQ(dec.humidity, 55, "hum");
-    ASSERT_NEAR(dec.wind_speed, 5.0, 0.5, "wspd");
-    ASSERT_NEAR(dec.wind_direction, 180, 2.0, "wdir");
-    ASSERT_NEAR(dec.wind_gust, 8.0, 0.5, "wgust");
-    ASSERT_EQ(dec.rain_rate, 10, "rrate");
-    ASSERT_EQ_U(dec.radiation_cpm, 1500, "cpm");
-    ASSERT_NEAR(dec.radiation_dose, 0.75, 0.01, "dose");
-    ASSERT_EQ_U(dec.depth, 100, "depth");
-    ASSERT_NEAR(dec.position_lat, -33.8688, 0.001, "lat");
-    ASSERT_NEAR(dec.position_lon, 151.2093, 0.001, "lon");
-    ASSERT_EQ(dec.flags, 0xFF, "flags");
+    {
+        iotdata_float_t temperature_c;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_temperature(&dec, &temperature_c), "decode temperature");
+        ASSERT_NEAR(temperature_c, 22.5, 0.25, "temp");
+    }
+    {
+        uint16_t pressure_hpa;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_pressure(&dec, &pressure_hpa), "decode pressure");
+        ASSERT_EQ(pressure_hpa, 1013, "pres");
+    }
+    {
+        uint8_t humidity_pct;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_humidity(&dec, &humidity_pct), "decode humidity");
+        ASSERT_EQ(humidity_pct, 55, "hum");
+    }
+    {
+        iotdata_float_t speed_ms;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_wind_speed(&dec, &speed_ms), "decode wind_speed");
+        ASSERT_NEAR(speed_ms, 5.0, 0.5, "wspd");
+    }
+    {
+        uint16_t direction_deg;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_wind_direction(&dec, &direction_deg), "decode wind_direction");
+        ASSERT_NEAR(direction_deg, 180, 2.0, "wdir");
+    }
+    {
+        iotdata_float_t gust_ms;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_wind_gust(&dec, &gust_ms), "decode wind_gust");
+        ASSERT_NEAR(gust_ms, 8.0, 0.5, "wgust");
+    }
+    {
+        uint8_t rate_mmhr;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_rain_rate(&dec, &rate_mmhr), "decode rain_rate");
+        ASSERT_EQ(rate_mmhr, 10, "rrate");
+    }
+    {
+        uint16_t cpm;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_radiation_cpm(&dec, &cpm), "decode radiation_cpm");
+        ASSERT_EQ_U(cpm, 1500, "cpm");
+    }
+    {
+        iotdata_float_t usvh;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_radiation_dose(&dec, &usvh), "decode radiation_dose");
+        ASSERT_NEAR(usvh, 0.75, 0.01, "dose");
+    }
+    {
+        uint16_t depth_cm;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_depth(&dec, &depth_cm), "decode depth");
+        ASSERT_EQ_U(depth_cm, 100, "depth");
+    }
+    {
+        iotdata_double_t latitude;
+        iotdata_double_t longitude;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_position(&dec, &latitude, &longitude), "decode position");
+        ASSERT_NEAR(latitude, -33.8688, 0.001, "lat");
+        ASSERT_NEAR(longitude, 151.2093, 0.001, "lon");
+    }
+    {
+        uint8_t flags;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_flags(&dec, &flags), "decode flags");
+        ASSERT_EQ(flags, 0xFF, "flags");
+    }
     PASS();
 }
 
@@ -302,8 +431,13 @@ static void test_aq_pm_boundaries(void) {
     ASSERT_OK(iotdata_encode_air_quality_pm(&enc, 0x0F, pm_min), "min");
     finish();
     decode_pkt();
-    ASSERT_EQ_U(dec.aq_pm[0], 0, "min0");
-    ASSERT_EQ_U(dec.aq_pm[3], 0, "min3");
+    {
+        uint16_t pm_out[IOTDATA_AIR_QUALITY_PM_COUNT];
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_air_quality_pm(&dec, NULL, pm_out), "decode air_quality_pm");
+        ASSERT_EQ_U(pm_out[0], 0, "min0");
+        ASSERT_EQ_U(pm_out[3], 0, "min3");
+    }
 
     /* Max: 1275 on all channels */
     begin(0, 1, 11);
@@ -311,8 +445,13 @@ static void test_aq_pm_boundaries(void) {
     ASSERT_OK(iotdata_encode_air_quality_pm(&enc, 0x0F, pm_max), "max");
     finish();
     decode_pkt();
-    ASSERT_EQ_U(dec.aq_pm[0], 1275, "max0");
-    ASSERT_EQ_U(dec.aq_pm[3], 1275, "max3");
+    {
+        uint16_t pm_out[IOTDATA_AIR_QUALITY_PM_COUNT];
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_air_quality_pm(&dec, NULL, pm_out), "decode air_quality_pm");
+        ASSERT_EQ_U(pm_out[0], 1275, "max0");
+        ASSERT_EQ_U(pm_out[3], 1275, "max3");
+    }
     PASS();
 }
 
@@ -325,14 +464,19 @@ static void test_aq_gas_boundaries(void) {
     finish();
     decode_pkt();
 
-    ASSERT_EQ_U(dec.aq_gas[0], 510, "voc");
-    ASSERT_EQ_U(dec.aq_gas[1], 510, "nox");
-    ASSERT_EQ_U(dec.aq_gas[2], 51150, "co2");
-    ASSERT_EQ_U(dec.aq_gas[3], 1023, "co");
-    ASSERT_EQ_U(dec.aq_gas[4], 5115, "hcho");
-    ASSERT_EQ_U(dec.aq_gas[5], 1023, "o3");
-    ASSERT_EQ_U(dec.aq_gas[6], 1023, "rsvd6");
-    ASSERT_EQ_U(dec.aq_gas[7], 1023, "rsvd7");
+    {
+        uint16_t gas_out[IOTDATA_AIR_QUALITY_GAS_COUNT];
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_air_quality_gas(&dec, NULL, gas_out), "decode air_quality_gas");
+        ASSERT_EQ_U(gas_out[0], 510, "voc");
+        ASSERT_EQ_U(gas_out[1], 510, "nox");
+        ASSERT_EQ_U(gas_out[2], 51150, "co2");
+        ASSERT_EQ_U(gas_out[3], 1023, "co");
+        ASSERT_EQ_U(gas_out[4], 5115, "hcho");
+        ASSERT_EQ_U(gas_out[5], 1023, "o3");
+        ASSERT_EQ_U(gas_out[6], 1023, "rsvd6");
+        ASSERT_EQ_U(gas_out[7], 1023, "rsvd7");
+    }
     PASS();
 }
 
@@ -342,13 +486,23 @@ static void test_depth_boundaries(void) {
     ASSERT_OK(iotdata_encode_depth(&enc, 0), "min");
     finish();
     decode_pkt();
-    ASSERT_EQ_U(dec.depth, 0, "min");
+    {
+        uint16_t depth_cm;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_depth(&dec, &depth_cm), "decode depth");
+        ASSERT_EQ_U(depth_cm, 0, "min");
+    }
 
     begin(0, 1, 14);
     ASSERT_OK(iotdata_encode_depth(&enc, 1023), "max");
     finish();
     decode_pkt();
-    ASSERT_EQ_U(dec.depth, 1023, "max");
+    {
+        uint16_t depth_cm;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_depth(&dec, &depth_cm), "decode depth");
+        ASSERT_EQ_U(depth_cm, 1023, "max");
+    }
     PASS();
 }
 
@@ -361,17 +515,31 @@ static void test_image_flags_combinations(void) {
     ASSERT_OK(iotdata_encode_image(&enc, 0, 0, 0, IOTDATA_IMAGE_FLAG_FRAGMENT | IOTDATA_IMAGE_FLAG_INVERT, px, 1), "encode");
     finish();
     decode_pkt();
-    ASSERT_EQ(dec.image_flags & IOTDATA_IMAGE_FLAG_FRAGMENT, IOTDATA_IMAGE_FLAG_FRAGMENT, "fragment");
-    ASSERT_EQ(dec.image_flags & IOTDATA_IMAGE_FLAG_INVERT, IOTDATA_IMAGE_FLAG_INVERT, "invert");
+    {
+        iotdata_field_image_scratch_t img_scratch;
+        uint8_t flags;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_image(&dec, NULL, NULL, NULL, &flags, NULL, NULL, &img_scratch), "decode image");
+        ASSERT_EQ(flags & IOTDATA_IMAGE_FLAG_FRAGMENT, IOTDATA_IMAGE_FLAG_FRAGMENT, "fragment");
+        ASSERT_EQ(flags & IOTDATA_IMAGE_FLAG_INVERT, IOTDATA_IMAGE_FLAG_INVERT, "invert");
+    }
 
     /* All formats and sizes */
     begin(0, 1, 16);
     ASSERT_OK(iotdata_encode_image(&enc, IOTDATA_IMAGE_FMT_GREY16, IOTDATA_IMAGE_SIZE_64x48, IOTDATA_IMAGE_COMP_HEATSHRINK, 0, px, 1), "grey16+64x48+hs");
     finish();
     decode_pkt();
-    ASSERT_EQ(dec.image_pixel_format, IOTDATA_IMAGE_FMT_GREY16, "fmt");
-    ASSERT_EQ(dec.image_size_tier, IOTDATA_IMAGE_SIZE_64x48, "sz");
-    ASSERT_EQ(dec.image_compression, IOTDATA_IMAGE_COMP_HEATSHRINK, "comp");
+    {
+        iotdata_field_image_scratch_t img_scratch;
+        uint8_t pixel_format;
+        uint8_t size_tier;
+        uint8_t compression;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_image(&dec, &pixel_format, &size_tier, &compression, NULL, NULL, NULL, &img_scratch), "decode image");
+        ASSERT_EQ(pixel_format, IOTDATA_IMAGE_FMT_GREY16, "fmt");
+        ASSERT_EQ(size_tier, IOTDATA_IMAGE_SIZE_64x48, "sz");
+        ASSERT_EQ(compression, IOTDATA_IMAGE_COMP_HEATSHRINK, "comp");
+    }
     PASS();
 }
 
@@ -441,10 +609,18 @@ static void test_encode_buffer_overflow(void) {
     /* 5 bytes = header(4) + pres0(1), no room for field data */
     uint8_t small_buf[5];
     iotdata_encoder_t small_enc;
-    ASSERT_OK(iotdata_encode_begin(&small_enc, small_buf, 5, 0, 1, 1), "begin ok");
-    ASSERT_OK(iotdata_encode_battery(&small_enc, 50, false), "bat ok");
     size_t out_len;
-    ASSERT_ERR(iotdata_encode_end(&small_enc, &out_len), IOTDATA_ERR_BUF_TOO_SMALL, "buf overflow");
+    /* WHERE the buffer runs out is mode-specific; THAT it is refused is not. The deferred mode
+       writes nothing until encode_end, so only that call can fail. An ORDERED build lays the
+       header and reserves the presence bytes in encode_begin and streams each field as it comes,
+       so any of the three can be the one to run out. Both owe the caller a refusal rather than an
+       overrun, and that is what is asserted here. */
+    iotdata_status_t rc = iotdata_encode_begin(&small_enc, small_buf, 5, 0, 1, 1);
+    if (rc == IOTDATA_OK)
+        rc = iotdata_encode_battery(&small_enc, 50, false);
+    if (rc == IOTDATA_OK)
+        rc = iotdata_encode_end(&small_enc, &out_len);
+    ASSERT_ERR(rc, IOTDATA_ERR_BUF_TOO_SMALL, "buf overflow");
 
     /* Buffer too small for even the header */
     ASSERT_ERR(iotdata_encode_begin(&small_enc, small_buf, 4, 0, 1, 1), IOTDATA_ERR_BUF_TOO_SMALL, "buf tiny");
@@ -1382,8 +1558,19 @@ static void test_decode_truncated(void) {
     ASSERT_OK(iotdata_encode_battery(&enc, 50, false), "bat");
     finish();
 
-    /* Full packet is 6 bytes; truncate to 5 (header + pres0, no field data) */
-    ASSERT_ERR(iotdata_decode(pkt, 5, &dec), IOTDATA_ERR_DECODE_TRUNCATED, "truncated");
+    /* Full packet is 6 bytes; truncate to 5 (header + pres0, no field data).
+
+       ALL-OR-NOTHING IS MODE-SPECIFIC -- there is no CRC at this layer. The deferred mode unpacks
+       every field inside iotdata_decode and so refuses the packet there; an ORDERED build leaves
+       the fields on the wire, accepts the packet, and the field that runs off the end reports it.
+       Neither will hand over a value that was never there. */
+    iotdata_status_t rc = iotdata_decode(pkt, 5, &dec);
+    if (rc == IOTDATA_OK) {
+        uint8_t level_percent = 0;
+        rewind_dec();
+        rc = iotdata_decode_battery(&dec, &level_percent, NULL);
+    }
+    ASSERT_ERR(rc, IOTDATA_ERR_DECODE_TRUNCATED, "truncated");
     PASS();
 }
 
@@ -1405,9 +1592,9 @@ static void test_dump_complete_variant(void) {
     begin(0, 5, 42);
 
     ASSERT_OK(iotdata_encode_battery(&enc, 90, false), "bat");
-    ASSERT_OK(iotdata_encode_depth(&enc, 300), "depth");
     uint16_t pm[4] = { 100, 200, 150, 300 };
     ASSERT_OK(iotdata_encode_air_quality_pm(&enc, 0x0F, pm), "pm");
+    ASSERT_OK(iotdata_encode_depth(&enc, 300), "depth");
     finish();
 
     char str[8192];

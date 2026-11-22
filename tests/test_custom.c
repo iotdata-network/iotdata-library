@@ -97,10 +97,30 @@ static void test_soil_sensor_basic(void) {
     decode_pkt();
 
     ASSERT_EQ(dec.variant, 0, "variant");
-    ASSERT_NEAR(dec.battery_level, 72, 4, "bat");
-    ASSERT_NEAR(dec.temperature, 15.5, 0.25, "temp");
-    ASSERT_EQ(dec.humidity, 85, "humid");
-    ASSERT_EQ(dec.depth, 30, "depth");
+    {
+        uint8_t level_percent;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_battery(&dec, &level_percent, NULL), "decode battery");
+        ASSERT_NEAR(level_percent, 72, 4, "bat");
+    }
+    {
+        iotdata_float_t temperature_c;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_temperature(&dec, &temperature_c), "decode temperature");
+        ASSERT_NEAR(temperature_c, 15.5, 0.25, "temp");
+    }
+    {
+        uint8_t humidity_pct;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_humidity(&dec, &humidity_pct), "decode humidity");
+        ASSERT_EQ(humidity_pct, 85, "humid");
+    }
+    {
+        uint16_t depth_cm;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_depth(&dec, &depth_cm), "decode depth");
+        ASSERT_EQ(depth_cm, 30, "depth");
+    }
     PASS();
 }
 
@@ -118,7 +138,12 @@ static void test_soil_sensor_partial(void) {
     ASSERT_EQ(!!IOTDATA_FIELD_PRESENT(dec.fields, IOTDATA_FIELD_TEMPERATURE), 1, "temp present");
     ASSERT_EQ(!!IOTDATA_FIELD_PRESENT(dec.fields, IOTDATA_FIELD_HUMIDITY), 0, "humid absent");
     ASSERT_EQ(!!IOTDATA_FIELD_PRESENT(dec.fields, IOTDATA_FIELD_DEPTH), 0, "depth absent");
-    ASSERT_NEAR(dec.temperature, -10.0, 0.25, "temp");
+    {
+        iotdata_float_t temperature_c;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_temperature(&dec, &temperature_c), "decode temperature");
+        ASSERT_NEAR(temperature_c, -10.0, 0.25, "temp");
+    }
     PASS();
 }
 
@@ -133,10 +158,30 @@ static void test_soil_sensor_boundaries(void) {
     finish();
     decode_pkt();
 
-    ASSERT_EQ(dec.battery_level, 0, "bat");
-    ASSERT_NEAR(dec.temperature, -40.0, 0.25, "temp");
-    ASSERT_EQ(dec.humidity, 0, "humid");
-    ASSERT_EQ(dec.depth, 0, "depth");
+    {
+        uint8_t level_percent;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_battery(&dec, &level_percent, NULL), "decode battery");
+        ASSERT_EQ(level_percent, 0, "bat");
+    }
+    {
+        iotdata_float_t temperature_c;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_temperature(&dec, &temperature_c), "decode temperature");
+        ASSERT_NEAR(temperature_c, -40.0, 0.25, "temp");
+    }
+    {
+        uint8_t humidity_pct;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_humidity(&dec, &humidity_pct), "decode humidity");
+        ASSERT_EQ(humidity_pct, 0, "humid");
+    }
+    {
+        uint16_t depth_cm;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_depth(&dec, &depth_cm), "decode depth");
+        ASSERT_EQ(depth_cm, 0, "depth");
+    }
 
     begin(0, 1, 3);
     ASSERT_OK(iotdata_encode_battery(&enc, 100, true), "bat 100");
@@ -146,10 +191,30 @@ static void test_soil_sensor_boundaries(void) {
     finish();
     decode_pkt();
 
-    ASSERT_EQ(dec.battery_level, 100, "bat");
-    ASSERT_NEAR(dec.temperature, 80.0, 0.25, "temp");
-    ASSERT_EQ(dec.humidity, 100, "humid");
-    ASSERT_EQ(dec.depth, 1023, "depth");
+    {
+        uint8_t level_percent;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_battery(&dec, &level_percent, NULL), "decode battery");
+        ASSERT_EQ(level_percent, 100, "bat");
+    }
+    {
+        iotdata_float_t temperature_c;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_temperature(&dec, &temperature_c), "decode temperature");
+        ASSERT_NEAR(temperature_c, 80.0, 0.25, "temp");
+    }
+    {
+        uint8_t humidity_pct;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_humidity(&dec, &humidity_pct), "decode humidity");
+        ASSERT_EQ(humidity_pct, 100, "humid");
+    }
+    {
+        uint16_t depth_cm;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_depth(&dec, &depth_cm), "decode depth");
+        ASSERT_EQ(depth_cm, 1023, "depth");
+    }
     PASS();
 }
 
@@ -172,9 +237,24 @@ static void test_wind_mast_basic(void) {
     decode_pkt();
 
     ASSERT_EQ(dec.variant, 1, "variant");
-    ASSERT_NEAR(dec.wind_speed, 12.5, 0.5, "wspd");
-    ASSERT_NEAR(dec.wind_direction, 225, 2.0, "wdir");
-    ASSERT_NEAR(dec.wind_gust, 22.0, 0.5, "wgust");
+    {
+        iotdata_float_t speed_ms;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_wind_speed(&dec, &speed_ms), "decode wind_speed");
+        ASSERT_NEAR(speed_ms, 12.5, 0.5, "wspd");
+    }
+    {
+        uint16_t direction_deg;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_wind_direction(&dec, &direction_deg), "decode wind_direction");
+        ASSERT_NEAR(direction_deg, 225, 2.0, "wdir");
+    }
+    {
+        iotdata_float_t gust_ms;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_wind_gust(&dec, &gust_ms), "decode wind_gust");
+        ASSERT_NEAR(gust_ms, 22.0, 0.5, "wgust");
+    }
     PASS();
 }
 
@@ -191,8 +271,18 @@ static void test_wind_mast_partial(void) {
     ASSERT_EQ(!!IOTDATA_FIELD_PRESENT(dec.fields, IOTDATA_FIELD_WIND_SPEED), 1, "wspd present");
     ASSERT_EQ(!!IOTDATA_FIELD_PRESENT(dec.fields, IOTDATA_FIELD_WIND_DIRECTION), 1, "wdir present");
     ASSERT_EQ(!!IOTDATA_FIELD_PRESENT(dec.fields, IOTDATA_FIELD_WIND_GUST), 0, "wgust absent");
-    ASSERT_NEAR(dec.wind_speed, 3.0, 0.5, "wspd");
-    ASSERT_NEAR(dec.wind_direction, 90, 2.0, "wdir");
+    {
+        iotdata_float_t speed_ms;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_wind_speed(&dec, &speed_ms), "decode wind_speed");
+        ASSERT_NEAR(speed_ms, 3.0, 0.5, "wspd");
+    }
+    {
+        uint16_t direction_deg;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_wind_direction(&dec, &direction_deg), "decode wind_direction");
+        ASSERT_NEAR(direction_deg, 90, 2.0, "wdir");
+    }
     PASS();
 }
 
@@ -205,9 +295,24 @@ static void test_wind_mast_boundaries(void) {
     ASSERT_OK(iotdata_encode_wind_gust(&enc, 0.0f), "wgust min");
     finish();
     decode_pkt();
-    ASSERT_NEAR(dec.wind_speed, 0.0, 0.5, "wspd");
-    ASSERT_NEAR(dec.wind_direction, 0, 2.0, "wdir");
-    ASSERT_NEAR(dec.wind_gust, 0.0, 0.5, "wgust");
+    {
+        iotdata_float_t speed_ms;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_wind_speed(&dec, &speed_ms), "decode wind_speed");
+        ASSERT_NEAR(speed_ms, 0.0, 0.5, "wspd");
+    }
+    {
+        uint16_t direction_deg;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_wind_direction(&dec, &direction_deg), "decode wind_direction");
+        ASSERT_NEAR(direction_deg, 0, 2.0, "wdir");
+    }
+    {
+        iotdata_float_t gust_ms;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_wind_gust(&dec, &gust_ms), "decode wind_gust");
+        ASSERT_NEAR(gust_ms, 0.0, 0.5, "wgust");
+    }
 
     begin(1, 1, 2);
     ASSERT_OK(iotdata_encode_wind_speed(&enc, 63.5f), "wspd max");
@@ -215,9 +320,24 @@ static void test_wind_mast_boundaries(void) {
     ASSERT_OK(iotdata_encode_wind_gust(&enc, 63.5f), "wgust max");
     finish();
     decode_pkt();
-    ASSERT_NEAR(dec.wind_speed, 63.5, 0.5, "wspd");
-    ASSERT_NEAR(dec.wind_direction, 359, 2.0, "wdir");
-    ASSERT_NEAR(dec.wind_gust, 63.5, 0.5, "wgust");
+    {
+        iotdata_float_t speed_ms;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_wind_speed(&dec, &speed_ms), "decode wind_speed");
+        ASSERT_NEAR(speed_ms, 63.5, 0.5, "wspd");
+    }
+    {
+        uint16_t direction_deg;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_wind_direction(&dec, &direction_deg), "decode wind_direction");
+        ASSERT_NEAR(direction_deg, 359, 2.0, "wdir");
+    }
+    {
+        iotdata_float_t gust_ms;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_wind_gust(&dec, &gust_ms), "decode wind_gust");
+        ASSERT_NEAR(gust_ms, 63.5, 0.5, "wgust");
+    }
     PASS();
 }
 
@@ -241,11 +361,36 @@ static void test_radiation_monitor_pres0(void) {
     decode_pkt();
 
     ASSERT_EQ(dec.variant, 2, "variant");
-    ASSERT_EQ_U(dec.radiation_cpm, 350, "cpm");
-    ASSERT_NEAR(dec.radiation_dose, 2.50, 0.01, "dose");
-    ASSERT_NEAR(dec.temperature, 22.0, 0.25, "temp");
-    ASSERT_EQ(dec.pressure, 1013, "pres");
-    ASSERT_EQ(dec.humidity, 55, "humid");
+    {
+        uint16_t cpm;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_radiation_cpm(&dec, &cpm), "decode radiation_cpm");
+        ASSERT_EQ_U(cpm, 350, "cpm");
+    }
+    {
+        iotdata_float_t usvh;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_radiation_dose(&dec, &usvh), "decode radiation_dose");
+        ASSERT_NEAR(usvh, 2.50, 0.01, "dose");
+    }
+    {
+        iotdata_float_t temperature_c;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_temperature(&dec, &temperature_c), "decode temperature");
+        ASSERT_NEAR(temperature_c, 22.0, 0.25, "temp");
+    }
+    {
+        uint16_t pressure_hpa;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_pressure(&dec, &pressure_hpa), "decode pressure");
+        ASSERT_EQ(pressure_hpa, 1013, "pres");
+    }
+    {
+        uint8_t humidity_pct;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_humidity(&dec, &humidity_pct), "decode humidity");
+        ASSERT_EQ(humidity_pct, 55, "humid");
+    }
     PASS();
 }
 
@@ -273,19 +418,66 @@ static void test_radiation_monitor_full(void) {
     decode_pkt();
 
     /* Verify pres0 */
-    ASSERT_EQ_U(dec.radiation_cpm, 1000, "cpm");
-    ASSERT_NEAR(dec.radiation_dose, 5.00, 0.01, "dose");
-    ASSERT_NEAR(dec.temperature, 25.0, 0.25, "temp");
-    ASSERT_EQ(dec.pressure, 1005, "pres");
-    ASSERT_EQ(dec.humidity, 45, "humid");
+    {
+        uint16_t cpm;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_radiation_cpm(&dec, &cpm), "decode radiation_cpm");
+        ASSERT_EQ_U(cpm, 1000, "cpm");
+    }
+    {
+        iotdata_float_t usvh;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_radiation_dose(&dec, &usvh), "decode radiation_dose");
+        ASSERT_NEAR(usvh, 5.00, 0.01, "dose");
+    }
+    {
+        iotdata_float_t temperature_c;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_temperature(&dec, &temperature_c), "decode temperature");
+        ASSERT_NEAR(temperature_c, 25.0, 0.25, "temp");
+    }
+    {
+        uint16_t pressure_hpa;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_pressure(&dec, &pressure_hpa), "decode pressure");
+        ASSERT_EQ(pressure_hpa, 1005, "pres");
+    }
+    {
+        uint8_t humidity_pct;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_humidity(&dec, &humidity_pct), "decode humidity");
+        ASSERT_EQ(humidity_pct, 45, "humid");
+    }
 
     /* Verify pres1 */
-    ASSERT_NEAR(dec.position_lat, 51.5, 0.001, "lat");
-    ASSERT_NEAR(dec.position_lon, -0.1, 0.001, "lon");
-    ASSERT_EQ_U(dec.datetime_secs, 172800, "dt");
-    ASSERT_EQ(dec.flags, 0x03, "flags");
-    ASSERT_EQ(dec.solar_irradiance, 400, "sol");
-    ASSERT_EQ(dec.solar_ultraviolet, 6, "uv");
+    {
+        iotdata_double_t latitude;
+        iotdata_double_t longitude;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_position(&dec, &latitude, &longitude), "decode position");
+        ASSERT_NEAR(latitude, 51.5, 0.001, "lat");
+        ASSERT_NEAR(longitude, -0.1, 0.001, "lon");
+    }
+    {
+        uint32_t seconds_from_year_start;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_datetime(&dec, &seconds_from_year_start), "decode datetime");
+        ASSERT_EQ_U(seconds_from_year_start, 172800, "dt");
+    }
+    {
+        uint8_t flags;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_flags(&dec, &flags), "decode flags");
+        ASSERT_EQ(flags, 0x03, "flags");
+    }
+    {
+        uint16_t irradiance_wm2;
+        uint8_t ultraviolet_index;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_solar(&dec, &irradiance_wm2, &ultraviolet_index), "decode solar");
+        ASSERT_EQ(irradiance_wm2, 400, "sol");
+        ASSERT_EQ(ultraviolet_index, 6, "uv");
+    }
     PASS();
 }
 

@@ -96,8 +96,9 @@ STACK_USAGE_FILE_LIST=tests/*.su
 STACK_USAGE_FILE_EXAMPLE_IOTDATA=tests/test_example-iotdata.su
 
 LIB_SRC    = iotdata.c
+LIB_INC    = iotdata_fields.c
 LIB_OBJ    = iotdata.o
-LIB_HDR    = iotdata.h iotdata_node.h iotdata_mesh.h iotdata_fields.h
+LIB_HDR    = iotdata.h iotdata_node.h iotdata_mesh.h iotdata_fields.h $(LIB_INC)
 LIB_STATIC = libiotdata.a
 
 TEST_DEFAULT_SRC = tests/test_default.c
@@ -110,7 +111,20 @@ TEST_EXAMPLE_SRC = tests/test_example.c
 TEST_EXAMPLE_BIN = tests/test_example
 TEST_FAILURES_SRC = tests/test_failures.c
 TEST_FAILURES_BIN = tests/test_failures
+TEST_ORDERED_SRC = tests/test_ordered.c
+TEST_ORDERED_BIN = tests/test_ordered
 TEST_VERSION_SRC = tests/test_version.c
+
+MAPS_DEFAULT   = -DIOTDATA_VARIANT_MAPS_DEFAULT
+MAPS_CUSTOM    = -DIOTDATA_VARIANT_MAPS=custom_variants -DIOTDATA_VARIANT_MAPS_COUNT=3
+MAPS_COMPLETE  = -DIOTDATA_VARIANT_MAPS=complete_variants -DIOTDATA_VARIANT_MAPS_COUNT=2
+MAPS_FAILURES  = -DIOTDATA_VARIANT_MAPS=failure_variants -DIOTDATA_VARIANT_MAPS_COUNT=3
+MAPS_ORDERED   = -DIOTDATA_VARIANT_MAPS=ordered_variants -DIOTDATA_VARIANT_MAPS_COUNT=3
+CFLAGS_ORDERED = -DIOTDATA_OPERATE_ORDERED
+
+SUITES_DEFERRED = $(TEST_DEFAULT_BIN) $(TEST_CUSTOM_BIN) $(TEST_COMPLETE_BIN) $(TEST_FAILURES_BIN)
+SUITES_ORDERED  = tests/test_default_ordered tests/test_custom_ordered \
+    tests/test_complete_ordered tests/test_failures_ordered $(TEST_ORDERED_BIN)
 
 MINIMAL_OBJ=iotdata_full.o iotdata_minimal.o
 
@@ -126,11 +140,14 @@ VERSION_BINS = \
     tests/test_version_NO_ERROR_STRINGS \
     tests/test_version_NO_FLOATING_DOUBLES \
     tests/test_version_SELECTIVE \
-    tests/test_version_NO_CHECKS
+    tests/test_version_NO_CHECKS \
+    tests/test_version_NO_PRINT_NO_DUMP \
+    tests/test_version_ORDERED \
+    tests/test_version_ORDERED_COMPLETE
 
 ################################################################################
 
-all: lib $(TEST_DEFAULT_BIN) $(TEST_CUSTOM_BIN) $(TEST_COMPLETE_BIN) $(TEST_FAILURES_BIN) $(TEST_EXAMPLE_BIN)
+all: lib $(TEST_DEFAULT_BIN) $(TEST_CUSTOM_BIN) $(TEST_COMPLETE_BIN) $(TEST_FAILURES_BIN) $(TEST_ORDERED_BIN) $(TEST_EXAMPLE_BIN)
 
 ################################################################################
 
@@ -144,13 +161,25 @@ $(LIB_STATIC): $(LIB_OBJ)
 ################################################################################
 
 $(TEST_DEFAULT_BIN): $(TEST_DEFAULT_SRC) $(LIB_HDR) $(LIB_SRC)
-	$(CC) $(CFLAGS) $(CFLAGS_TEST) -DIOTDATA_VARIANT_MAPS_DEFAULT $(TEST_DEFAULT_SRC) $(LIB_SRC) $(LIBS) -o $(TEST_DEFAULT_BIN)
+	$(CC) $(CFLAGS) $(CFLAGS_TEST) $(MAPS_DEFAULT) $(TEST_DEFAULT_SRC) $(LIB_SRC) $(LIBS) -o $@
 $(TEST_CUSTOM_BIN): $(TEST_CUSTOM_SRC) $(LIB_HDR) $(LIB_SRC)
-	$(CC) $(CFLAGS) $(CFLAGS_TEST) -DIOTDATA_VARIANT_MAPS=custom_variants -DIOTDATA_VARIANT_MAPS_COUNT=3 $(TEST_CUSTOM_SRC) $(LIB_SRC) $(LIBS) -o $(TEST_CUSTOM_BIN)
+	$(CC) $(CFLAGS) $(CFLAGS_TEST) $(MAPS_CUSTOM) $(TEST_CUSTOM_SRC) $(LIB_SRC) $(LIBS) -o $@
 $(TEST_COMPLETE_BIN): $(TEST_COMPLETE_SRC) $(LIB_HDR) $(LIB_SRC)
-	$(CC) $(CFLAGS) $(CFLAGS_TEST) -DIOTDATA_VARIANT_MAPS=complete_variants -DIOTDATA_VARIANT_MAPS_COUNT=2 $(TEST_COMPLETE_SRC) $(LIB_SRC) $(LIBS) -o $(TEST_COMPLETE_BIN)
+	$(CC) $(CFLAGS) $(CFLAGS_TEST) $(MAPS_COMPLETE) $(TEST_COMPLETE_SRC) $(LIB_SRC) $(LIBS) -o $@
 $(TEST_FAILURES_BIN): $(TEST_FAILURES_SRC) $(LIB_HDR) $(LIB_SRC)
-	$(CC) $(CFLAGS) $(CFLAGS_TEST) -DIOTDATA_VARIANT_MAPS=failure_variants -DIOTDATA_VARIANT_MAPS_COUNT=2 $(TEST_FAILURES_SRC) $(LIB_SRC) $(LIBS) -o $(TEST_FAILURES_BIN)
+	$(CC) $(CFLAGS) $(CFLAGS_TEST) $(MAPS_FAILURES) $(TEST_FAILURES_SRC) $(LIB_SRC) $(LIBS) -o $@
+
+# ... and the same four under IOTDATA_OPERATE_ORDERED
+tests/test_default_ordered: $(TEST_DEFAULT_SRC) $(LIB_HDR) $(LIB_SRC)
+	$(CC) $(CFLAGS) $(CFLAGS_TEST) $(MAPS_DEFAULT) $(CFLAGS_ORDERED) $(TEST_DEFAULT_SRC) $(LIB_SRC) $(LIBS) -o $@
+tests/test_custom_ordered: $(TEST_CUSTOM_SRC) $(LIB_HDR) $(LIB_SRC)
+	$(CC) $(CFLAGS) $(CFLAGS_TEST) $(MAPS_CUSTOM) $(CFLAGS_ORDERED) $(TEST_CUSTOM_SRC) $(LIB_SRC) $(LIBS) -o $@
+tests/test_complete_ordered: $(TEST_COMPLETE_SRC) $(LIB_HDR) $(LIB_SRC)
+	$(CC) $(CFLAGS) $(CFLAGS_TEST) $(MAPS_COMPLETE) $(CFLAGS_ORDERED) $(TEST_COMPLETE_SRC) $(LIB_SRC) $(LIBS) -o $@
+tests/test_failures_ordered: $(TEST_FAILURES_SRC) $(LIB_HDR) $(LIB_SRC)
+	$(CC) $(CFLAGS) $(CFLAGS_TEST) $(MAPS_FAILURES) $(CFLAGS_ORDERED) $(TEST_FAILURES_SRC) $(LIB_SRC) $(LIBS) -o $@
+$(TEST_ORDERED_BIN): $(TEST_ORDERED_SRC) $(LIB_HDR) $(LIB_SRC)
+	$(CC) $(CFLAGS) $(CFLAGS_TEST) $(MAPS_ORDERED) $(CFLAGS_ORDERED) $(TEST_ORDERED_SRC) $(LIB_SRC) $(LIBS) -o $@
 
 test-default: $(TEST_DEFAULT_BIN)
 	./$(TEST_DEFAULT_BIN)
@@ -160,12 +189,17 @@ test-complete: $(TEST_COMPLETE_BIN)
 	./$(TEST_COMPLETE_BIN)
 test-failures: $(TEST_FAILURES_BIN)
 	./$(TEST_FAILURES_BIN)
+test-ordered: $(TEST_ORDERED_BIN)
+	./$(TEST_ORDERED_BIN)
 
-test-suites: $(TEST_DEFAULT_BIN) $(TEST_CUSTOM_BIN) $(TEST_COMPLETE_BIN) $(TEST_FAILURES_BIN)
-	./$(TEST_DEFAULT_BIN)
-	./$(TEST_CUSTOM_BIN)
-	./$(TEST_COMPLETE_BIN)
-	./$(TEST_FAILURES_BIN)
+test-suites: $(SUITES_DEFERRED) $(SUITES_ORDERED)
+	@for t in $(SUITES_DEFERRED) $(SUITES_ORDERED); do echo "### $$t"; ./$$t || exit 1; done
+
+test-suites-deferred: $(SUITES_DEFERRED)
+	@for t in $(SUITES_DEFERRED); do echo "### $$t"; ./$$t || exit 1; done
+
+test-suites-ordered: $(SUITES_ORDERED)
+	@for t in $(SUITES_ORDERED); do echo "### $$t"; ./$$t || exit 1; done
 
 ################################################################################
 
@@ -201,6 +235,15 @@ tests/test_version_NO_FLOATING_DOUBLES: $(TEST_VERSION_SRC) $(LIB_HDR) $(LIB_SRC
 		$(TEST_VERSION_SRC) $(LIB_SRC) $(LIBS) -o $@
 tests/test_version_SELECTIVE: $(TEST_VERSION_SRC) $(LIB_HDR) $(LIB_SRC)
 	$(CC) $(CFLAGS) $(CFLAGS_TEST) $(CFLAGS_VERSIONS) $(CFLAGS_SELECTIVE) \
+		$(TEST_VERSION_SRC) $(LIB_SRC) $(LIBS) -o $@
+tests/test_version_ORDERED: $(TEST_VERSION_SRC) $(LIB_HDR) $(LIB_SRC)
+	$(CC) $(CFLAGS) $(CFLAGS_TEST) $(CFLAGS_VERSIONS) -DIOTDATA_OPERATE_ORDERED \
+		$(TEST_VERSION_SRC) $(LIB_SRC) $(LIBS) -o $@
+tests/test_version_ORDERED_COMPLETE: $(TEST_VERSION_SRC) $(LIB_HDR) $(LIB_SRC)
+	$(CC) $(CFLAGS) $(CFLAGS_TEST) $(CFLAGS_VERSIONS) -DIOTDATA_OPERATE_ORDERED -DIOTDATA_OPERATE_ORDERED_COMPLETE \
+		$(TEST_VERSION_SRC) $(LIB_SRC) $(LIBS) -o $@
+tests/test_version_NO_PRINT_NO_DUMP: $(TEST_VERSION_SRC) $(LIB_HDR) $(LIB_SRC)
+	$(CC) $(CFLAGS) $(CFLAGS_TEST) $(CFLAGS_VERSIONS) -DIOTDATA_NO_PRINT -DIOTDATA_NO_DUMP \
 		$(TEST_VERSION_SRC) $(LIB_SRC) $(LIBS) -o $@
 tests/test_version_NO_CHECKS: $(TEST_VERSION_SRC) $(LIB_HDR) $(LIB_SRC)
 	$(CC) $(CFLAGS) $(CFLAGS_TEST) $(CFLAGS_VERSIONS) -DIOTDATA_NO_CHECKS_STATE -DIOTDATA_NO_CHECKS_TYPES \

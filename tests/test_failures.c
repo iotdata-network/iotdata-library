@@ -17,7 +17,7 @@
  * Custom variant definitions (same as test_complete.c)
  * -------------------------------------------------------------------------*/
 
-const iotdata_variant_def_t failure_variants[2] = {
+const iotdata_variant_def_t failure_variants[3] = {
     [0] = {
         .name = "complete",
         .num_pres_bytes = 3,
@@ -70,6 +70,21 @@ const iotdata_variant_def_t failure_variants[2] = {
             { IOTDATA_FIELD_NONE,              NULL },
         },
     },
+    /* ONE FIELD IN TWO SLOTS, plus a composite sitting beside one of its own atomic parts. Both
+       are legal variants and neither could be expressed before: the first cannot be named by
+       type at all, and the second is two different field types that happen to share storage. */
+    [2] = {
+        .name = "duplicated",
+        .num_pres_bytes = 1,
+        .fields = {
+            { IOTDATA_FIELD_BATTERY,           "battery" },
+            { IOTDATA_FIELD_TEMPERATURE,       "temp_inlet" },
+            { IOTDATA_FIELD_TEMPERATURE,       "temp_outlet" },
+            { IOTDATA_FIELD_ENVIRONMENT,       "air" },
+            { IOTDATA_FIELD_HUMIDITY,          "hum_standalone" },
+            { IOTDATA_FIELD_NONE,              NULL },
+        },
+    },
 };
 
 /* =========================================================================
@@ -82,19 +97,34 @@ static void test_negative_temperature(void) {
     ASSERT_OK(iotdata_encode_temperature(&enc, -40.0f), "encode -40");
     finish();
     decode_pkt();
-    ASSERT_NEAR(dec.temperature, -40.0, 0.25, "temp -40");
+    {
+        iotdata_float_t temperature_c;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_temperature(&dec, &temperature_c), "decode temperature");
+        ASSERT_NEAR(temperature_c, -40.0, 0.25, "temp -40");
+    }
 
     begin(1, 1, 2);
     ASSERT_OK(iotdata_encode_temperature(&enc, -10.5f), "encode -10.5");
     finish();
     decode_pkt();
-    ASSERT_NEAR(dec.temperature, -10.5, 0.25, "temp -10.5");
+    {
+        iotdata_float_t temperature_c;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_temperature(&dec, &temperature_c), "decode temperature");
+        ASSERT_NEAR(temperature_c, -10.5, 0.25, "temp -10.5");
+    }
 
     begin(1, 1, 3);
     ASSERT_OK(iotdata_encode_temperature(&enc, -0.25f), "encode -0.25");
     finish();
     decode_pkt();
-    ASSERT_NEAR(dec.temperature, -0.25, 0.25, "temp -0.25");
+    {
+        iotdata_float_t temperature_c;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_temperature(&dec, &temperature_c), "decode temperature");
+        ASSERT_NEAR(temperature_c, -0.25, 0.25, "temp -0.25");
+    }
     PASS();
 }
 
@@ -104,20 +134,35 @@ static void test_negative_rssi(void) {
     ASSERT_OK(iotdata_encode_link(&enc, -120, 0.0f), "encode rssi -120");
     finish();
     decode_pkt();
-    ASSERT_EQ(dec.link_rssi, -120, "rssi min");
+    {
+        int8_t rssi_dbm;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_link(&dec, &rssi_dbm, NULL), "decode link");
+        ASSERT_EQ(rssi_dbm, -120, "rssi min");
+    }
 
     begin(0, 1, 11);
     ASSERT_OK(iotdata_encode_link(&enc, -60, 0.0f), "encode rssi -60");
     finish();
     decode_pkt();
-    ASSERT_EQ(dec.link_rssi, -60, "rssi max");
+    {
+        int8_t rssi_dbm;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_link(&dec, &rssi_dbm, NULL), "decode link");
+        ASSERT_EQ(rssi_dbm, -60, "rssi max");
+    }
 
     begin(0, 1, 12);
     ASSERT_OK(iotdata_encode_link(&enc, -90, 0.0f), "encode rssi -90");
     finish();
     decode_pkt();
     /* -90 quantised to 4-bit with step 4: (-90 - -120)/4 = 7.5, rounds to 8, dequant = -120 + 8*4 = -88 */
-    ASSERT_TRUE(dec.link_rssi >= -92 && dec.link_rssi <= -88, "rssi mid range");
+    {
+        int8_t rssi_dbm;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_link(&dec, &rssi_dbm, NULL), "decode link");
+        ASSERT_TRUE(rssi_dbm >= -92 && rssi_dbm <= -88, "rssi mid range");
+    }
     PASS();
 }
 
@@ -127,13 +172,23 @@ static void test_negative_snr(void) {
     ASSERT_OK(iotdata_encode_link(&enc, -80, -20.0f), "encode snr -20");
     finish();
     decode_pkt();
-    ASSERT_NEAR(dec.link_snr, -20.0, 10.0, "snr min");
+    {
+        iotdata_float_t snr_db;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_link(&dec, NULL, &snr_db), "decode link");
+        ASSERT_NEAR(snr_db, -20.0, 10.0, "snr min");
+    }
 
     begin(0, 1, 21);
     ASSERT_OK(iotdata_encode_link(&enc, -80, -10.0f), "encode snr -10");
     finish();
     decode_pkt();
-    ASSERT_NEAR(dec.link_snr, -10.0, 10.0, "snr -10");
+    {
+        iotdata_float_t snr_db;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_link(&dec, NULL, &snr_db), "decode link");
+        ASSERT_NEAR(snr_db, -10.0, 10.0, "snr -10");
+    }
     PASS();
 }
 
@@ -145,24 +200,42 @@ static void test_negative_position(void) {
     ASSERT_OK(iotdata_encode_position(&enc, -90.0, -180.0), "encode south pole");
     finish();
     decode_pkt();
-    ASSERT_NEAR(dec.position_lat, -90.0, 0.01, "lat -90");
-    ASSERT_NEAR(dec.position_lon, -180.0, 0.01, "lon -180");
+    {
+        iotdata_double_t latitude;
+        iotdata_double_t longitude;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_position(&dec, &latitude, &longitude), "decode position");
+        ASSERT_NEAR(latitude, -90.0, 0.01, "lat -90");
+        ASSERT_NEAR(longitude, -180.0, 0.01, "lon -180");
+    }
 
     /* Near zero */
     begin(1, 1, 31);
     ASSERT_OK(iotdata_encode_position(&enc, -0.001, -0.001), "encode near zero neg");
     finish();
     decode_pkt();
-    ASSERT_NEAR(dec.position_lat, -0.001, 0.01, "lat near zero");
-    ASSERT_NEAR(dec.position_lon, -0.001, 0.01, "lon near zero");
+    {
+        iotdata_double_t latitude;
+        iotdata_double_t longitude;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_position(&dec, &latitude, &longitude), "decode position");
+        ASSERT_NEAR(latitude, -0.001, 0.01, "lat near zero");
+        ASSERT_NEAR(longitude, -0.001, 0.01, "lon near zero");
+    }
 
     /* Southern hemisphere city */
     begin(1, 1, 32);
     ASSERT_OK(iotdata_encode_position(&enc, -33.8688, 151.2093), "encode sydney");
     finish();
     decode_pkt();
-    ASSERT_NEAR(dec.position_lat, -33.8688, 0.002, "lat sydney");
-    ASSERT_NEAR(dec.position_lon, 151.2093, 0.002, "lon sydney");
+    {
+        iotdata_double_t latitude;
+        iotdata_double_t longitude;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_position(&dec, &latitude, &longitude), "decode position");
+        ASSERT_NEAR(latitude, -33.8688, 0.002, "lat sydney");
+        ASSERT_NEAR(longitude, 151.2093, 0.002, "lon sydney");
+    }
     PASS();
 }
 
@@ -177,15 +250,27 @@ static void test_battery_boundaries(void) {
     ASSERT_OK(iotdata_encode_battery(&enc, 0, false), "encode 0");
     finish();
     decode_pkt();
-    ASSERT_EQ(dec.battery_level, 0, "level 0");
-    ASSERT_EQ(dec.battery_charging, false, "not charging");
+    {
+        uint8_t level_percent;
+        bool charging;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_battery(&dec, &level_percent, &charging), "decode battery");
+        ASSERT_EQ(level_percent, 0, "level 0");
+        ASSERT_EQ(charging, false, "not charging");
+    }
 
     begin(0, 1, 41);
     ASSERT_OK(iotdata_encode_battery(&enc, 100, true), "encode 100");
     finish();
     decode_pkt();
-    ASSERT_EQ(dec.battery_level, 100, "level 100");
-    ASSERT_EQ(dec.battery_charging, true, "charging");
+    {
+        uint8_t level_percent;
+        bool charging;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_battery(&dec, &level_percent, &charging), "decode battery");
+        ASSERT_EQ(level_percent, 100, "level 100");
+        ASSERT_EQ(charging, true, "charging");
+    }
     PASS();
 }
 
@@ -196,19 +281,34 @@ static void test_temperature_boundaries(void) {
     ASSERT_OK(iotdata_encode_temperature(&enc, -40.0f), "encode min");
     finish();
     decode_pkt();
-    ASSERT_NEAR(dec.temperature, -40.0, 0.25, "temp min");
+    {
+        iotdata_float_t temperature_c;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_temperature(&dec, &temperature_c), "decode temperature");
+        ASSERT_NEAR(temperature_c, -40.0, 0.25, "temp min");
+    }
 
     begin(1, 1, 51);
     ASSERT_OK(iotdata_encode_temperature(&enc, 0.0f), "encode zero");
     finish();
     decode_pkt();
-    ASSERT_NEAR(dec.temperature, 0.0, 0.25, "temp zero");
+    {
+        iotdata_float_t temperature_c;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_temperature(&dec, &temperature_c), "decode temperature");
+        ASSERT_NEAR(temperature_c, 0.0, 0.25, "temp zero");
+    }
 
     begin(1, 1, 52);
     ASSERT_OK(iotdata_encode_temperature(&enc, 80.0f), "encode max");
     finish();
     decode_pkt();
-    ASSERT_NEAR(dec.temperature, 80.0, 0.25, "temp max");
+    {
+        iotdata_float_t temperature_c;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_temperature(&dec, &temperature_c), "decode temperature");
+        ASSERT_NEAR(temperature_c, 80.0, 0.25, "temp max");
+    }
     PASS();
 }
 
@@ -219,13 +319,23 @@ static void test_pressure_boundaries(void) {
     ASSERT_OK(iotdata_encode_pressure(&enc, 850), "encode min");
     finish();
     decode_pkt();
-    ASSERT_EQ(dec.pressure, 850, "pres min");
+    {
+        uint16_t pressure_hpa;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_pressure(&dec, &pressure_hpa), "decode pressure");
+        ASSERT_EQ(pressure_hpa, 850, "pres min");
+    }
 
     begin(1, 1, 56);
     ASSERT_OK(iotdata_encode_pressure(&enc, 1105), "encode max");
     finish();
     decode_pkt();
-    ASSERT_EQ(dec.pressure, 1105, "pres max");
+    {
+        uint16_t pressure_hpa;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_pressure(&dec, &pressure_hpa), "decode pressure");
+        ASSERT_EQ(pressure_hpa, 1105, "pres max");
+    }
     PASS();
 }
 
@@ -236,13 +346,23 @@ static void test_wind_speed_boundaries(void) {
     ASSERT_OK(iotdata_encode_wind_speed(&enc, 0.0f), "encode zero");
     finish();
     decode_pkt();
-    ASSERT_NEAR(dec.wind_speed, 0.0, 0.5, "speed zero");
+    {
+        iotdata_float_t speed_ms;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_wind_speed(&dec, &speed_ms), "decode wind_speed");
+        ASSERT_NEAR(speed_ms, 0.0, 0.5, "speed zero");
+    }
 
     begin(1, 1, 61);
     ASSERT_OK(iotdata_encode_wind_speed(&enc, 63.5f), "encode max");
     finish();
     decode_pkt();
-    ASSERT_NEAR(dec.wind_speed, 63.5, 0.5, "speed max");
+    {
+        iotdata_float_t speed_ms;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_wind_speed(&dec, &speed_ms), "decode wind_speed");
+        ASSERT_NEAR(speed_ms, 63.5, 0.5, "speed max");
+    }
     PASS();
 }
 
@@ -253,13 +373,23 @@ static void test_wind_direction_boundaries(void) {
     ASSERT_OK(iotdata_encode_wind_direction(&enc, 0), "encode 0");
     finish();
     decode_pkt();
-    ASSERT_NEAR(dec.wind_direction, 0, 2.0, "dir 0");
+    {
+        uint16_t direction_deg;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_wind_direction(&dec, &direction_deg), "decode wind_direction");
+        ASSERT_NEAR(direction_deg, 0, 2.0, "dir 0");
+    }
 
     begin(1, 1, 66);
     ASSERT_OK(iotdata_encode_wind_direction(&enc, 359), "encode 359");
     finish();
     decode_pkt();
-    ASSERT_NEAR(dec.wind_direction, 359, 2.0, "dir 359");
+    {
+        uint16_t direction_deg;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_wind_direction(&dec, &direction_deg), "decode wind_direction");
+        ASSERT_NEAR(direction_deg, 359, 2.0, "dir 359");
+    }
     PASS();
 }
 
@@ -271,36 +401,62 @@ static void test_position_boundaries(void) {
     ASSERT_OK(iotdata_encode_position(&enc, 90.0, 0.0), "encode north pole");
     finish();
     decode_pkt();
-    ASSERT_NEAR(dec.position_lat, 90.0, 0.01, "lat 90");
+    {
+        iotdata_double_t latitude;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_position(&dec, &latitude, NULL), "decode position");
+        ASSERT_NEAR(latitude, 90.0, 0.01, "lat 90");
+    }
 
     /* South pole */
     begin(1, 1, 71);
     ASSERT_OK(iotdata_encode_position(&enc, -90.0, 0.0), "encode south pole");
     finish();
     decode_pkt();
-    ASSERT_NEAR(dec.position_lat, -90.0, 0.01, "lat -90");
+    {
+        iotdata_double_t latitude;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_position(&dec, &latitude, NULL), "decode position");
+        ASSERT_NEAR(latitude, -90.0, 0.01, "lat -90");
+    }
 
     /* East extreme */
     begin(1, 1, 72);
     ASSERT_OK(iotdata_encode_position(&enc, 0.0, 179.999), "encode east extreme");
     finish();
     decode_pkt();
-    ASSERT_NEAR(dec.position_lon, 179.999, 0.01, "lon east");
+    {
+        iotdata_double_t longitude;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_position(&dec, NULL, &longitude), "decode position");
+        ASSERT_NEAR(longitude, 179.999, 0.01, "lon east");
+    }
 
     /* West extreme */
     begin(1, 1, 73);
     ASSERT_OK(iotdata_encode_position(&enc, 0.0, -180.0), "encode west extreme");
     finish();
     decode_pkt();
-    ASSERT_NEAR(dec.position_lon, -180.0, 0.01, "lon west");
+    {
+        iotdata_double_t longitude;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_position(&dec, NULL, &longitude), "decode position");
+        ASSERT_NEAR(longitude, -180.0, 0.01, "lon west");
+    }
 
     /* Origin */
     begin(1, 1, 74);
     ASSERT_OK(iotdata_encode_position(&enc, 0.0, 0.0), "encode origin");
     finish();
     decode_pkt();
-    ASSERT_NEAR(dec.position_lat, 0.0, 0.01, "lat origin");
-    ASSERT_NEAR(dec.position_lon, 0.0, 0.01, "lon origin");
+    {
+        iotdata_double_t latitude;
+        iotdata_double_t longitude;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_position(&dec, &latitude, &longitude), "decode position");
+        ASSERT_NEAR(latitude, 0.0, 0.01, "lat origin");
+        ASSERT_NEAR(longitude, 0.0, 0.01, "lon origin");
+    }
     PASS();
 }
 
@@ -312,14 +468,24 @@ static void test_datetime_boundaries(void) {
     finish();
     decode_pkt();
     /* datetime is quantised by resolution of 5 */
-    ASSERT_EQ_U(dec.datetime_secs, 0, "dt zero");
+    {
+        uint32_t seconds_from_year_start;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_datetime(&dec, &seconds_from_year_start), "decode datetime");
+        ASSERT_EQ_U(seconds_from_year_start, 0, "dt zero");
+    }
 
     begin(1, 1, 81);
     /* max raw value = (1<<24)-1 = 16777215, max seconds = 16777215 * 5 = 83886075 */
     ASSERT_OK(iotdata_encode_datetime(&enc, 83886075), "encode max");
     finish();
     decode_pkt();
-    ASSERT_NEAR((double)dec.datetime_secs, 83886075.0, 5.0, "dt max");
+    {
+        uint32_t seconds_from_year_start;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_datetime(&dec, &seconds_from_year_start), "decode datetime");
+        ASSERT_NEAR((double)seconds_from_year_start, 83886075.0, 5.0, "dt max");
+    }
     PASS();
 }
 
@@ -330,19 +496,34 @@ static void test_radiation_boundaries(void) {
     ASSERT_OK(iotdata_encode_radiation_cpm(&enc, 0), "encode cpm 0");
     finish();
     decode_pkt();
-    ASSERT_EQ_U(dec.radiation_cpm, 0, "cpm zero");
+    {
+        uint16_t cpm;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_radiation_cpm(&dec, &cpm), "decode radiation_cpm");
+        ASSERT_EQ_U(cpm, 0, "cpm zero");
+    }
 
     begin(1, 1, 86);
     ASSERT_OK(iotdata_encode_radiation_cpm(&enc, 16383), "encode cpm max");
     finish();
     decode_pkt();
-    ASSERT_EQ_U(dec.radiation_cpm, 16383, "cpm max");
+    {
+        uint16_t cpm;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_radiation_cpm(&dec, &cpm), "decode radiation_cpm");
+        ASSERT_EQ_U(cpm, 16383, "cpm max");
+    }
 
     begin(1, 1, 87);
     ASSERT_OK(iotdata_encode_radiation_dose(&enc, 0.0f), "encode dose 0");
     finish();
     decode_pkt();
-    ASSERT_NEAR(dec.radiation_dose, 0.0, 0.01, "dose zero");
+    {
+        iotdata_float_t usvh;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_radiation_dose(&dec, &usvh), "decode radiation_dose");
+        ASSERT_NEAR(usvh, 0.0, 0.01, "dose zero");
+    }
     PASS();
 }
 
@@ -353,13 +534,23 @@ static void test_clouds_boundaries(void) {
     ASSERT_OK(iotdata_encode_clouds(&enc, 0), "encode 0");
     finish();
     decode_pkt();
-    ASSERT_EQ(dec.clouds, 0, "clouds 0");
+    {
+        uint8_t okta;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_clouds(&dec, &okta), "decode clouds");
+        ASSERT_EQ(okta, 0, "clouds 0");
+    }
 
     begin(0, 1, 91);
     ASSERT_OK(iotdata_encode_clouds(&enc, 8), "encode 8");
     finish();
     decode_pkt();
-    ASSERT_EQ(dec.clouds, 8, "clouds 8");
+    {
+        uint8_t okta;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_clouds(&dec, &okta), "decode clouds");
+        ASSERT_EQ(okta, 8, "clouds 8");
+    }
     PASS();
 }
 
@@ -370,15 +561,27 @@ static void test_solar_boundaries(void) {
     ASSERT_OK(iotdata_encode_solar(&enc, 0, 0), "encode zero");
     finish();
     decode_pkt();
-    ASSERT_EQ_U(dec.solar_irradiance, 0, "irr 0");
-    ASSERT_EQ(dec.solar_ultraviolet, 0, "uv 0");
+    {
+        uint16_t irradiance_wm2;
+        uint8_t ultraviolet_index;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_solar(&dec, &irradiance_wm2, &ultraviolet_index), "decode solar");
+        ASSERT_EQ_U(irradiance_wm2, 0, "irr 0");
+        ASSERT_EQ(ultraviolet_index, 0, "uv 0");
+    }
 
     begin(0, 1, 96);
     ASSERT_OK(iotdata_encode_solar(&enc, 1023, 15), "encode max");
     finish();
     decode_pkt();
-    ASSERT_EQ_U(dec.solar_irradiance, 1023, "irr max");
-    ASSERT_EQ(dec.solar_ultraviolet, 15, "uv max");
+    {
+        uint16_t irradiance_wm2;
+        uint8_t ultraviolet_index;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_solar(&dec, &irradiance_wm2, &ultraviolet_index), "decode solar");
+        ASSERT_EQ_U(irradiance_wm2, 1023, "irr max");
+        ASSERT_EQ(ultraviolet_index, 15, "uv max");
+    }
     PASS();
 }
 
@@ -408,13 +611,23 @@ static void test_humidity_boundaries(void) {
     ASSERT_OK(iotdata_encode_humidity(&enc, 0), "encode 0");
     finish();
     decode_pkt();
-    ASSERT_EQ(dec.humidity, 0, "hum 0");
+    {
+        uint8_t humidity_pct;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_humidity(&dec, &humidity_pct), "decode humidity");
+        ASSERT_EQ(humidity_pct, 0, "hum 0");
+    }
 
     begin(1, 1, 101);
     ASSERT_OK(iotdata_encode_humidity(&enc, 100), "encode 100");
     finish();
     decode_pkt();
-    ASSERT_EQ(dec.humidity, 100, "hum 100");
+    {
+        uint8_t humidity_pct;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_humidity(&dec, &humidity_pct), "decode humidity");
+        ASSERT_EQ(humidity_pct, 100, "hum 100");
+    }
     PASS();
 }
 
@@ -425,13 +638,23 @@ static void test_flags_boundaries(void) {
     ASSERT_OK(iotdata_encode_flags(&enc, 0x00), "encode 0");
     finish();
     decode_pkt();
-    ASSERT_EQ(dec.flags, 0x00, "flags 0");
+    {
+        uint8_t flags;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_flags(&dec, &flags), "decode flags");
+        ASSERT_EQ(flags, 0x00, "flags 0");
+    }
 
     begin(1, 1, 106);
     ASSERT_OK(iotdata_encode_flags(&enc, 0xFF), "encode FF");
     finish();
     decode_pkt();
-    ASSERT_EQ(dec.flags, 0xFF, "flags FF");
+    {
+        uint8_t flags;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_flags(&dec, &flags), "decode flags");
+        ASSERT_EQ(flags, 0xFF, "flags FF");
+    }
     PASS();
 }
 
@@ -608,7 +831,7 @@ static void test_duplicate_field(void) {
     TEST("Duplicate field encode");
     begin(0, 1, 1);
     ASSERT_OK(iotdata_encode_battery(&enc, 50, false), "first");
-    ASSERT_ERR(iotdata_encode_battery(&enc, 60, false), IOTDATA_ERR_CTX_DUPLICATE_FIELD, "duplicate");
+    ASSERT_ERR(iotdata_encode_battery(&enc, 60, false), ERR_REFILL, "duplicate");
     finish();
     PASS();
 }
@@ -682,8 +905,20 @@ static void test_decode_truncated_field(void) {
     finish();
 
     /* Packet should be 6 bytes: header(4) + pres(1) + field data(1 byte with battery bits).
-       Truncate to 5: header + presence, no field data */
-    ASSERT_ERR(iotdata_decode(pkt, 5, &dec), IOTDATA_ERR_DECODE_TRUNCATED, "truncated");
+       Truncate to 5: header + presence, no field data.
+
+       ALL-OR-NOTHING IS MODE-SPECIFIC -- there is no CRC at this layer. The deferred mode unpacks
+       every field inside iotdata_decode, so a short packet is refused there. An ORDERED build
+       leaves the fields on the wire, so the packet is accepted and the field that runs off the end
+       is the one that reports it. What neither mode will do is hand over a value that was not
+       there, so that is the assertion. */
+    iotdata_status_t rc = iotdata_decode(pkt, 5, &dec);
+    if (rc == IOTDATA_OK) {
+        uint8_t level_percent = 0;
+        rewind_dec();
+        rc = iotdata_decode_battery(&dec, &level_percent, NULL);
+    }
+    ASSERT_ERR(rc, IOTDATA_ERR_DECODE_TRUNCATED, "truncated");
     PASS();
 }
 
@@ -727,8 +962,15 @@ static void test_image_zero_data(void) {
     ASSERT_OK(iotdata_encode_image(&enc, 0, 0, 0, 0, &px, 1), "encode 1 byte");
     finish();
     decode_pkt();
-    ASSERT_EQ(dec.image_data_len, 1, "len 1");
-    ASSERT_EQ(dec.image_data[0], 0x42, "data");
+    {
+        iotdata_field_image_scratch_t img_scratch;
+        const uint8_t *data_out;
+        uint8_t data_len;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_image(&dec, NULL, NULL, NULL, NULL, &data_out, &data_len, &img_scratch), "decode image");
+        ASSERT_EQ(data_len, 1, "len 1");
+        ASSERT_EQ(data_out[0], 0x42, "data");
+    }
     PASS();
 }
 
@@ -750,10 +992,17 @@ static void test_image_max_data(void) {
 
     iotdata_decoder_t big_dec;
     assert(iotdata_decode(big_pkt, big_len, &big_dec) == IOTDATA_OK);
-    ASSERT_EQ(big_dec.image_data_len, 254, "len 254");
-    ASSERT_EQ(big_dec.image_data[0], 0x00, "first");
-    ASSERT_EQ(big_dec.image_data[253], 0xFD, "last");
-    ASSERT_EQ(memcmp(big_dec.image_data, big, 254), 0, "full match");
+    {
+        iotdata_field_image_scratch_t img_scratch;
+        const uint8_t *data_out;
+        uint8_t data_len;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_image(&big_dec, NULL, NULL, NULL, NULL, &data_out, &data_len, &img_scratch), "decode image");
+        ASSERT_EQ(data_len, 254, "len 254");
+        ASSERT_EQ(data_out[0], 0x00, "first");
+        ASSERT_EQ(data_out[253], 0xFD, "last");
+        ASSERT_EQ(memcmp(data_out, big, 254), 0, "full match");
+    }
     PASS();
 }
 
@@ -767,21 +1016,39 @@ static void test_image_all_formats(void) {
     ASSERT_OK(iotdata_encode_image(&enc, IOTDATA_IMAGE_FMT_BILEVEL, 0, 0, 0, px, 4), "bilevel");
     finish();
     decode_pkt();
-    ASSERT_EQ(dec.image_pixel_format, IOTDATA_IMAGE_FMT_BILEVEL, "fmt bilevel");
+    {
+        iotdata_field_image_scratch_t img_scratch;
+        uint8_t pixel_format;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_image(&dec, &pixel_format, NULL, NULL, NULL, NULL, NULL, &img_scratch), "decode image");
+        ASSERT_EQ(pixel_format, IOTDATA_IMAGE_FMT_BILEVEL, "fmt bilevel");
+    }
 
     /* Grey4 (2bpp) */
     begin(0, 1, 311);
     ASSERT_OK(iotdata_encode_image(&enc, IOTDATA_IMAGE_FMT_GREY4, 0, 0, 0, px, 4), "grey4");
     finish();
     decode_pkt();
-    ASSERT_EQ(dec.image_pixel_format, IOTDATA_IMAGE_FMT_GREY4, "fmt grey4");
+    {
+        iotdata_field_image_scratch_t img_scratch;
+        uint8_t pixel_format;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_image(&dec, &pixel_format, NULL, NULL, NULL, NULL, NULL, &img_scratch), "decode image");
+        ASSERT_EQ(pixel_format, IOTDATA_IMAGE_FMT_GREY4, "fmt grey4");
+    }
 
     /* Grey16 (4bpp) */
     begin(0, 1, 312);
     ASSERT_OK(iotdata_encode_image(&enc, IOTDATA_IMAGE_FMT_GREY16, 0, 0, 0, px, 4), "grey16");
     finish();
     decode_pkt();
-    ASSERT_EQ(dec.image_pixel_format, IOTDATA_IMAGE_FMT_GREY16, "fmt grey16");
+    {
+        iotdata_field_image_scratch_t img_scratch;
+        uint8_t pixel_format;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_image(&dec, &pixel_format, NULL, NULL, NULL, NULL, NULL, &img_scratch), "decode image");
+        ASSERT_EQ(pixel_format, IOTDATA_IMAGE_FMT_GREY16, "fmt grey16");
+    }
     PASS();
 }
 
@@ -871,10 +1138,19 @@ static void test_buffer_overflow_single_field(void) {
 
     uint8_t small[5]; /* header(4) + pres(1), no room for field bits */
     iotdata_encoder_t small_enc;
-    ASSERT_OK(iotdata_encode_begin(&small_enc, small, sizeof(small), 0, 1, 1), "begin");
-    ASSERT_OK(iotdata_encode_battery(&small_enc, 50, false), "bat");
     size_t out;
-    ASSERT_ERR(iotdata_encode_end(&small_enc, &out), IOTDATA_ERR_BUF_TOO_SMALL, "overflow");
+    /* WHERE the buffer runs out is mode-specific; THAT it is refused is not. The deferred mode
+       writes nothing until encode_end, so that is the only call that can fail. An ORDERED build
+       puts the header down and reserves the presence bytes in encode_begin and then streams each
+       field as it is given, so it can run out at any of the three. The invariant both modes owe
+       the caller is that a buffer too small is REFUSED rather than overrun, so that is what is
+       asserted -- not which call happens to notice. */
+    iotdata_status_t rc = iotdata_encode_begin(&small_enc, small, sizeof(small), 0, 1, 1);
+    if (rc == IOTDATA_OK)
+        rc = iotdata_encode_battery(&small_enc, 50, false);
+    if (rc == IOTDATA_OK)
+        rc = iotdata_encode_end(&small_enc, &out);
+    ASSERT_ERR(rc, IOTDATA_ERR_BUF_TOO_SMALL, "overflow");
     PASS();
 }
 
@@ -883,13 +1159,20 @@ static void test_buffer_overflow_many_fields(void) {
 
     uint8_t small[10];
     iotdata_encoder_t small_enc;
-    ASSERT_OK(iotdata_encode_begin(&small_enc, small, sizeof(small), 0, 1, 1), "begin");
-    ASSERT_OK(iotdata_encode_battery(&small_enc, 50, false), "bat");
-    ASSERT_OK(iotdata_encode_link(&small_enc, -80, 0.0f), "link");
-    ASSERT_OK(iotdata_encode_environment(&small_enc, 20.0f, 1013, 50), "env");
-    ASSERT_OK(iotdata_encode_wind(&small_enc, 5.0f, 180, 8.0f), "wind");
     size_t out;
-    ASSERT_ERR(iotdata_encode_end(&small_enc, &out), IOTDATA_ERR_BUF_TOO_SMALL, "overflow many");
+    /* As above: the first call to run out of room is the one that reports it. */
+    iotdata_status_t rc = iotdata_encode_begin(&small_enc, small, sizeof(small), 0, 1, 1);
+    if (rc == IOTDATA_OK)
+        rc = iotdata_encode_battery(&small_enc, 50, false);
+    if (rc == IOTDATA_OK)
+        rc = iotdata_encode_link(&small_enc, -80, 0.0f);
+    if (rc == IOTDATA_OK)
+        rc = iotdata_encode_environment(&small_enc, 20.0f, 1013, 50);
+    if (rc == IOTDATA_OK)
+        rc = iotdata_encode_wind(&small_enc, 5.0f, 180, 8.0f);
+    if (rc == IOTDATA_OK)
+        rc = iotdata_encode_end(&small_enc, &out);
+    ASSERT_ERR(rc, IOTDATA_ERR_BUF_TOO_SMALL, "overflow many");
     PASS();
 }
 
@@ -984,12 +1267,38 @@ static void test_all_negative_fields(void) {
     finish();
     decode_pkt();
 
-    ASSERT_EQ(dec.battery_level, 0, "bat");
-    ASSERT_NEAR(dec.temperature, -40.0, 0.25, "temp");
-    ASSERT_EQ(dec.pressure, 850, "pres");
-    ASSERT_EQ(dec.humidity, 0, "hum");
-    ASSERT_NEAR(dec.position_lat, -90.0, 0.01, "lat");
-    ASSERT_NEAR(dec.position_lon, -180.0, 0.01, "lon");
+    {
+        uint8_t level_percent;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_battery(&dec, &level_percent, NULL), "decode battery");
+        ASSERT_EQ(level_percent, 0, "bat");
+    }
+    {
+        iotdata_float_t temperature_c;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_temperature(&dec, &temperature_c), "decode temperature");
+        ASSERT_NEAR(temperature_c, -40.0, 0.25, "temp");
+    }
+    {
+        uint16_t pressure_hpa;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_pressure(&dec, &pressure_hpa), "decode pressure");
+        ASSERT_EQ(pressure_hpa, 850, "pres");
+    }
+    {
+        uint8_t humidity_pct;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_humidity(&dec, &humidity_pct), "decode humidity");
+        ASSERT_EQ(humidity_pct, 0, "hum");
+    }
+    {
+        iotdata_double_t latitude;
+        iotdata_double_t longitude;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_position(&dec, &latitude, &longitude), "decode position");
+        ASSERT_NEAR(latitude, -90.0, 0.01, "lat");
+        ASSERT_NEAR(longitude, -180.0, 0.01, "lon");
+    }
     PASS();
 }
 
@@ -1015,16 +1324,62 @@ static void test_all_max_fields(void) {
     finish();
     decode_pkt();
 
-    ASSERT_EQ(dec.battery_level, 100, "bat");
-    ASSERT_EQ(dec.battery_charging, true, "charging");
-    ASSERT_NEAR(dec.temperature, 80.0, 0.25, "temp");
-    ASSERT_EQ(dec.pressure, 1105, "pres");
-    ASSERT_EQ(dec.humidity, 100, "hum");
-    ASSERT_NEAR(dec.wind_speed, 63.5, 0.5, "wspd");
-    ASSERT_NEAR(dec.wind_direction, 359, 2.0, "wdir");
-    ASSERT_EQ_U(dec.radiation_cpm, 16383, "cpm");
-    ASSERT_EQ_U(dec.depth, 1023, "depth");
-    ASSERT_EQ(dec.flags, 0xFF, "flags");
+    {
+        uint8_t level_percent;
+        bool charging;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_battery(&dec, &level_percent, &charging), "decode battery");
+        ASSERT_EQ(level_percent, 100, "bat");
+        ASSERT_EQ(charging, true, "charging");
+    }
+    {
+        iotdata_float_t temperature_c;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_temperature(&dec, &temperature_c), "decode temperature");
+        ASSERT_NEAR(temperature_c, 80.0, 0.25, "temp");
+    }
+    {
+        uint16_t pressure_hpa;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_pressure(&dec, &pressure_hpa), "decode pressure");
+        ASSERT_EQ(pressure_hpa, 1105, "pres");
+    }
+    {
+        uint8_t humidity_pct;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_humidity(&dec, &humidity_pct), "decode humidity");
+        ASSERT_EQ(humidity_pct, 100, "hum");
+    }
+    {
+        iotdata_float_t speed_ms;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_wind_speed(&dec, &speed_ms), "decode wind_speed");
+        ASSERT_NEAR(speed_ms, 63.5, 0.5, "wspd");
+    }
+    {
+        uint16_t direction_deg;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_wind_direction(&dec, &direction_deg), "decode wind_direction");
+        ASSERT_NEAR(direction_deg, 359, 2.0, "wdir");
+    }
+    {
+        uint16_t cpm;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_radiation_cpm(&dec, &cpm), "decode radiation_cpm");
+        ASSERT_EQ_U(cpm, 16383, "cpm");
+    }
+    {
+        uint16_t depth_cm;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_depth(&dec, &depth_cm), "decode depth");
+        ASSERT_EQ_U(depth_cm, 1023, "depth");
+    }
+    {
+        uint8_t flags;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_flags(&dec, &flags), "decode flags");
+        ASSERT_EQ(flags, 0xFF, "flags");
+    }
     PASS();
 }
 
@@ -1071,6 +1426,257 @@ static void test_json_negative_round_trip(void) {
 /* =========================================================================
  * Main
  * =========================================================================*/
+
+/* =========================================================================
+ * Section 13: Slot semantics -- which slot a type-named setter means
+ * =========================================================================*/
+
+static void test_slot_non_existent(void) {
+    TEST("Field with no slot in the variant is refused");
+    begin(0, 1, 1); /* "complete" carries composites, not the atomic parts */
+    ASSERT_ERR(iotdata_encode_temperature(&enc, 20.0f), IOTDATA_ERR_CTX_NON_EXISTENT_FIELD, "bare temperature");
+    ASSERT_ERR(iotdata_encode_rain_rate(&enc, 5), IOTDATA_ERR_CTX_NON_EXISTENT_FIELD, "bare rain_rate");
+    /* refused BEFORE the value is looked at, so an out-of-range value still reports the slot */
+    ASSERT_ERR(iotdata_encode_temperature(&enc, -999.0f), IOTDATA_ERR_CTX_NON_EXISTENT_FIELD, "slot beats value");
+    /* and a field the variant does carry is unaffected */
+    ASSERT_OK(iotdata_encode_environment(&enc, 20.0f, 1013, 50), "environment present");
+    PASS();
+}
+
+static void test_slot_ambiguous(void) {
+    TEST("A field in two slots: refused by type, or taken in turn");
+#if defined(IOTDATA_OPERATE_ORDERED)
+    /* ORDERED ANSWERS THE QUESTION THE TYPE NAME CANNOT. A cursor can say "the second
+       temperature" where a type name cannot, so the repeated field is simply filled in turn --
+       this is the whole reason duplicates live in this mode and nowhere else. */
+    begin(2, 1, 1);
+    ASSERT_OK(iotdata_encode_battery(&enc, 50, false), "battery");
+    ASSERT_OK(iotdata_encode_temperature(&enc, 20.0f), "first temperature");
+    ASSERT_OK(iotdata_encode_temperature(&enc, 30.0f), "second temperature");
+    ASSERT_ERR(iotdata_encode_temperature(&enc, 40.0f), IOTDATA_ERR_CTX_NON_EXISTENT_FIELD, "there is no third");
+    ASSERT_OK(iotdata_encode_environment(&enc, 21.0f, 1013, 55), "environment");
+    ASSERT_OK(iotdata_encode_humidity(&enc, 40), "humidity");
+    finish();
+    decode_pkt();
+    {
+        /* and they come back as two distinct readings, in slot order */
+        iotdata_float_t temperature_c;
+        ASSERT_OK(iotdata_decode_temperature(&dec, &temperature_c), "decode first");
+        ASSERT_NEAR(temperature_c, 20.0, 0.3, "first value");
+        ASSERT_OK(iotdata_decode_temperature(&dec, &temperature_c), "decode second");
+        ASSERT_NEAR(temperature_c, 30.0, 0.3, "second value");
+    }
+#else
+    /* Naming a type cannot say WHICH of two temperatures is meant, so the deferred mode refuses
+       rather than silently taking the first -- taking the first is how one of two readings goes
+       missing with nothing anywhere saying so. */
+    begin(2, 1, 1);
+    ASSERT_ERR(iotdata_encode_temperature(&enc, 20.0f), IOTDATA_ERR_CTX_AMBIGUOUS_FIELD, "two temperature slots");
+    /* ambiguity is per type, not per variant: the others still resolve */
+    ASSERT_OK(iotdata_encode_battery(&enc, 50, false), "battery once");
+    ASSERT_OK(iotdata_encode_environment(&enc, 21.0f, 1013, 55), "environment once");
+    ASSERT_OK(iotdata_encode_humidity(&enc, 40), "humidity once");
+#endif
+    PASS();
+}
+
+static void test_slot_unknown_variant(void) {
+    TEST("Unknown variant has no slots, and still fails at end");
+    /* begin has never rejected an unknown variant -- end is where it is reported */
+    ASSERT_OK(iotdata_encode_begin(&enc, pkt, sizeof(pkt), 3, 1, 1), "begin accepts it");
+    ASSERT_ERR(iotdata_encode_battery(&enc, 50, false), IOTDATA_ERR_CTX_NON_EXISTENT_FIELD, "no slots at all");
+    ASSERT_ERR(iotdata_encode_end(&enc, &pkt_len), IOTDATA_ERR_HDR_VARIANT_UNKNOWN, "end reports it");
+    PASS();
+}
+
+static void test_slot_duplicate_still_caught(void) {
+    TEST("Setting the same slot twice is still a duplicate");
+    begin(2, 1, 1);
+    ASSERT_OK(iotdata_encode_battery(&enc, 50, false), "first");
+    ASSERT_ERR(iotdata_encode_battery(&enc, 60, false), ERR_REFILL, "second");
+    PASS();
+}
+
+static void test_slot_mask_is_positional(void) {
+    TEST("Presence is recorded by slot position");
+    begin(2, 1, 1);
+    ASSERT_OK(iotdata_encode_battery(&enc, 50, false), "slot 0");
+    ASSERT_OK(iotdata_encode_humidity(&enc, 40), "slot 4");
+    finish();
+    decode_pkt();
+    ASSERT_TRUE(IOTDATA_SLOT_PRESENT(dec.slots, 0), "slot 0 set");
+    ASSERT_TRUE(!IOTDATA_SLOT_PRESENT(dec.slots, 1), "slot 1 clear");
+    ASSERT_TRUE(!IOTDATA_SLOT_PRESENT(dec.slots, 2), "slot 2 clear");
+    ASSERT_TRUE(!IOTDATA_SLOT_PRESENT(dec.slots, 3), "slot 3 clear");
+    ASSERT_TRUE(IOTDATA_SLOT_PRESENT(dec.slots, 4), "slot 4 set");
+    /* the by-type mask still answers the caller's question, unchanged */
+    ASSERT_TRUE(IOTDATA_FIELD_PRESENT(dec.fields, IOTDATA_FIELD_BATTERY), "battery by type");
+    ASSERT_TRUE(IOTDATA_FIELD_PRESENT(dec.fields, IOTDATA_FIELD_HUMIDITY), "humidity by type");
+    ASSERT_TRUE(!IOTDATA_FIELD_PRESENT(dec.fields, IOTDATA_FIELD_TEMPERATURE), "temperature absent by type");
+    PASS();
+}
+
+static void test_composite_and_atomic_dont_alias(void) {
+    TEST("A composite and its atomic sibling have separate storage");
+    /* Variant 2 carries a standalone HUMIDITY in slot 4 and an ENVIRONMENT in slot 3, whose own
+       humidity is a different value. Before each field owned its storage these were ONE member,
+       so whichever was set last won and the other silently reported it. */
+    begin(2, 1, 1);
+    ASSERT_OK(iotdata_encode_environment(&enc, 21.0f, 1013, 80), "environment humidity 80");
+    ASSERT_OK(iotdata_encode_humidity(&enc, 40), "standalone humidity 40");
+    finish();
+    decode_pkt();
+    {
+        uint8_t humidity_pct;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_humidity(&dec, &humidity_pct), "decode humidity");
+        ASSERT_EQ_U(humidity_pct, 40, "standalone kept its 40");
+    }
+    {
+        uint8_t humidity_pct;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_environment(&dec, NULL, NULL, &humidity_pct), "decode environment");
+        ASSERT_EQ_U(humidity_pct, 80, "environment kept its 80");
+    }
+    ASSERT_TRUE(IOTDATA_FIELD_PRESENT(dec.fields, IOTDATA_FIELD_HUMIDITY), "humidity by type");
+    ASSERT_TRUE(IOTDATA_FIELD_PRESENT(dec.fields, IOTDATA_FIELD_ENVIRONMENT), "environment by type");
+    PASS();
+}
+
+/* =========================================================================
+ * Section 14: Accessor semantics -- reading a decoded packet by field
+ * ========================================================================= */
+
+static void test_accessor_absent_when_not_carried(void) {
+    TEST("An accessor reports ABSENT for a slot the packet did not fill");
+    /* Variant 0 carries a LINK slot, but this packet only set battery. */
+    begin(0, 1, 1);
+    ASSERT_OK(iotdata_encode_battery(&enc, 50, false), "battery");
+    finish();
+    decode_pkt();
+    {
+        int8_t rssi_dbm;
+        rewind_dec();
+        ASSERT_ERR(iotdata_decode_link(&dec, &rssi_dbm, NULL), IOTDATA_ERR_DECODE_FIELD_ABSENT, "link not carried");
+    }
+    {
+        uint8_t level_percent;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_battery(&dec, &level_percent, NULL), "battery carried");
+        ASSERT_NEAR(level_percent, 50, 4, "and it is the value encoded"); /* 5-bit quantised */
+    }
+    PASS();
+}
+
+static void test_accessor_absent_when_no_slot(void) {
+    TEST("An accessor reports ABSENT for a type the variant has no slot for");
+    /* Variant 0 has no BITS32 slot at all. That is a different fault from "the packet did not
+       carry it" -- a variant map that cannot express the field is a build mistake, not weather --
+       but the accessor deliberately gives ONE answer to both, because the caller's next move is
+       the same either way and distinguishing them would cost a variant lookup on every read.
+       The encode side does distinguish them (NON_EXISTENT), because there a wrong answer loses
+       data instead of merely withholding it. */
+    begin(0, 1, 1);
+    ASSERT_OK(iotdata_encode_battery(&enc, 50, false), "battery");
+    finish();
+    decode_pkt();
+    {
+        uint32_t bits32;
+        rewind_dec();
+        ASSERT_ERR(iotdata_decode_bits32(&dec, &bits32), IOTDATA_ERR_DECODE_FIELD_ABSENT, "bits32 has no slot");
+    }
+    PASS();
+}
+
+static void test_accessor_all_outputs_optional(void) {
+    TEST("Every accessor output is optional, so a bare call is a presence query");
+    begin(0, 1, 1);
+    ASSERT_OK(iotdata_encode_battery(&enc, 77, true), "battery");
+    finish();
+    decode_pkt();
+    rewind_dec();
+    ASSERT_OK(iotdata_decode_battery(&dec, NULL, NULL), "both outputs NULL still answers");
+    {
+        bool charging;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_battery(&dec, NULL, &charging), "second only");
+        ASSERT_EQ(charging, true, "charging");
+    }
+    {
+        uint8_t level_percent;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_battery(&dec, &level_percent, NULL), "first only");
+        ASSERT_NEAR(level_percent, 77, 4, "level");
+    }
+    PASS();
+}
+
+static void test_accessor_null_decoder(void) {
+    TEST("An accessor refuses a NULL decoder rather than dereferencing it");
+    /* Not compiled out by IOTDATA_NO_CHECKS_STATE: the presence test has to read dec->fields. */
+    {
+        uint8_t level_percent;
+        ASSERT_ERR(iotdata_decode_battery(NULL, &level_percent, NULL), IOTDATA_ERR_CTX_NULL, "NULL decoder");
+    }
+    PASS();
+}
+
+static void test_accessor_repeatable(void) {
+    TEST("Reading the same field twice gives the same answer");
+    /* True by construction here, and the property an ORDERED build will NOT have: there a read
+       advances the cursor, so this test is the record of what that mode gives up. */
+    begin(0, 1, 1);
+    ASSERT_OK(iotdata_encode_battery(&enc, 60, false), "battery");
+    ASSERT_OK(iotdata_encode_environment(&enc, 18.0f, 1000, 55), "environment");
+    finish();
+    decode_pkt();
+    uint8_t a = 0, b = 0;
+    rewind_dec();
+    ASSERT_OK(iotdata_decode_battery(&dec, &a, NULL), "first read");
+    rewind_dec();
+    ASSERT_OK(iotdata_decode_battery(&dec, &b, NULL), "second read");
+    ASSERT_EQ_U(a, b, "same value");
+    /* and out of slot order, which an ORDERED build will also refuse */
+    {
+        iotdata_float_t temp_c;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_environment(&dec, &temp_c, NULL, NULL), "environment after battery");
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_battery(&dec, &a, NULL), "battery again, backwards");
+    }
+    PASS();
+}
+
+#if defined(IOTDATA_ENABLE_IMAGE)
+static void test_accessor_image_demands_scratch(void) {
+    TEST("The image accessor refuses a NULL scratch");
+    const uint8_t px[] = { 0x11, 0x22, 0x33 };
+    begin(0, 1, 1);
+    ASSERT_OK(iotdata_encode_image(&enc, IOTDATA_IMAGE_FMT_BILEVEL, IOTDATA_IMAGE_SIZE_24x18, IOTDATA_IMAGE_COMP_RAW, 0, px, 3), "image");
+    finish();
+    decode_pkt();
+    {
+        const uint8_t *data;
+        uint8_t data_len;
+        /* Demanded even though this build does not write it, so that a caller cannot pass NULL
+           now and find out on the day it switches to ORDERED that there was nowhere to decode
+           into. */
+        rewind_dec();
+        ASSERT_ERR(iotdata_decode_image(&dec, NULL, NULL, NULL, NULL, &data, &data_len, NULL), IOTDATA_ERR_BUF_NULL, "NULL scratch");
+    }
+    {
+        iotdata_field_image_scratch_t img_scratch;
+        const uint8_t *data;
+        uint8_t data_len;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_image(&dec, NULL, NULL, NULL, NULL, &data, &data_len, &img_scratch), "with scratch");
+        ASSERT_EQ_U(data_len, 3, "len");
+        ASSERT_EQ_U(data[0], 0x11, "first byte");
+        ASSERT_EQ_U(data[2], 0x33, "last byte");
+    }
+    PASS();
+}
+#endif
 
 int main(void) {
     printf("\n=== iotdata — failure/boundary/negative test suite ===\n\n");
@@ -1165,6 +1771,24 @@ int main(void) {
 
     printf("\n--- Section 12: JSON round-trip with negatives ---\n");
     test_json_negative_round_trip();
+
+    printf("\n--- Section 13: Slot semantics ---\n");
+    test_slot_non_existent();
+    test_slot_ambiguous();
+    test_slot_unknown_variant();
+    test_slot_duplicate_still_caught();
+    test_slot_mask_is_positional();
+    test_composite_and_atomic_dont_alias();
+
+    printf("\n--- Section 14: Accessor semantics ---\n");
+    test_accessor_absent_when_not_carried();
+    test_accessor_absent_when_no_slot();
+    test_accessor_all_outputs_optional();
+    test_accessor_null_decoder();
+    test_accessor_repeatable();
+#if defined(IOTDATA_ENABLE_IMAGE)
+    test_accessor_image_demands_scratch();
+#endif
 
     printf("\n--- Results: %d/%d passed", tests_passed, tests_run);
     if (tests_failed > 0)

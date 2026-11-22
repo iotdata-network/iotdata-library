@@ -122,4 +122,31 @@ static void decode_pkt(void) {
     assert(iotdata_decode(pkt, pkt_len, &dec) == IOTDATA_OK);
 }
 
+/* THE SECOND ATTEMPT AT A SINGLE-SLOT FIELD. Both modes refuse it; they reach the refusal by
+ * different routes, so the suites name the outcome rather than the route.
+ *   deferred: the slot is already marked present            -> DUPLICATE_FIELD
+ *   ordered:  the cursor is past the only slot of that type -> NON_EXISTENT_FIELD
+ * What matters either way is that a packet cannot carry two of a field that has room for one. */
+#if defined(IOTDATA_OPERATE_ORDERED)
+#define ERR_REFILL IOTDATA_ERR_CTX_NON_EXISTENT_FIELD
+#else
+#define ERR_REFILL IOTDATA_ERR_CTX_DUPLICATE_FIELD
+#endif
+
+/* READ A FIELD WITHOUT CARING WHAT WAS READ BEFORE IT.
+ *
+ * Nothing in the deferred build: every field has its own storage and an accessor is a plain read.
+ * Under IOTDATA_OPERATE_ORDERED a read advances a cursor that only moves forwards, so asking for
+ * an earlier slot after a later one is refused -- correctly, and that refusal is what
+ * tests/test_ordered.c exists to check.
+ *
+ * These suites are not about read ORDER, they are about what each field carries, so they rewind
+ * first and stay the same tests in both modes. The cost is re-unpacking the slots in front, which
+ * matters to nobody here. */
+static inline void rewind_dec(void) {
+#if defined(IOTDATA_OPERATE_ORDERED)
+    assert(iotdata_decode_reset(&dec) == IOTDATA_OK);
+#endif
+}
+
 #endif /* TEST_COMMON_H */

@@ -283,7 +283,7 @@
  *
  * Variant 15 never appears: it is the mesh variant and carries no telemetry.
  *
- * CHUNKING: a whole suite need not fit one packet, so a node emits as many as fit and continues in
+ * CHUNKING: a whole suite need not fit one packet, so a node emits as many as fit and conts in
  * the next. No fragmentation is needed, because each pair is self-contained: one either arrives
  * whole or arrives later, receiving one twice is harmless, and the receiver merges by variant id.
  * What tells a receiver it has them ALL is PARTIAL, which is why there is no manifest here.

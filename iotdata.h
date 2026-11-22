@@ -21,6 +21,8 @@
  *   IOTDATA_VARIANT_MAPS_DEFAULT   Default variant maps (weather station)
  *   IOTDATA_VARIANT_MAPS <sym>     Custom variant maps array symbol
  *   IOTDATA_VARIANT_MAPS_COUNT <n> Number of entries in custom maps
+ *   IOTDATA_OPERATE_ORDERED        Operate encoding/decoding in ordered mode
+ *   IOTDATA_OPERATE_ORDERED_COMPLETE ... and require all fields accounted for
  *   IOTDATA_ENABLE_SELECTIVE       Only compile explicitly enabled elements
  *   IOTDATA_ENABLE_xxx             Enable individual field types
  *   IOTDATA_ENABLE_TLV             Enable TLV
@@ -240,6 +242,22 @@ _Static_assert(IOTDATA_FIELD_COUNT <= 32, "fields overflow");
 #define IOTDATA_FIELD_VALID(id)         ((id) != IOTDATA_FIELD_NONE && !IOTDATA_FIELD_RESERVED(id))
 
 /* ---------------------------------------------------------------------------
+ * Presence by SLOT
+ * -------------------------------------------------------------------------*/
+
+typedef uint32_t iotdata_slots_t;
+
+_Static_assert(IOTDATA_MAX_DATA_FIELDS <= 32, "slots overflow");
+
+#define IOTDATA_SLOT_EMPTY             (0)
+#define IOTDATA_SLOT_PRESENT(mask, si) (((mask) >> (si)) & 1U)
+#define IOTDATA_SLOT_SET(mask, si)     ((mask) |= (1U << (si)))
+#define IOTDATA_SLOT_CLR(mask, si)     ((mask) &= ~(1U << (si)))
+
+#define IOTDATA_SLOT_NONE              (-1)
+#define IOTDATA_SLOT_AMBIGUOUS         (-2)
+
+/* ---------------------------------------------------------------------------
  * Variant definition — maps presence slots to field types
  *
  * Flat slot array covering all presence bytes. Entries 0..5 map to pres0,
@@ -278,6 +296,8 @@ typedef enum iotdata_status_t_ {
     IOTDATA_ERR_CTX_ALREADY_BEGUN,
     IOTDATA_ERR_CTX_ALREADY_ENDED,
     IOTDATA_ERR_CTX_DUPLICATE_FIELD,
+    IOTDATA_ERR_CTX_NON_EXISTENT_FIELD,
+    IOTDATA_ERR_CTX_AMBIGUOUS_FIELD,
     IOTDATA_ERR_BUF_NULL,
     IOTDATA_ERR_BUF_OVERFLOW,
     IOTDATA_ERR_BUF_TOO_SMALL,
@@ -285,10 +305,15 @@ typedef enum iotdata_status_t_ {
     IOTDATA_ERR_CTX_NULL,
     IOTDATA_ERR_BUF_NULL,
 #endif
+#if defined(IOTDATA_OPERATE_ORDERED)
+    IOTDATA_ERR_CTX_SLOT_ORDER,
+    IOTDATA_ERR_CTX_INCOMPLETE_FIELDS,
+#endif
 #if !defined(IOTDATA_NO_DECODE)
     IOTDATA_ERR_DECODE_SHORT,
     IOTDATA_ERR_DECODE_TRUNCATED,
     IOTDATA_ERR_DECODE_VARIANT,
+    IOTDATA_ERR_DECODE_FIELD_ABSENT,
 #elif !defined(IOTDATA_NO_DUMP)
     IOTDATA_ERR_DECODE_SHORT,
     IOTDATA_ERR_DECODE_TRUNCATED,
@@ -338,8 +363,20 @@ typedef struct iotdata_encoder_t_ {
     uint16_t station;
     uint16_t sequence;
     iotdata_field_t fields;
+    iotdata_slots_t slots;
 
-    IOTDATA_FIELDS_DAT_ENCODER
+#if defined(IOTDATA_OPERATE_ORDERED)
+    const iotdata_variant_def_t *vdef;
+    size_t bp;
+    size_t pres_bit;
+    int8_t pres_reserved;
+    int8_t slot_count;
+    int8_t cur_slot;
+#else
+    int8_t slot_of_type[IOTDATA_FIELD_COUNT];
+#endif
+
+    IOTDATA_FIELDS_MEM_ENCODER
 
 } iotdata_encoder_t;
 #endif /* !IOTDATA_NO_ENCODE */
@@ -357,8 +394,19 @@ typedef struct iotdata_decoder_t_ {
     uint16_t station;
     uint16_t sequence;
     iotdata_field_t fields;
+    iotdata_slots_t slots;
 
-    IOTDATA_FIELDS_DAT_DECODER
+#if defined(IOTDATA_OPERATE_ORDERED)
+    const iotdata_variant_def_t *vdef;
+    const uint8_t *buf;
+    size_t bb;
+    size_t bp;
+    size_t data_bit;
+    int8_t slot_count;
+    int8_t cur_slot;
+#endif
+
+    IOTDATA_FIELDS_MEM_DECODER
 
 } iotdata_decoder_t;
 #endif /* !IOTDATA_NO_DECODE */
@@ -372,8 +420,19 @@ iotdata_status_t iotdata_encode_begin(iotdata_encoder_t *enc, uint8_t *buf, size
 iotdata_status_t iotdata_encode_end(iotdata_encoder_t *enc, size_t *out_bytes);
 #endif /* !IOTDATA_NO_ENCODE */
 
+#if defined(IOTDATA_OPERATE_ORDERED) && !defined(IOTDATA_NO_ENCODE)
+iotdata_status_t iotdata_encode_skip(iotdata_encoder_t *enc);
+iotdata_status_t iotdata_encode_skip_to(iotdata_encoder_t *enc, int slot);
+int iotdata_encode_slots_remaining(const iotdata_encoder_t *enc);
+#endif
+
 #if !defined(IOTDATA_NO_DECODE)
 iotdata_status_t iotdata_peek(const uint8_t *buf, size_t len, uint8_t *variant, uint16_t *station, uint16_t *sequence);
+#if defined(IOTDATA_OPERATE_ORDERED)
+iotdata_status_t iotdata_decode_reset(iotdata_decoder_t *dec);
+iotdata_status_t iotdata_decode_skip(iotdata_decoder_t *dec);
+iotdata_status_t iotdata_decode_wind_to_slot(iotdata_decoder_t *dec, int slot);
+#endif
 iotdata_status_t iotdata_decode(const uint8_t *buf, size_t len, iotdata_decoder_t *out);
 #endif /* !IOTDATA_NO_DECODE */
 

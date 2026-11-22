@@ -734,7 +734,7 @@ typedef struct {
 } iotdata_mesh_dedup_ring_t;
 
 static inline void iotdata_mesh_dedup_init(iotdata_mesh_dedup_ring_t *ring) {
-    memset(ring, 0, sizeof(*ring));
+    *ring = (iotdata_mesh_dedup_ring_t){ 0 };
 }
 
 static inline bool iotdata_mesh_dedup_insert(iotdata_mesh_dedup_ring_t *ring, uint16_t station, uint16_t sequence) {

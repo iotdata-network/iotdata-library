@@ -7,4 +7,6 @@ tests/test_complete
 tests/test_failures
 tests/test_custom
 tests/test_example
+tests/test_ordered
 tests/test_version_*
+tests/test_*_ordered

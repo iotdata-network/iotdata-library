@@ -24,8 +24,14 @@ static void test_battery_round_trip(void) {
     decode_pkt();
     ASSERT_EQ(!!IOTDATA_FIELD_PRESENT(dec.fields, IOTDATA_FIELD_BATTERY), 1, "present");
     /* 75% → q=round(75/100*31)=23, decode=round(23/31*100)=74 */
-    ASSERT_NEAR(dec.battery_level, 75, 4, "level");
-    ASSERT_EQ(dec.battery_charging, true, "charging");
+    {
+        uint8_t level_percent;
+        bool charging;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_battery(&dec, &level_percent, &charging), "decode battery");
+        ASSERT_NEAR(level_percent, 75, 4, "level");
+        ASSERT_EQ(charging, true, "charging");
+    }
     PASS();
 }
 
@@ -37,9 +43,16 @@ static void test_environment_round_trip(void) {
     finish();
     decode_pkt();
     ASSERT_EQ(!!IOTDATA_FIELD_PRESENT(dec.fields, IOTDATA_FIELD_ENVIRONMENT), 1, "present");
-    ASSERT_NEAR(dec.temperature, 22.5, 0.25, "temp");
-    ASSERT_EQ(dec.pressure, 1013, "pressure");
-    ASSERT_EQ(dec.humidity, 65, "humidity");
+    {
+        iotdata_float_t temp_c;
+        uint16_t pressure_hpa;
+        uint8_t humidity_pct;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_environment(&dec, &temp_c, &pressure_hpa, &humidity_pct), "decode environment");
+        ASSERT_NEAR(temp_c, 22.5, 0.25, "temp");
+        ASSERT_EQ(pressure_hpa, 1013, "pressure");
+        ASSERT_EQ(humidity_pct, 65, "humidity");
+    }
     PASS();
 }
 
@@ -51,9 +64,16 @@ static void test_wind_round_trip(void) {
     finish();
     decode_pkt();
     ASSERT_EQ(!!IOTDATA_FIELD_PRESENT(dec.fields, IOTDATA_FIELD_WIND), 1, "present");
-    ASSERT_NEAR(dec.wind_speed, 5.5, 0.5, "speed");
-    ASSERT_NEAR(dec.wind_direction, 180, 2.0, "dir");
-    ASSERT_NEAR(dec.wind_gust, 8.0, 0.5, "gust");
+    {
+        iotdata_float_t speed_ms;
+        uint16_t direction_deg;
+        iotdata_float_t gust_ms;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_wind(&dec, &speed_ms, &direction_deg, &gust_ms), "decode wind");
+        ASSERT_NEAR(speed_ms, 5.5, 0.5, "speed");
+        ASSERT_NEAR(direction_deg, 180, 2.0, "dir");
+        ASSERT_NEAR(gust_ms, 8.0, 0.5, "gust");
+    }
     PASS();
 }
 
@@ -65,8 +85,14 @@ static void test_rain_round_trip(void) {
     finish();
     decode_pkt();
     ASSERT_EQ(!!IOTDATA_FIELD_PRESENT(dec.fields, IOTDATA_FIELD_RAIN), 1, "present");
-    ASSERT_EQ(dec.rain_rate, 42, "rate");
-    ASSERT_NEAR(dec.rain_size10, 15, 5.0, "size");
+    {
+        uint8_t rate_mmhr;
+        uint8_t size10_mmd;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_rain(&dec, &rate_mmhr, &size10_mmd), "decode rain");
+        ASSERT_EQ(rate_mmhr, 42, "rate");
+        ASSERT_NEAR(size10_mmd, 15, 5.0, "size");
+    }
     PASS();
 }
 
@@ -78,8 +104,14 @@ static void test_solar_round_trip(void) {
     finish();
     decode_pkt();
     ASSERT_EQ(!!IOTDATA_FIELD_PRESENT(dec.fields, IOTDATA_FIELD_SOLAR), 1, "present");
-    ASSERT_EQ(dec.solar_irradiance, 850, "irradiance");
-    ASSERT_EQ(dec.solar_ultraviolet, 11, "uv");
+    {
+        uint16_t irradiance_wm2;
+        uint8_t ultraviolet_index;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_solar(&dec, &irradiance_wm2, &ultraviolet_index), "decode solar");
+        ASSERT_EQ(irradiance_wm2, 850, "irradiance");
+        ASSERT_EQ(ultraviolet_index, 11, "uv");
+    }
     PASS();
 }
 
@@ -92,8 +124,14 @@ static void test_link_round_trip(void) {
     decode_pkt();
     ASSERT_EQ(!!IOTDATA_FIELD_PRESENT(dec.fields, IOTDATA_FIELD_LINK), 1, "present");
     /* RSSI: -90 → q=(-90-(-120))/4=7.5→8, decode=-120+8*4=-88 */
-    ASSERT_NEAR(dec.link_rssi, -90, 4, "rssi");
-    ASSERT_NEAR(dec.link_snr, 5.0, 5.0, "snr");
+    {
+        int8_t rssi_dbm;
+        iotdata_float_t snr_db;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_link(&dec, &rssi_dbm, &snr_db), "decode link");
+        ASSERT_NEAR(rssi_dbm, -90, 4, "rssi");
+        ASSERT_NEAR(snr_db, 5.0, 5.0, "snr");
+    }
     PASS();
 }
 
@@ -105,7 +143,12 @@ static void test_flags_round_trip(void) {
     finish();
     decode_pkt();
     ASSERT_EQ(!!IOTDATA_FIELD_PRESENT(dec.fields, IOTDATA_FIELD_FLAGS), 1, "present");
-    ASSERT_EQ(dec.flags, 0xA5, "flags");
+    {
+        uint8_t flags;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_flags(&dec, &flags), "decode flags");
+        ASSERT_EQ(flags, 0xA5, "flags");
+    }
     PASS();
 }
 
@@ -117,7 +160,12 @@ static void test_air_quality_round_trip(void) {
     finish();
     decode_pkt();
     ASSERT_EQ(!!IOTDATA_FIELD_PRESENT(dec.fields, IOTDATA_FIELD_AIR_QUALITY_INDEX), 1, "present");
-    ASSERT_EQ(dec.aq_index, 312, "aqi");
+    {
+        uint16_t aq_index;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_air_quality_index(&dec, &aq_index), "decode air_quality_index");
+        ASSERT_EQ(aq_index, 312, "aqi");
+    }
     PASS();
 }
 
@@ -129,7 +177,12 @@ static void test_clouds_round_trip(void) {
     finish();
     decode_pkt();
     ASSERT_EQ(!!IOTDATA_FIELD_PRESENT(dec.fields, IOTDATA_FIELD_CLOUDS), 1, "present");
-    ASSERT_EQ(dec.clouds, 6, "okta");
+    {
+        uint8_t okta;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_clouds(&dec, &okta), "decode clouds");
+        ASSERT_EQ(okta, 6, "okta");
+    }
     PASS();
 }
 
@@ -141,8 +194,14 @@ static void test_radiation_round_trip(void) {
     finish();
     decode_pkt();
     ASSERT_EQ(!!IOTDATA_FIELD_PRESENT(dec.fields, IOTDATA_FIELD_RADIATION), 1, "present");
-    ASSERT_EQ_U(dec.radiation_cpm, 15000, "cpm");
-    ASSERT_NEAR(dec.radiation_dose, 1.23, 0.01, "dose");
+    {
+        uint16_t cpm;
+        iotdata_float_t usvh;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_radiation(&dec, &cpm, &usvh), "decode radiation");
+        ASSERT_EQ_U(cpm, 15000, "cpm");
+        ASSERT_NEAR(usvh, 1.23, 0.01, "dose");
+    }
     PASS();
 }
 
@@ -154,8 +213,14 @@ static void test_position_round_trip(void) {
     finish();
     decode_pkt();
     ASSERT_EQ(!!IOTDATA_FIELD_PRESENT(dec.fields, IOTDATA_FIELD_POSITION), 1, "present");
-    ASSERT_NEAR(dec.position_lat, 51.507222, 0.001, "lat");
-    ASSERT_NEAR(dec.position_lon, -0.127500, 0.001, "lon");
+    {
+        iotdata_double_t latitude;
+        iotdata_double_t longitude;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_position(&dec, &latitude, &longitude), "decode position");
+        ASSERT_NEAR(latitude, 51.507222, 0.001, "lat");
+        ASSERT_NEAR(longitude, -0.127500, 0.001, "lon");
+    }
     PASS();
 }
 
@@ -168,7 +233,12 @@ static void test_datetime_round_trip(void) {
     decode_pkt();
     ASSERT_EQ(!!IOTDATA_FIELD_PRESENT(dec.fields, IOTDATA_FIELD_DATETIME), 1, "present");
     /* 3456000 / 5 * 5 = 3456000 (exact) */
-    ASSERT_EQ_U(dec.datetime_secs, 3456000, "seconds");
+    {
+        uint32_t seconds_from_year_start;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_datetime(&dec, &seconds_from_year_start), "decode datetime");
+        ASSERT_EQ_U(seconds_from_year_start, 3456000, "seconds");
+    }
     PASS();
 }
 
@@ -182,24 +252,52 @@ static void test_pres0_all_six_fields(void) {
     begin(0, 100, 500);
 
     ASSERT_OK(iotdata_encode_battery(&enc, 50, false), "battery");
+    ASSERT_OK(iotdata_encode_link(&enc, -90, 5.0f), "link");
     ASSERT_OK(iotdata_encode_environment(&enc, 22.5f, 1013, 65), "env");
     ASSERT_OK(iotdata_encode_wind(&enc, 5.5f, 180, 8.0f), "wind");
     ASSERT_OK(iotdata_encode_rain(&enc, 12, 18), "rain");
     ASSERT_OK(iotdata_encode_solar(&enc, 500, 7), "solar");
-    ASSERT_OK(iotdata_encode_link(&enc, -90, 5.0f), "link");
 
     finish();
     decode_pkt();
 
     /* Verify no extension bit was needed */
-    ASSERT_NEAR(dec.temperature, 22.5, 0.25, "temp");
-    ASSERT_EQ(dec.pressure, 1013, "pres");
-    ASSERT_EQ(dec.humidity, 65, "humid");
-    ASSERT_NEAR(dec.wind_speed, 5.5, 0.5, "wspd");
-    ASSERT_EQ(dec.rain_rate, 12, "rain");
-    ASSERT_EQ(dec.solar_irradiance, 500, "sol");
-    ASSERT_EQ(dec.solar_ultraviolet, 7, "uv");
-    ASSERT_NEAR(dec.link_rssi, -90, 4, "rssi");
+    {
+        iotdata_float_t temp_c;
+        uint16_t pressure_hpa;
+        uint8_t humidity_pct;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_environment(&dec, &temp_c, &pressure_hpa, &humidity_pct), "decode environment");
+        ASSERT_NEAR(temp_c, 22.5, 0.25, "temp");
+        ASSERT_EQ(pressure_hpa, 1013, "pres");
+        ASSERT_EQ(humidity_pct, 65, "humid");
+    }
+    {
+        iotdata_float_t speed_ms;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_wind(&dec, &speed_ms, NULL, NULL), "decode wind");
+        ASSERT_NEAR(speed_ms, 5.5, 0.5, "wspd");
+    }
+    {
+        uint8_t rate_mmhr;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_rain(&dec, &rate_mmhr, NULL), "decode rain");
+        ASSERT_EQ(rate_mmhr, 12, "rain");
+    }
+    {
+        uint16_t irradiance_wm2;
+        uint8_t ultraviolet_index;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_solar(&dec, &irradiance_wm2, &ultraviolet_index), "decode solar");
+        ASSERT_EQ(irradiance_wm2, 500, "sol");
+        ASSERT_EQ(ultraviolet_index, 7, "uv");
+    }
+    {
+        int8_t rssi_dbm;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_link(&dec, &rssi_dbm, NULL), "decode link");
+        ASSERT_NEAR(rssi_dbm, -90, 4, "rssi");
+    }
     PASS();
 }
 
@@ -211,24 +309,56 @@ static void test_pres1_all_seven_fields(void) {
     /* Need at least one pres0 field, or just pres1 fields */
     ASSERT_OK(iotdata_encode_battery(&enc, 100, true), "battery");
 
-    ASSERT_OK(iotdata_encode_flags(&enc, 0xFF), "flags");
-    ASSERT_OK(iotdata_encode_air_quality_index(&enc, 250), "aqi");
     ASSERT_OK(iotdata_encode_clouds(&enc, 3), "cloud");
+    ASSERT_OK(iotdata_encode_air_quality_index(&enc, 250), "aqi");
     ASSERT_OK(iotdata_encode_radiation(&enc, 42, 0.05f), "rad");
     ASSERT_OK(iotdata_encode_position(&enc, -33.8688, 151.2093), "pos");
     ASSERT_OK(iotdata_encode_datetime(&enc, 7200000), "dt");
+    ASSERT_OK(iotdata_encode_flags(&enc, 0xFF), "flags");
 
     finish();
     decode_pkt();
 
-    ASSERT_EQ(dec.flags, 0xFF, "flags");
-    ASSERT_EQ(dec.aq_index, 250, "aqi");
-    ASSERT_EQ(dec.clouds, 3, "cloud");
-    ASSERT_EQ_U(dec.radiation_cpm, 42, "cpm");
-    ASSERT_NEAR(dec.radiation_dose, 0.05, 0.01, "dose");
-    ASSERT_NEAR(dec.position_lat, -33.8688, 0.001, "lat");
-    ASSERT_NEAR(dec.position_lon, 151.2093, 0.001, "lon");
-    ASSERT_EQ_U(dec.datetime_secs, 7200000, "dt");
+    {
+        uint8_t flags;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_flags(&dec, &flags), "decode flags");
+        ASSERT_EQ(flags, 0xFF, "flags");
+    }
+    {
+        uint16_t aq_index;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_air_quality_index(&dec, &aq_index), "decode air_quality_index");
+        ASSERT_EQ(aq_index, 250, "aqi");
+    }
+    {
+        uint8_t okta;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_clouds(&dec, &okta), "decode clouds");
+        ASSERT_EQ(okta, 3, "cloud");
+    }
+    {
+        uint16_t cpm;
+        iotdata_float_t usvh;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_radiation(&dec, &cpm, &usvh), "decode radiation");
+        ASSERT_EQ_U(cpm, 42, "cpm");
+        ASSERT_NEAR(usvh, 0.05, 0.01, "dose");
+    }
+    {
+        iotdata_double_t latitude;
+        iotdata_double_t longitude;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_position(&dec, &latitude, &longitude), "decode position");
+        ASSERT_NEAR(latitude, -33.8688, 0.001, "lat");
+        ASSERT_NEAR(longitude, 151.2093, 0.001, "lon");
+    }
+    {
+        uint32_t seconds_from_year_start;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_datetime(&dec, &seconds_from_year_start), "decode datetime");
+        ASSERT_EQ_U(seconds_from_year_start, 7200000, "dt");
+    }
     PASS();
 }
 
@@ -239,46 +369,115 @@ static void test_full_weather_station(void) {
 
     /* Pres0 (6 fields) */
     ASSERT_OK(iotdata_encode_battery(&enc, 88, false), "battery");
+    ASSERT_OK(iotdata_encode_link(&enc, -100, -5.0f), "link");
     ASSERT_OK(iotdata_encode_environment(&enc, -5.25f, 980, 90), "env");
     ASSERT_OK(iotdata_encode_wind(&enc, 12.0f, 270, 18.5f), "wind");
     ASSERT_OK(iotdata_encode_rain(&enc, 0, 0), "rain");
     ASSERT_OK(iotdata_encode_solar(&enc, 0, 0), "solar");
-    ASSERT_OK(iotdata_encode_link(&enc, -100, -5.0f), "link");
 
     /* Pres1 (7 fields) */
-    ASSERT_OK(iotdata_encode_flags(&enc, 0x01), "flags");
-    ASSERT_OK(iotdata_encode_air_quality_index(&enc, 150), "aqi");
     ASSERT_OK(iotdata_encode_clouds(&enc, 8), "cloud");
+    ASSERT_OK(iotdata_encode_air_quality_index(&enc, 150), "aqi");
     ASSERT_OK(iotdata_encode_radiation(&enc, 25, 0.15f), "cpm");
     ASSERT_OK(iotdata_encode_position(&enc, 59.334591, 18.063240), "pos");
     ASSERT_OK(iotdata_encode_datetime(&enc, 3456000), "dt");
+    ASSERT_OK(iotdata_encode_flags(&enc, 0x01), "flags");
 
     finish();
     printf("\n    [packed: %" PRIu32 " bytes] ", (uint32_t)pkt_len);
     decode_pkt();
 
     /* Verify all 13 fields */
-    ASSERT_NEAR(dec.battery_level, 88, 4, "bat");
-    ASSERT_EQ(dec.battery_charging, false, "chg");
-    ASSERT_NEAR(dec.temperature, -5.25, 0.25, "temp");
-    ASSERT_EQ(dec.pressure, 980, "pres");
-    ASSERT_EQ(dec.humidity, 90, "humid");
-    ASSERT_NEAR(dec.wind_speed, 12.0, 0.5, "wspd");
-    ASSERT_NEAR(dec.wind_direction, 270, 2.0, "wdir");
-    ASSERT_NEAR(dec.wind_gust, 18.5, 0.5, "wgust");
-    ASSERT_EQ(dec.rain_rate, 0, "rain");
-    ASSERT_EQ(dec.rain_size10, 0, "rain");
-    ASSERT_EQ(dec.solar_irradiance, 0, "sol");
-    ASSERT_EQ(dec.solar_ultraviolet, 0, "uv");
-    ASSERT_NEAR(dec.link_rssi, -100, 4, "rssi");
-    ASSERT_EQ(dec.flags, 0x01, "flags");
-    ASSERT_EQ(dec.aq_index, 150, "aqi");
-    ASSERT_EQ(dec.clouds, 8, "cloud");
-    ASSERT_EQ_U(dec.radiation_cpm, 25, "cpm");
-    ASSERT_NEAR(dec.radiation_dose, 0.15, 0.01, "dose");
-    ASSERT_NEAR(dec.position_lat, 59.334591, 0.001, "lat");
-    ASSERT_NEAR(dec.position_lon, 18.063240, 0.001, "lon");
-    ASSERT_EQ_U(dec.datetime_secs, 3456000, "dt");
+    {
+        uint8_t level_percent;
+        bool charging;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_battery(&dec, &level_percent, &charging), "decode battery");
+        ASSERT_NEAR(level_percent, 88, 4, "bat");
+        ASSERT_EQ(charging, false, "chg");
+    }
+    {
+        iotdata_float_t temp_c;
+        uint16_t pressure_hpa;
+        uint8_t humidity_pct;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_environment(&dec, &temp_c, &pressure_hpa, &humidity_pct), "decode environment");
+        ASSERT_NEAR(temp_c, -5.25, 0.25, "temp");
+        ASSERT_EQ(pressure_hpa, 980, "pres");
+        ASSERT_EQ(humidity_pct, 90, "humid");
+    }
+    {
+        iotdata_float_t speed_ms;
+        uint16_t direction_deg;
+        iotdata_float_t gust_ms;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_wind(&dec, &speed_ms, &direction_deg, &gust_ms), "decode wind");
+        ASSERT_NEAR(speed_ms, 12.0, 0.5, "wspd");
+        ASSERT_NEAR(direction_deg, 270, 2.0, "wdir");
+        ASSERT_NEAR(gust_ms, 18.5, 0.5, "wgust");
+    }
+    {
+        uint8_t rate_mmhr;
+        uint8_t size10_mmd;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_rain(&dec, &rate_mmhr, &size10_mmd), "decode rain");
+        ASSERT_EQ(rate_mmhr, 0, "rain");
+        ASSERT_EQ(size10_mmd, 0, "rain");
+    }
+    {
+        uint16_t irradiance_wm2;
+        uint8_t ultraviolet_index;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_solar(&dec, &irradiance_wm2, &ultraviolet_index), "decode solar");
+        ASSERT_EQ(irradiance_wm2, 0, "sol");
+        ASSERT_EQ(ultraviolet_index, 0, "uv");
+    }
+    {
+        int8_t rssi_dbm;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_link(&dec, &rssi_dbm, NULL), "decode link");
+        ASSERT_NEAR(rssi_dbm, -100, 4, "rssi");
+    }
+    {
+        uint8_t flags;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_flags(&dec, &flags), "decode flags");
+        ASSERT_EQ(flags, 0x01, "flags");
+    }
+    {
+        uint16_t aq_index;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_air_quality_index(&dec, &aq_index), "decode air_quality_index");
+        ASSERT_EQ(aq_index, 150, "aqi");
+    }
+    {
+        uint8_t okta;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_clouds(&dec, &okta), "decode clouds");
+        ASSERT_EQ(okta, 8, "cloud");
+    }
+    {
+        uint16_t cpm;
+        iotdata_float_t usvh;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_radiation(&dec, &cpm, &usvh), "decode radiation");
+        ASSERT_EQ_U(cpm, 25, "cpm");
+        ASSERT_NEAR(usvh, 0.15, 0.01, "dose");
+    }
+    {
+        iotdata_double_t latitude;
+        iotdata_double_t longitude;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_position(&dec, &latitude, &longitude), "decode position");
+        ASSERT_NEAR(latitude, 59.334591, 0.001, "lat");
+        ASSERT_NEAR(longitude, 18.063240, 0.001, "lon");
+    }
+    {
+        uint32_t seconds_from_year_start;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_datetime(&dec, &seconds_from_year_start), "decode datetime");
+        ASSERT_EQ_U(seconds_from_year_start, 3456000, "dt");
+    }
     PASS();
 }
 
@@ -291,41 +490,109 @@ static void test_boundary_min_values(void) {
     begin(0, 0, 0);
 
     ASSERT_OK(iotdata_encode_battery(&enc, 0, false), "bat 0%");
+    ASSERT_OK(iotdata_encode_link(&enc, -120, -20.0f), "link min");
     ASSERT_OK(iotdata_encode_environment(&enc, -40.0f, 850, 0), "env min");
     ASSERT_OK(iotdata_encode_wind(&enc, 0.0f, 0, 0.0f), "wind min");
-    ASSERT_OK(iotdata_encode_rain_rate(&enc, 0), "rain 0");
+    ASSERT_OK(iotdata_encode_rain(&enc, 0, 0), "rain 0");
     ASSERT_OK(iotdata_encode_solar(&enc, 0, 0), "solar 0");
-    ASSERT_OK(iotdata_encode_link(&enc, -120, -20.0f), "link min");
-    ASSERT_OK(iotdata_encode_flags(&enc, 0x00), "flags 0");
-    ASSERT_OK(iotdata_encode_air_quality_index(&enc, 0), "aqi 0");
     ASSERT_OK(iotdata_encode_clouds(&enc, 0), "cloud 0");
+    ASSERT_OK(iotdata_encode_air_quality_index(&enc, 0), "aqi 0");
     ASSERT_OK(iotdata_encode_radiation(&enc, 0, 0.f), "rad 0");
     ASSERT_OK(iotdata_encode_position(&enc, -90.0, -180.0), "pos min");
     ASSERT_OK(iotdata_encode_datetime(&enc, 0), "dt 0");
+    ASSERT_OK(iotdata_encode_flags(&enc, 0x00), "flags 0");
 
     finish();
     decode_pkt();
 
-    ASSERT_EQ(dec.battery_level, 0, "bat");
-    ASSERT_NEAR(dec.temperature, -40.0, 0.25, "temp");
-    ASSERT_EQ(dec.pressure, 850, "pres");
-    ASSERT_EQ(dec.humidity, 0, "humid");
-    ASSERT_NEAR(dec.wind_speed, 0.0, 0.5, "wspd");
-    ASSERT_NEAR(dec.wind_direction, 0, 2.0, "wdir");
-    ASSERT_NEAR(dec.wind_gust, 0.0, 0.5, "wgust");
-    ASSERT_EQ(dec.rain_rate, 0, "rain");
-    ASSERT_EQ(dec.solar_irradiance, 0, "sol");
-    ASSERT_EQ(dec.solar_ultraviolet, 0, "uv");
-    ASSERT_EQ(dec.link_rssi, -120, "rssi");
-    ASSERT_NEAR(dec.link_snr, -20.0, 5.0, "snr");
-    ASSERT_EQ(dec.flags, 0x00, "flags");
-    ASSERT_EQ(dec.aq_index, 0, "aqi");
-    ASSERT_EQ(dec.clouds, 0, "cloud");
-    ASSERT_EQ_U(dec.radiation_cpm, 0, "cpm");
-    ASSERT_NEAR(dec.radiation_dose, 0.0, 0.01, "dose");
-    ASSERT_NEAR(dec.position_lat, -90.0, 0.001, "lat");
-    ASSERT_NEAR(dec.position_lon, -180.0, 0.001, "lon");
-    ASSERT_EQ_U(dec.datetime_secs, 0, "dt");
+    {
+        uint8_t level_percent;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_battery(&dec, &level_percent, NULL), "decode battery");
+        ASSERT_EQ(level_percent, 0, "bat");
+    }
+    {
+        iotdata_float_t temp_c;
+        uint16_t pressure_hpa;
+        uint8_t humidity_pct;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_environment(&dec, &temp_c, &pressure_hpa, &humidity_pct), "decode environment");
+        ASSERT_NEAR(temp_c, -40.0, 0.25, "temp");
+        ASSERT_EQ(pressure_hpa, 850, "pres");
+        ASSERT_EQ(humidity_pct, 0, "humid");
+    }
+    {
+        iotdata_float_t speed_ms;
+        uint16_t direction_deg;
+        iotdata_float_t gust_ms;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_wind(&dec, &speed_ms, &direction_deg, &gust_ms), "decode wind");
+        ASSERT_NEAR(speed_ms, 0.0, 0.5, "wspd");
+        ASSERT_NEAR(direction_deg, 0, 2.0, "wdir");
+        ASSERT_NEAR(gust_ms, 0.0, 0.5, "wgust");
+    }
+    {
+        uint8_t rate_mmhr;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_rain(&dec, &rate_mmhr, NULL), "decode rain");
+        ASSERT_EQ(rate_mmhr, 0, "rain");
+    }
+    {
+        uint16_t irradiance_wm2;
+        uint8_t ultraviolet_index;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_solar(&dec, &irradiance_wm2, &ultraviolet_index), "decode solar");
+        ASSERT_EQ(irradiance_wm2, 0, "sol");
+        ASSERT_EQ(ultraviolet_index, 0, "uv");
+    }
+    {
+        int8_t rssi_dbm;
+        iotdata_float_t snr_db;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_link(&dec, &rssi_dbm, &snr_db), "decode link");
+        ASSERT_EQ(rssi_dbm, -120, "rssi");
+        ASSERT_NEAR(snr_db, -20.0, 5.0, "snr");
+    }
+    {
+        uint8_t flags;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_flags(&dec, &flags), "decode flags");
+        ASSERT_EQ(flags, 0x00, "flags");
+    }
+    {
+        uint16_t aq_index;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_air_quality_index(&dec, &aq_index), "decode air_quality_index");
+        ASSERT_EQ(aq_index, 0, "aqi");
+    }
+    {
+        uint8_t okta;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_clouds(&dec, &okta), "decode clouds");
+        ASSERT_EQ(okta, 0, "cloud");
+    }
+    {
+        uint16_t cpm;
+        iotdata_float_t usvh;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_radiation(&dec, &cpm, &usvh), "decode radiation");
+        ASSERT_EQ_U(cpm, 0, "cpm");
+        ASSERT_NEAR(usvh, 0.0, 0.01, "dose");
+    }
+    {
+        iotdata_double_t latitude;
+        iotdata_double_t longitude;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_position(&dec, &latitude, &longitude), "decode position");
+        ASSERT_NEAR(latitude, -90.0, 0.001, "lat");
+        ASSERT_NEAR(longitude, -180.0, 0.001, "lon");
+    }
+    {
+        uint32_t seconds_from_year_start;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_datetime(&dec, &seconds_from_year_start), "decode datetime");
+        ASSERT_EQ_U(seconds_from_year_start, 0, "dt");
+    }
     PASS();
 }
 
@@ -334,74 +601,137 @@ static void test_boundary_max_values(void) {
     begin(0, IOTDATA_STATION_MAX, IOTDATA_SEQUENCE_MAX);
 
     ASSERT_OK(iotdata_encode_battery(&enc, 100, true), "bat 100%");
+    ASSERT_OK(iotdata_encode_link(&enc, -60, 10.0f), "link max");
     ASSERT_OK(iotdata_encode_environment(&enc, 80.0f, 1105, 100), "env max");
     ASSERT_OK(iotdata_encode_wind(&enc, 63.5f, 355, 63.5f), "wind max");
     ASSERT_OK(iotdata_encode_rain(&enc, 255, 60), "rain max");
     ASSERT_OK(iotdata_encode_solar(&enc, 1023, 15), "solar max");
-    ASSERT_OK(iotdata_encode_link(&enc, -60, 10.0f), "link max");
-    ASSERT_OK(iotdata_encode_flags(&enc, 0xFF), "flags ff");
-    ASSERT_OK(iotdata_encode_air_quality_index(&enc, 500), "aqi max");
     ASSERT_OK(iotdata_encode_clouds(&enc, 8), "cloud max");
+    ASSERT_OK(iotdata_encode_air_quality_index(&enc, 500), "aqi max");
     ASSERT_OK(iotdata_encode_radiation(&enc, 16383, 163.83f), "cpm max");
     ASSERT_OK(iotdata_encode_position(&enc, 90.0, 180.0), "pos max");
     /* Use a large but valid datetime */
     ASSERT_OK(iotdata_encode_datetime(&enc, 31536000), "dt large");
+    ASSERT_OK(iotdata_encode_flags(&enc, 0xFF), "flags ff");
 
     finish();
     decode_pkt();
 
-    ASSERT_EQ(dec.battery_level, 100, "bat");
-    ASSERT_EQ(dec.battery_charging, true, "chg");
-    ASSERT_NEAR(dec.temperature, 80.0, 0.25, "temp");
-    ASSERT_EQ(dec.pressure, 1105, "pres");
-    ASSERT_EQ(dec.humidity, 100, "humid");
-    ASSERT_NEAR(dec.wind_speed, 63.5, 0.5, "wspd");
-    ASSERT_NEAR(dec.wind_direction, 355, 2.0, "wdir");
-    ASSERT_NEAR(dec.wind_gust, 63.5, 0.5, "wgust");
-    ASSERT_EQ(dec.rain_rate, 255, "rainrate");
-    ASSERT_NEAR(dec.rain_size10, 60, 5.0, "rainsize");
-    ASSERT_EQ(dec.solar_irradiance, 1023, "sol");
-    ASSERT_EQ(dec.solar_ultraviolet, 15, "uv");
-    ASSERT_EQ(dec.link_rssi, -60, "rssi");
-    ASSERT_NEAR(dec.link_snr, 10.0, 5.0, "snr");
-    ASSERT_EQ(dec.flags, 0xFF, "flags");
-    ASSERT_EQ(dec.aq_index, 500, "aqi");
-    ASSERT_EQ(dec.clouds, 8, "cloud");
-    ASSERT_EQ_U(dec.radiation_cpm, 16383, "cpm");
-    ASSERT_NEAR(dec.radiation_dose, 163.83, 0.01, "dose");
-    ASSERT_NEAR(dec.position_lat, 90.0, 0.001, "lat");
-    ASSERT_NEAR(dec.position_lon, 180.0, 0.001, "lon");
+    {
+        uint8_t level_percent;
+        bool charging;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_battery(&dec, &level_percent, &charging), "decode battery");
+        ASSERT_EQ(level_percent, 100, "bat");
+        ASSERT_EQ(charging, true, "chg");
+    }
+    {
+        iotdata_float_t temp_c;
+        uint16_t pressure_hpa;
+        uint8_t humidity_pct;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_environment(&dec, &temp_c, &pressure_hpa, &humidity_pct), "decode environment");
+        ASSERT_NEAR(temp_c, 80.0, 0.25, "temp");
+        ASSERT_EQ(pressure_hpa, 1105, "pres");
+        ASSERT_EQ(humidity_pct, 100, "humid");
+    }
+    {
+        iotdata_float_t speed_ms;
+        uint16_t direction_deg;
+        iotdata_float_t gust_ms;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_wind(&dec, &speed_ms, &direction_deg, &gust_ms), "decode wind");
+        ASSERT_NEAR(speed_ms, 63.5, 0.5, "wspd");
+        ASSERT_NEAR(direction_deg, 355, 2.0, "wdir");
+        ASSERT_NEAR(gust_ms, 63.5, 0.5, "wgust");
+    }
+    {
+        uint8_t rate_mmhr;
+        uint8_t size10_mmd;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_rain(&dec, &rate_mmhr, &size10_mmd), "decode rain");
+        ASSERT_EQ(rate_mmhr, 255, "rainrate");
+        ASSERT_NEAR(size10_mmd, 60, 5.0, "rainsize");
+    }
+    {
+        uint16_t irradiance_wm2;
+        uint8_t ultraviolet_index;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_solar(&dec, &irradiance_wm2, &ultraviolet_index), "decode solar");
+        ASSERT_EQ(irradiance_wm2, 1023, "sol");
+        ASSERT_EQ(ultraviolet_index, 15, "uv");
+    }
+    {
+        int8_t rssi_dbm;
+        iotdata_float_t snr_db;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_link(&dec, &rssi_dbm, &snr_db), "decode link");
+        ASSERT_EQ(rssi_dbm, -60, "rssi");
+        ASSERT_NEAR(snr_db, 10.0, 5.0, "snr");
+    }
+    {
+        uint8_t flags;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_flags(&dec, &flags), "decode flags");
+        ASSERT_EQ(flags, 0xFF, "flags");
+    }
+    {
+        uint16_t aq_index;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_air_quality_index(&dec, &aq_index), "decode air_quality_index");
+        ASSERT_EQ(aq_index, 500, "aqi");
+    }
+    {
+        uint8_t okta;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_clouds(&dec, &okta), "decode clouds");
+        ASSERT_EQ(okta, 8, "cloud");
+    }
+    {
+        uint16_t cpm;
+        iotdata_float_t usvh;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_radiation(&dec, &cpm, &usvh), "decode radiation");
+        ASSERT_EQ_U(cpm, 16383, "cpm");
+        ASSERT_NEAR(usvh, 163.83, 0.01, "dose");
+    }
+    {
+        iotdata_double_t latitude;
+        iotdata_double_t longitude;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_position(&dec, &latitude, &longitude), "decode position");
+        ASSERT_NEAR(latitude, 90.0, 0.001, "lat");
+        ASSERT_NEAR(longitude, 180.0, 0.001, "lon");
+    }
     PASS();
 }
 
 static void test_error_conditions(void) {
-    TEST("Error boundary checks (all fields)");
+    TEST("Error boundary checks (fields this variant carries)");
 
     begin(0, 1, 1);
 
-    /* Temperature out of range */
-    ASSERT_ERR(iotdata_encode_temperature(&enc, -50.0f), IOTDATA_ERR_TEMPERATURE_LOW, "temp low");
-    ASSERT_ERR(iotdata_encode_temperature(&enc, 85.0f), IOTDATA_ERR_TEMPERATURE_HIGH, "temp high");
+    /* THE VARIANT DECIDES WHAT CAN BE SET, AND IT IS CHECKED FIRST. A value boundary can only be
+       reached for a field the weather station actually carries, so the atomic temperature,
+       pressure, humidity and wind components are exercised through the composites that occupy its
+       slots -- which apply exactly the same range checks. test_failures covers the atomic setters
+       against a variant that carries them. */
 
-    /* Pressure out of range */
-    ASSERT_ERR(iotdata_encode_pressure(&enc, 849), IOTDATA_ERR_PRESSURE_LOW, "pres low");
-    ASSERT_ERR(iotdata_encode_pressure(&enc, 1106), IOTDATA_ERR_PRESSURE_HIGH, "pres high");
+    /* Temperature out of range, via the environment slot */
+    ASSERT_ERR(iotdata_encode_environment(&enc, -50.0f, 1013, 50), IOTDATA_ERR_TEMPERATURE_LOW, "temp low");
+    ASSERT_ERR(iotdata_encode_environment(&enc, 85.0f, 1013, 50), IOTDATA_ERR_TEMPERATURE_HIGH, "temp high");
 
-    /* Humidity out of range */
-    ASSERT_ERR(iotdata_encode_humidity(&enc, 101), IOTDATA_ERR_HUMIDITY_HIGH, "humid high");
+    /* Pressure out of range, via the environment slot */
+    ASSERT_ERR(iotdata_encode_environment(&enc, 20.0f, 849, 50), IOTDATA_ERR_PRESSURE_LOW, "pres low");
+    ASSERT_ERR(iotdata_encode_environment(&enc, 20.0f, 1106, 50), IOTDATA_ERR_PRESSURE_HIGH, "pres high");
 
-    /* Wind speed out of range */
-    ASSERT_ERR(iotdata_encode_wind_speed(&enc, 70.0f), IOTDATA_ERR_WIND_SPEED_HIGH, "wspd high");
+    /* Humidity out of range, via the environment slot */
+    ASSERT_ERR(iotdata_encode_environment(&enc, 20.0f, 1013, 101), IOTDATA_ERR_HUMIDITY_HIGH, "humid high");
 
-    /* Wind direction out of range */
-    ASSERT_ERR(iotdata_encode_wind_direction(&enc, 360), IOTDATA_ERR_WIND_DIRECTION_HIGH, "wdir high");
-
-    /* Wind gust out of range */
-    ASSERT_ERR(iotdata_encode_wind_gust(&enc, 70.0f), IOTDATA_ERR_WIND_GUST_HIGH, "wgust high");
-
-    /* Rain rate: uint8_t param, so 256 wraps — no range check possible at API level.
-     * Test that max value (255) is accepted: */
-    /* (rain_rate boundary is enforced by the C type itself) */
+    /* Wind speed, direction and gust out of range, via the wind slot */
+    ASSERT_ERR(iotdata_encode_wind(&enc, 70.0f, 180, 8.0f), IOTDATA_ERR_WIND_SPEED_HIGH, "wspd high");
+    ASSERT_ERR(iotdata_encode_wind(&enc, 5.0f, 360, 8.0f), IOTDATA_ERR_WIND_DIRECTION_HIGH, "wdir high");
+    ASSERT_ERR(iotdata_encode_wind(&enc, 5.0f, 180, 70.0f), IOTDATA_ERR_WIND_GUST_HIGH, "wgust high");
 
     /* Air quality out of range */
     ASSERT_ERR(iotdata_encode_air_quality_index(&enc, 501), IOTDATA_ERR_AIR_QUALITY_INDEX_HIGH, "aqi high");
@@ -409,21 +739,21 @@ static void test_error_conditions(void) {
     /* Cloud cover out of range */
     ASSERT_ERR(iotdata_encode_clouds(&enc, 9), IOTDATA_ERR_CLOUDS_HIGH, "cloud high");
 
-    /* Radiation CPM: uint16_t param, so 65536 wraps — no range check at API level.
-     * (radiation_cpm boundary is enforced by the C type itself) */
-
-    /* Radiation dose out of range */
-    ASSERT_ERR(iotdata_encode_radiation_dose(&enc, 200.0f), IOTDATA_ERR_RADIATION_DOSE_HIGH, "dose high");
+    /* Radiation dose out of range, via the radiation slot */
+    ASSERT_ERR(iotdata_encode_radiation(&enc, 100, 200.0f), IOTDATA_ERR_RADIATION_DOSE_HIGH, "dose high");
 
     /* Battery too high */
     ASSERT_ERR(iotdata_encode_battery(&enc, 101, false), IOTDATA_ERR_BATTERY_LEVEL_HIGH, "bat high");
 
-    /* Depth out of range */
-    ASSERT_ERR(iotdata_encode_depth(&enc, 1024), IOTDATA_ERR_DEPTH_HIGH, "depth high");
+    /* A field with NO slot in this variant is refused before its value is even looked at, so a
+       value that is also out of range still reports the slot and not the value. */
+    ASSERT_ERR(iotdata_encode_depth(&enc, 1024), IOTDATA_ERR_CTX_NON_EXISTENT_FIELD, "depth absent");
+    ASSERT_ERR(iotdata_encode_temperature(&enc, -50.0f), IOTDATA_ERR_CTX_NON_EXISTENT_FIELD, "bare temp absent");
+    ASSERT_ERR(iotdata_encode_rain_rate(&enc, 5), IOTDATA_ERR_CTX_NON_EXISTENT_FIELD, "bare rain_rate absent");
 
     /* Duplicate field */
     ASSERT_OK(iotdata_encode_battery(&enc, 50, false), "bat ok");
-    ASSERT_ERR(iotdata_encode_battery(&enc, 60, true), IOTDATA_ERR_CTX_DUPLICATE_FIELD, "bat dup");
+    ASSERT_ERR(iotdata_encode_battery(&enc, 60, true), ERR_REFILL, "bat dup");
 
     /* Variant limits */
     iotdata_encoder_t enc2;
@@ -455,7 +785,12 @@ static void test_quantisation_temperature(void) {
         ASSERT_OK(iotdata_encode_environment(&enc, test_temps[i], 1000, 50), "enc");
         finish();
         decode_pkt();
-        ASSERT_NEAR(dec.temperature, test_temps[i], 0.25, "temp quant");
+        {
+            iotdata_float_t temp_c;
+            rewind_dec();
+            ASSERT_OK(iotdata_decode_environment(&dec, &temp_c, NULL, NULL), "decode environment");
+            ASSERT_NEAR(temp_c, test_temps[i], 0.25, "temp quant");
+        }
     }
     PASS();
 }
@@ -480,9 +815,16 @@ static void test_quantisation_wind(void) {
         ASSERT_OK(iotdata_encode_wind(&enc, tests[i].spd, (uint16_t)tests[i].dir, tests[i].gust), "enc");
         finish();
         decode_pkt();
-        ASSERT_NEAR(dec.wind_speed, tests[i].spd, 0.5, "speed quant");
-        ASSERT_NEAR(dec.wind_direction, tests[i].dir, 2.0, "dir quant");
-        ASSERT_NEAR(dec.wind_gust, tests[i].gust, 0.5, "gust quant");
+        {
+            iotdata_float_t speed_ms;
+            uint16_t direction_deg;
+            iotdata_float_t gust_ms;
+            rewind_dec();
+            ASSERT_OK(iotdata_decode_wind(&dec, &speed_ms, &direction_deg, &gust_ms), "decode wind");
+            ASSERT_NEAR(speed_ms, tests[i].spd, 0.5, "speed quant");
+            ASSERT_NEAR(direction_deg, tests[i].dir, 2.0, "dir quant");
+            ASSERT_NEAR(gust_ms, tests[i].gust, 0.5, "gust quant");
+        }
     }
     PASS();
 }
@@ -508,8 +850,14 @@ static void test_quantisation_position(void) {
         ASSERT_OK(iotdata_encode_position(&enc, positions[i].lat, positions[i].lon), "enc");
         finish();
         decode_pkt();
-        ASSERT_NEAR(dec.position_lat, positions[i].lat, 0.001, "lat");
-        ASSERT_NEAR(dec.position_lon, positions[i].lon, 0.001, "lon");
+        {
+            iotdata_double_t latitude;
+            iotdata_double_t longitude;
+            rewind_dec();
+            ASSERT_OK(iotdata_decode_position(&dec, &latitude, &longitude), "decode position");
+            ASSERT_NEAR(latitude, positions[i].lat, 0.001, "lat");
+            ASSERT_NEAR(longitude, positions[i].lon, 0.001, "lon");
+        }
     }
     PASS();
 }
@@ -525,7 +873,12 @@ static void test_quantisation_radiation(void) {
         ASSERT_OK(iotdata_encode_radiation(&enc, 0, doses[i]), "enc");
         finish();
         decode_pkt();
-        ASSERT_NEAR(dec.radiation_dose, doses[i], 0.01, "dose");
+        {
+            iotdata_float_t usvh;
+            rewind_dec();
+            ASSERT_OK(iotdata_decode_radiation(&dec, NULL, &usvh), "decode radiation");
+            ASSERT_NEAR(usvh, doses[i], 0.01, "dose");
+        }
     }
     PASS();
 }
@@ -563,17 +916,17 @@ static void test_json_round_trip(void) {
     begin(0, 10, 999);
 
     ASSERT_OK(iotdata_encode_battery(&enc, 80, true), "bat");
+    ASSERT_OK(iotdata_encode_link(&enc, -80, 0.0f), "link");
     ASSERT_OK(iotdata_encode_environment(&enc, 20.0f, 1013, 50), "env");
     ASSERT_OK(iotdata_encode_wind(&enc, 8.0f, 225, 12.0f), "wind");
     ASSERT_OK(iotdata_encode_rain(&enc, 5, 1), "rain");
     ASSERT_OK(iotdata_encode_solar(&enc, 300, 5), "sol");
-    ASSERT_OK(iotdata_encode_link(&enc, -80, 0.0f), "link");
-    ASSERT_OK(iotdata_encode_flags(&enc, 0x42), "flags");
-    ASSERT_OK(iotdata_encode_air_quality_index(&enc, 75), "aqi");
     ASSERT_OK(iotdata_encode_clouds(&enc, 4), "cloud");
+    ASSERT_OK(iotdata_encode_air_quality_index(&enc, 75), "aqi");
     ASSERT_OK(iotdata_encode_radiation(&enc, 100, 0.50f), "rad");
     ASSERT_OK(iotdata_encode_position(&enc, 51.5, -0.1), "pos");
     ASSERT_OK(iotdata_encode_datetime(&enc, 86400), "dt");
+    ASSERT_OK(iotdata_encode_flags(&enc, 0x42), "flags");
 
     finish();
 
@@ -672,7 +1025,12 @@ static void test_single_pres1_field_only(void) {
     decode_pkt();
 
     ASSERT_EQ(!!IOTDATA_FIELD_PRESENT(dec.fields, IOTDATA_FIELD_FLAGS), 1, "present");
-    ASSERT_EQ(dec.flags, 0x42, "flags");
+    {
+        uint8_t flags;
+        rewind_dec();
+        ASSERT_OK(iotdata_decode_flags(&dec, &flags), "decode flags");
+        ASSERT_EQ(flags, 0x42, "flags");
+    }
     /* Should have needed extension byte since flags is in pres1 */
     PASS();
 }
@@ -726,28 +1084,28 @@ static void test_packet_sizes(void) {
     /* Full pres0 */
     begin(0, 1, 2);
     ASSERT_OK(iotdata_encode_battery(&enc, 50, false), "bat");
+    ASSERT_OK(iotdata_encode_link(&enc, -80, 0.0f), "link");
     ASSERT_OK(iotdata_encode_environment(&enc, 20.0f, 1013, 50), "env");
     ASSERT_OK(iotdata_encode_wind(&enc, 5.0f, 180, 8.0f), "wind");
-    ASSERT_OK(iotdata_encode_rain_rate(&enc, 5), "rain");
+    ASSERT_OK(iotdata_encode_rain(&enc, 5, 2), "rain");
     ASSERT_OK(iotdata_encode_solar(&enc, 300, 5), "sol");
-    ASSERT_OK(iotdata_encode_link(&enc, -80, 0.0f), "link");
     finish();
     printf("[full pres0: %" PRIu32 " bytes] ", (uint32_t)pkt_len);
 
     /* Full station (all 13) */
     begin(0, 1, 3);
     ASSERT_OK(iotdata_encode_battery(&enc, 50, false), "bat");
+    ASSERT_OK(iotdata_encode_link(&enc, -80, 0.0f), "link");
     ASSERT_OK(iotdata_encode_environment(&enc, 20.0f, 1013, 50), "env");
     ASSERT_OK(iotdata_encode_wind(&enc, 5.0f, 180, 8.0f), "wind");
-    ASSERT_OK(iotdata_encode_rain_rate(&enc, 5), "rain");
+    ASSERT_OK(iotdata_encode_rain(&enc, 5, 2), "rain");
     ASSERT_OK(iotdata_encode_solar(&enc, 300, 5), "sol");
-    ASSERT_OK(iotdata_encode_link(&enc, -80, 0.0f), "link");
-    ASSERT_OK(iotdata_encode_flags(&enc, 0x01), "flags");
-    ASSERT_OK(iotdata_encode_air_quality_index(&enc, 50), "aqi");
     ASSERT_OK(iotdata_encode_clouds(&enc, 4), "cloud");
+    ASSERT_OK(iotdata_encode_air_quality_index(&enc, 50), "aqi");
     ASSERT_OK(iotdata_encode_radiation(&enc, 100, 0.10f), "cpm");
     ASSERT_OK(iotdata_encode_position(&enc, 51.5, -0.1), "pos");
     ASSERT_OK(iotdata_encode_datetime(&enc, 86400), "dt");
+    ASSERT_OK(iotdata_encode_flags(&enc, 0x01), "flags");
     finish();
     printf("[full station: %" PRIu32 " bytes] ", (uint32_t)pkt_len);
 

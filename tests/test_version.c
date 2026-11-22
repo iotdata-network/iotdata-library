@@ -84,7 +84,16 @@ const iotdata_variant_def_t test_version_variants[] = {
  * -----------------------------------------------------------------------*/
 
 static const char *build_label(void) {
-#if defined(IOTDATA_NO_DECODE)
+    /* Ordered operation is orthogonal to the rest, so it is tested first and named first --
+       otherwise the binary reports itself as FULL and a failure says nothing about which mode it
+       was in. */
+#if defined(IOTDATA_OPERATE_ORDERED) && defined(IOTDATA_OPERATE_ORDERED_COMPLETE)
+    return "ORDERED_COMPLETE";
+#elif defined(IOTDATA_OPERATE_ORDERED)
+    return "ORDERED";
+#elif defined(IOTDATA_NO_PRINT) && defined(IOTDATA_NO_DUMP)
+    return "NO_PRINT_NO_DUMP";
+#elif defined(IOTDATA_NO_DECODE)
     return "NO_DECODE";
 #elif defined(IOTDATA_NO_ENCODE)
     return "NO_ENCODE";
@@ -157,12 +166,20 @@ static int do_encode(uint8_t *buf, size_t buf_size, size_t *out_len) {
     if (rc != IOTDATA_OK)
         return -1;
 
-    /* --- pres0 fields --- */
+    /* THE CALLS BELOW RUN IN THE VARIANT'S SLOT ORDER, not in whatever order reads well. Under
+       IOTDATA_OPERATE_ORDERED the cursor only moves forwards, so call order IS field order and a
+       setter for an earlier slot is refused. The other configurations do not care, which is why
+       this drifted out of order unnoticed in the first place.
+
+       --- pres0 fields --- */
 
 #if defined(IOTDATA_NO_FLOATING)
     /* Integer mode: iotdata_float_t = int32_t (value × 100) */
     rc = iotdata_encode_battery(&enc, 75, true);
     CHECK(rc == IOTDATA_OK, "encode_battery");
+
+    rc = iotdata_encode_link(&enc, -90, 50); /* 5.00 dB */
+    CHECK(rc == IOTDATA_OK, "encode_link");
 
     rc = iotdata_encode_environment(&enc, 2250, 1013, 65); /* 22.50 °C */
     CHECK(rc == IOTDATA_OK, "encode_environment");
@@ -176,22 +193,16 @@ static int do_encode(uint8_t *buf, size_t buf_size, size_t *out_len) {
     rc = iotdata_encode_solar(&enc, 500, 7);
     CHECK(rc == IOTDATA_OK, "encode_solar");
 
-    rc = iotdata_encode_link(&enc, -90, 50); /* 5.00 dB */
-    CHECK(rc == IOTDATA_OK, "encode_link");
-
     /* --- pres1 fields --- */
 
-    rc = iotdata_encode_flags(&enc, 0x42);
-    CHECK(rc == IOTDATA_OK, "encode_flags");
+    rc = iotdata_encode_clouds(&enc, 4);
+    CHECK(rc == IOTDATA_OK, "encode_clouds");
 
     {
         const uint16_t pm[IOTDATA_AIR_QUALITY_PM_COUNT] = { 35, 12, 50, 25 }, gas[IOTDATA_AIR_QUALITY_GAS_COUNT] = { 400, 50, 30, 10, 5, 200, 100, 80 };
         rc = iotdata_encode_air_quality(&enc, 75, 0x0F, pm, 0xFF, gas);
         CHECK(rc == IOTDATA_OK, "encode_air_quality");
     }
-
-    rc = iotdata_encode_clouds(&enc, 4);
-    CHECK(rc == IOTDATA_OK, "encode_clouds");
 
     rc = iotdata_encode_radiation(&enc, 100, 50); /* 0.50 µSv/h */
     CHECK(rc == IOTDATA_OK, "encode_radiation");
@@ -204,10 +215,16 @@ static int do_encode(uint8_t *buf, size_t buf_size, size_t *out_len) {
 
     rc = iotdata_encode_datetime(&enc, 86400);
     CHECK(rc == IOTDATA_OK, "encode_datetime");
+
+    rc = iotdata_encode_flags(&enc, 0x42);
+    CHECK(rc == IOTDATA_OK, "encode_flags");
 #else
     /* Float mode */
     rc = iotdata_encode_battery(&enc, 75, true);
     CHECK(rc == IOTDATA_OK, "encode_battery");
+
+    rc = iotdata_encode_link(&enc, -90, 5.0f);
+    CHECK(rc == IOTDATA_OK, "encode_link");
 
     rc = iotdata_encode_environment(&enc, 22.5f, 1013, 65);
     CHECK(rc == IOTDATA_OK, "encode_environment");
@@ -221,22 +238,16 @@ static int do_encode(uint8_t *buf, size_t buf_size, size_t *out_len) {
     rc = iotdata_encode_solar(&enc, 500, 7);
     CHECK(rc == IOTDATA_OK, "encode_solar");
 
-    rc = iotdata_encode_link(&enc, -90, 5.0f);
-    CHECK(rc == IOTDATA_OK, "encode_link");
-
     /* --- pres1 fields --- */
 
-    rc = iotdata_encode_flags(&enc, 0x42);
-    CHECK(rc == IOTDATA_OK, "encode_flags");
+    rc = iotdata_encode_clouds(&enc, 4);
+    CHECK(rc == IOTDATA_OK, "encode_clouds");
 
     {
         const uint16_t pm[IOTDATA_AIR_QUALITY_PM_COUNT] = { 35, 12, 50, 25 }, gas[IOTDATA_AIR_QUALITY_GAS_COUNT] = { 400, 50, 30, 10, 5, 200, 100, 80 };
         rc = iotdata_encode_air_quality(&enc, 75, 0x0F, pm, 0xFF, gas);
         CHECK(rc == IOTDATA_OK, "encode_air_quality");
     }
-
-    rc = iotdata_encode_clouds(&enc, 4);
-    CHECK(rc == IOTDATA_OK, "encode_clouds");
 
     rc = iotdata_encode_radiation(&enc, 100, 0.50f);
     CHECK(rc == IOTDATA_OK, "encode_radiation");
@@ -253,6 +264,9 @@ static int do_encode(uint8_t *buf, size_t buf_size, size_t *out_len) {
 
     rc = iotdata_encode_datetime(&enc, 86400);
     CHECK(rc == IOTDATA_OK, "encode_datetime");
+
+    rc = iotdata_encode_flags(&enc, 0x42);
+    CHECK(rc == IOTDATA_OK, "encode_flags");
 #endif
 
     {
