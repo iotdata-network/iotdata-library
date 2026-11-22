@@ -175,9 +175,6 @@ $(LIB_STATIC): $(LIB_OBJ)
 # judged on content and not on its ability to pad columns.
 
 GENERATOR      = generators/iotdata-generator-fields.js
-# A wildcard, not a list: the point of several specification documents is that a
-# vendor adds fields by dropping a file in, and a file nobody has listed here
-# would otherwise not trigger a regeneration.
 GENERATOR_SPEC = $(wildcard specification/iotdata-fields*.xml)
 GENERATOR_TMPL = $(wildcard generators/templates/fields.*.tmpl)
 GENERATOR_DEPS = $(GENERATOR) generators/iotdata-generator-functions-xml.js \
@@ -187,11 +184,8 @@ generate: $(GENERATOR_DEPS)
 	node $(GENERATOR)
 	$(MAKE) --no-print-directory format
 
-# TWO QUESTIONS, BOTH WORTH ASKING, AND THEY ARE NOT THE SAME.
-#
-# FIDELITY: does the generated output match what is COMMITTED? That is the real
-# acceptance test while fields are being migrated -- the committed files have been
-# in service, so reproducing them is the only evidence nothing was quietly
+# FIDELITY: does the generated output match what is COMMITTED? The committed files
+# have been in service, so reproducing them is the only evidence nothing was quietly
 # re-derived. It is `git diff`, and a non-empty diff here is for reading, not
 # necessarily a fault: a deliberate change to a generated file shows up the same
 # way as a mistake, and only a person can tell those apart.
@@ -203,6 +197,7 @@ generate: $(GENERATOR_DEPS)
 # generated to generated -- which is why fidelity is asked first.
 # What the generator writes. One header now, where it used to be a header and a
 # source: see the banner in iotdata_fields.h.
+
 GENERATED  = iotdata_fields.h
 
 generate-check: $(GENERATOR_DEPS)
@@ -234,8 +229,9 @@ $(TEST_COMPLETE_BIN): $(TEST_COMPLETE_SRC) $(LIB_HDR) $(LIB_SRC)
 	$(CC) $(CFLAGS) $(CFLAGS_TEST) $(MAPS_COMPLETE) $(TEST_COMPLETE_SRC) $(LIB_SRC) $(LIBS) -o $@
 $(TEST_FAILURES_BIN): $(TEST_FAILURES_SRC) $(LIB_HDR) $(LIB_SRC)
 	$(CC) $(CFLAGS) $(CFLAGS_TEST) $(MAPS_FAILURES) $(TEST_FAILURES_SRC) $(LIB_SRC) $(LIBS) -o $@
+$(TEST_FIELDS_BIN): $(TEST_FIELDS_SRC) $(LIB_HDR) $(LIB_SRC)
+	$(CC) $(CFLAGS) $(CFLAGS_TEST) $(MAPS_FIELDS) $(TEST_FIELDS_SRC) $(LIB_SRC) $(LIBS) -o $@
 
-# ... and the same four under IOTDATA_OPERATE_ORDERED
 tests/test_default_ordered: $(TEST_DEFAULT_SRC) $(LIB_HDR) $(LIB_SRC)
 	$(CC) $(CFLAGS) $(CFLAGS_TEST) $(MAPS_DEFAULT) $(CFLAGS_ORDERED) $(TEST_DEFAULT_SRC) $(LIB_SRC) $(LIBS) -o $@
 tests/test_custom_ordered: $(TEST_CUSTOM_SRC) $(LIB_HDR) $(LIB_SRC)
@@ -244,14 +240,9 @@ tests/test_complete_ordered: $(TEST_COMPLETE_SRC) $(LIB_HDR) $(LIB_SRC)
 	$(CC) $(CFLAGS) $(CFLAGS_TEST) $(MAPS_COMPLETE) $(CFLAGS_ORDERED) $(TEST_COMPLETE_SRC) $(LIB_SRC) $(LIBS) -o $@
 tests/test_failures_ordered: $(TEST_FAILURES_SRC) $(LIB_HDR) $(LIB_SRC)
 	$(CC) $(CFLAGS) $(CFLAGS_TEST) $(MAPS_FAILURES) $(CFLAGS_ORDERED) $(TEST_FAILURES_SRC) $(LIB_SRC) $(LIBS) -o $@
-
-# One test per generated field, asking the same four questions of each: round trip,
-# boundaries, range, absence. The behavioural guard on the templates -- generate-check
-# proves the output has not changed, this proves a change was right.
-$(TEST_FIELDS_BIN): $(TEST_FIELDS_SRC) $(LIB_HDR) $(LIB_SRC)
-	$(CC) $(CFLAGS) $(CFLAGS_TEST) $(MAPS_FIELDS) $(TEST_FIELDS_SRC) $(LIB_SRC) $(LIBS) -o $@
 tests/test_fields_ordered: $(TEST_FIELDS_SRC) $(LIB_HDR) $(LIB_SRC)
 	$(CC) $(CFLAGS) $(CFLAGS_TEST) $(MAPS_FIELDS) $(CFLAGS_ORDERED) $(TEST_FIELDS_SRC) $(LIB_SRC) $(LIBS) -o $@
+
 $(TEST_ORDERED_BIN): $(TEST_ORDERED_SRC) $(LIB_HDR) $(LIB_SRC)
 	$(CC) $(CFLAGS) $(CFLAGS_TEST) $(MAPS_ORDERED) $(CFLAGS_ORDERED) $(TEST_ORDERED_SRC) $(LIB_SRC) $(LIBS) -o $@
 
@@ -338,16 +329,6 @@ test-example: $(TEST_EXAMPLE_BIN)
 
 ################################################################################
 
-# EVERY FIELD ALONE, ACROSS THE BUILD AXES. IOTDATA_ENABLE_SELECTIVE compiles exactly one
-# field's code, and that is the only configuration that can expose a helper or a table whose
-# guard is wrong: in every other build some other field happens to use it, so the mistake stays
-# silent. Two helpers in iotdata.c and one table in the air quality family were wrong this way,
-# found only by sweeping it by hand -- hence this target.
-#
-# The field list derives itself from the GENERATED REGISTRY, so a field added tomorrow is swept
-# without anyone remembering to add it here. The registry rather than iotdata_fields.h, because
-# it is the whole-set view by construction: IMAGE's identifier lives in iotdata_fields_image.h,
-# and reading only the generated header silently dropped it from the sweep.
 SELECTIVE_FIELDS = $(shell awk -F, '/^0x/ { print toupper($$2) }' iotdata_fields.csv | sort -u)
 SELECTIVE_AXES   = default NO_FLOATING NO_FLOATING_DOUBLES NO_JSON NO_PRINT+NO_DUMP \
                    NO_ENCODE NO_DECODE OPERATE_ORDERED NO_CHECKS_STATE+NO_CHECKS_TYPES
@@ -375,23 +356,6 @@ test-selective: $(LIB_HDR) $(LIB_SRC)
 
 ################################################################################
 
-# A 16-BIT TARGET, COMPILE ONLY. avr-gcc has `int` at sixteen bits, and that is the one property
-# no amount of testing on x86 or an ESP32 reaches -- both have it at thirty-two. It found two real
-# faults on its first run: the datetime helper held a day number in `int` (y * 365 is about
-# 739000, and its seconds remainder reaches 86399), and ten print formats used %d for an
-# iotdata_float_t, which is `int` on x86 and `long` here.
-#
-# WHAT IT CATCHES is what a compiler can see: a conversion that narrows, a format that does not
-# match its argument, a type whose width the code assumed. It does NOT catch plain arithmetic
-# overflow -- `int j = y * 365` draws no warning here on its own, and the datetime fault was
-# visible only because a long literal in the same expression forced a narrowing conversion at the
-# assignment. Catching the overflow itself would mean RUNNING these, which wants an emulator.
-#
-# Compile only, and no linking: there is no cJSON for an AVR, so the JSON-using suites cannot
-# build and are not asked to. What IS built is the library across the whole configuration matrix,
-# plus the three suites that need no cJSON -- which between them instantiate every field.
-#
-# Nothing here runs. Running it would want an emulator, and that is a separate question.
 AVR_CC    ?= avr-gcc
 AVR_MCU   ?= atmega328p
 AVR_FLAGS  = -mmcu=$(AVR_MCU) -I. $(CFLAGS_OPT) $(CFLAGS_COMMON) $(CFLAGS_STRICT) -DIOTDATA_NO_JSON
