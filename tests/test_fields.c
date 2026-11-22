@@ -796,8 +796,10 @@ static void test_field_environment(void) {
 
     /* A COMPOSITE RAISES ITS PARTS' ERRORS, not errors of its own -- it has no error codes. */
     begin(0, 1, 2);
-    ASSERT_ERR(iotdata_encode_environment(&enc, (iotdata_float_t)(IOTDATA_TEMPERATURE_MAX + IOTDATA_TEMPERATURE_RES), 1013, 48), IOTDATA_ERR_TEMPERATURE_HIGH, "temperature range");
-    ASSERT_ERR(iotdata_encode_environment(&enc, t, IOTDATA_PRESSURE_MAX + 1, 48), IOTDATA_ERR_PRESSURE_HIGH, "pressure range");
+    ASSERT_ERR(iotdata_encode_environment(&enc, (iotdata_float_t)(IOTDATA_TEMPERATURE_MIN - IOTDATA_TEMPERATURE_RES), 1013, 48), IOTDATA_ERR_TEMPERATURE_LOW, "temperature below");
+    ASSERT_ERR(iotdata_encode_environment(&enc, (iotdata_float_t)(IOTDATA_TEMPERATURE_MAX + IOTDATA_TEMPERATURE_RES), 1013, 48), IOTDATA_ERR_TEMPERATURE_HIGH, "temperature above");
+    ASSERT_ERR(iotdata_encode_environment(&enc, t, IOTDATA_PRESSURE_MIN - 1, 48), IOTDATA_ERR_PRESSURE_LOW, "pressure below");
+    ASSERT_ERR(iotdata_encode_environment(&enc, t, IOTDATA_PRESSURE_MAX + 1, 48), IOTDATA_ERR_PRESSURE_HIGH, "pressure above");
     ASSERT_ERR(iotdata_encode_environment(&enc, t, 1013, IOTDATA_HUMIDITY_MAX + 1), IOTDATA_ERR_HUMIDITY_HIGH, "humidity range");
 
     /* ITS STORAGE IS ITS OWN. A variant carrying both the composite and a standalone part must
@@ -1657,6 +1659,12 @@ static void test_field_image(void) {
     ASSERT_ERR(iotdata_encode_image(&enc, 0, IOTDATA_IMAGE_SIZE_64x48 + 1, 0, 0, pixels, 1), IOTDATA_ERR_IMAGE_SIZE_HIGH, "size tier above the last tier");
     ASSERT_ERR(iotdata_encode_image(&enc, 0, 0, IOTDATA_IMAGE_COMP_HEATSHRINK + 1, 0, pixels, 1), IOTDATA_ERR_IMAGE_COMPRESSION_HIGH, "compression above the last scheme");
     ASSERT_ERR(iotdata_encode_image(&enc, 0, 0, 0, 0, NULL, 1), IOTDATA_ERR_IMAGE_DATA_NULL, "a null pointer with a non-zero length");
+    {
+        /* 255 is the ONLY value that reaches this error: data_len is a uint8_t and the ceiling
+           is 254, so the admissible range stops one short of what the type can hold. */
+        static uint8_t over[256];
+        ASSERT_ERR(iotdata_encode_image(&enc, 0, 0, 0, 0, over, IOTDATA_IMAGE_DATA_MAX + 1), IOTDATA_ERR_IMAGE_DATA_HIGH, "one byte more than 254");
+    }
     ASSERT_OK(iotdata_encode_image(&enc, 0, 0, 0, 0, NULL, 0), "but a null pointer with no length is fine");
 
     /* Each format, tier and compression scheme the field names, accepted in turn. */

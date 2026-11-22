@@ -1071,25 +1071,31 @@ static void test_tlv_max_entries(void) {
 }
 
 static void test_tlv_max_data_length(void) {
-    TEST("TLV max data length (255 bytes)");
+    TEST("TLV max data length (IOTDATA_TLV_VALUE_MAX bytes)");
 
-    /* header(4) + presence(3) + tlv_header(2) + data(255) = 264, exceeds pkt[256] */
-    uint8_t big_pkt[512];
+    /* THIS TEST USED TO ASK FOR 255 AND ITS OWN COMMENT SAID WHY THAT WAS WRONG:
+       "header(4) + presence(3) + tlv_header(2) + data(255) = 264, exceeds pkt[256]".
+       It then reached for a 512-byte buffer so the oversized TLV would go through. The sum was
+       right and the conclusion was never drawn: 255 is what the length FIELD holds, not what a
+       packet can carry, and the difference is IOTDATA_TLV_VALUE_MAX. The setter enforces that
+       now, so this asks for the real maximum -- which still exercises the longest TLV there is,
+       and in a buffer that can genuinely hold it. */
+    uint8_t big_pkt[IOTDATA_MAX_PACKET_SIZE];
     size_t big_len;
     iotdata_encoder_t big_enc;
     assert(iotdata_encode_begin(&big_enc, big_pkt, sizeof(big_pkt), 0, 1, 401) == IOTDATA_OK);
 
-    uint8_t data[255];
-    memset(data, 0xAB, 255);
-    ASSERT_OK(iotdata_encode_tlv(&big_enc, 0x20, data, 255), "encode 255");
+    uint8_t data[IOTDATA_TLV_VALUE_MAX];
+    memset(data, 0xAB, sizeof(data));
+    ASSERT_OK(iotdata_encode_tlv(&big_enc, 0x20, data, IOTDATA_TLV_VALUE_MAX), "encode the maximum a packet can carry");
     assert(iotdata_encode_end(&big_enc, &big_len) == IOTDATA_OK);
 
     iotdata_decoder_t big_dec;
     assert(iotdata_decode(big_pkt, big_len, &big_dec) == IOTDATA_OK);
     ASSERT_EQ(big_dec.tlv_count, 1, "count");
-    ASSERT_EQ(big_dec.tlv[0].length, 255, "len");
+    ASSERT_EQ(big_dec.tlv[0].length, IOTDATA_TLV_VALUE_MAX, "len");
     ASSERT_EQ(big_dec.tlv[0].raw[0], 0xAB, "first");
-    ASSERT_EQ(big_dec.tlv[0].raw[254], 0xAB, "last");
+    ASSERT_EQ(big_dec.tlv[0].raw[IOTDATA_TLV_VALUE_MAX - 1], 0xAB, "last");
     PASS();
 }
 
@@ -1126,6 +1132,61 @@ static void test_tlv_string_invalid_chars(void) {
                                          "\x80"
                                          "test"),
                IOTDATA_ERR_TLV_STR_CHAR_INVALID, "high byte");
+    PASS();
+}
+
+static void test_tlv_too_long_for_a_packet(void) {
+    TEST("TLV longer than a packet can carry");
+
+    /* THE BOUND IS STATIC, which is the point of it: IOTDATA_TLV_VALUE_MAX is the compiled
+       maximum packet size less the header, the presence bytes and the TLV's own framing, so the
+       same length answers the same way wherever the call appears and whatever mode the build is
+       in. Comparing against IOTDATA_TLV_LENGTH_MAX instead would never fail -- 255 fits the
+       eight-bit length field by construction -- which is why this check was missing for so long.
+
+       Whether a packet fits a particular BUFFER is a different question with a different answer:
+       BUF_TOO_SMALL, at encode_end, asserted below. */
+    static uint8_t data[IOTDATA_TLV_LENGTH_MAX];
+    uint8_t big[IOTDATA_MAX_PACKET_SIZE];
+    iotdata_encoder_t e;
+    size_t n;
+
+    ASSERT_OK(iotdata_encode_begin(&e, big, sizeof(big), 0, 1, 450), "begin");
+    ASSERT_OK(iotdata_encode_tlv(&e, 0x10, data, IOTDATA_TLV_VALUE_MAX), "exactly the maximum is accepted");
+    ASSERT_OK(iotdata_encode_end(&e, &n), "and it fits");
+
+    ASSERT_OK(iotdata_encode_begin(&e, big, sizeof(big), 0, 1, 451), "begin again");
+    ASSERT_ERR(iotdata_encode_tlv(&e, 0x10, data, IOTDATA_TLV_VALUE_MAX + 1), IOTDATA_ERR_TLV_LEN_HIGH, "one more is not");
+    ASSERT_ERR(iotdata_encode_tlv(&e, 0x10, data, IOTDATA_TLV_LENGTH_MAX), IOTDATA_ERR_TLV_LEN_HIGH, "nor is what the length field can hold");
+
+    /* A SMALL BUFFER IS NOT THE SAME FAULT. This TLV is well inside what a packet may carry; it
+       is this buffer that cannot take it, and that is reported where the bytes are written. */
+    {
+        uint8_t small[32];
+        iotdata_encoder_t e2;
+        size_t n2;
+        ASSERT_OK(iotdata_encode_begin(&e2, small, sizeof(small), 0, 1, 452), "begin a small frame");
+        ASSERT_OK(iotdata_encode_tlv(&e2, 0x10, data, 100), "100 bytes is a legal TLV");
+        ASSERT_ERR(iotdata_encode_end(&e2, &n2), IOTDATA_ERR_BUF_TOO_SMALL, "but not into 32 bytes");
+    }
+    PASS();
+}
+
+static void test_tlv_string_too_long(void) {
+    TEST("TLV string longer than the maximum");
+
+    /* The last TLV error with a reachable path and nothing asserting it. The ceiling is on
+       strlen, so the string has to be built rather than written out: one character past
+       IOTDATA_TLV_STR_LEN_MAX, in an alphabet the 6-bit encoder accepts, so that it fails for
+       its LENGTH and not for a character. */
+    static char over[IOTDATA_TLV_STR_LEN_MAX + 2];
+    for (size_t i = 0; i < sizeof(over) - 1; i++)
+        over[i] = 'A';
+    over[sizeof(over) - 1] = '\0';
+    begin(0, 1, 406);
+    ASSERT_ERR(iotdata_encode_tlv_string(&enc, 0x20, over), IOTDATA_ERR_TLV_STR_LEN_HIGH, "one character too many");
+    over[IOTDATA_TLV_STR_LEN_MAX] = '\0';
+    ASSERT_OK(iotdata_encode_tlv_string(&enc, 0x20, over), "and exactly the maximum is fine");
     PASS();
 }
 
@@ -1751,6 +1812,8 @@ int main(void) {
     test_tlv_empty_string();
     test_tlv_type_boundary();
     test_tlv_string_invalid_chars();
+    test_tlv_too_long_for_a_packet();
+    test_tlv_string_too_long();
 
     printf("\n--- Section 8: Buffer overflow ---\n");
     test_buffer_overflow_single_field();

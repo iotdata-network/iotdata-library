@@ -123,6 +123,11 @@ static inline bool iotdata_issixbit(const char c) {
    found. */
 #define IOTDATA_FIELD_TLV_RESERVED_ID 63
 #define IOTDATA_FIELDS_DEF_TLV(F)     F(TLV, IOTDATA_FIELD_TLV_RESERVED_ID)
+/* IOTDATA_ERR_TLV_LEN_HIGH is raised against IOTDATA_TLV_VALUE_MAX -- what a packet can carry,
+   not what the eight-bit length field can hold. See the comment at iotdata_encode_tlv.
+   Three codes that sat here raising nothing have been removed (UNMATCHED, KV_MISMATCH and
+   VALUE_HIGH): they described validation of the KV payloads that was never written, and an error
+   a caller can switch on and never receive is worse than no error at all. */
 #define IOTDATA_FIELDS_ERR_IDENTS_TLV(S) \
     S(IOTDATA_ERR_TLV_TYPE_HIGH) \
     S(IOTDATA_ERR_TLV_DATA_NULL) \
@@ -130,21 +135,15 @@ static inline bool iotdata_issixbit(const char c) {
     S(IOTDATA_ERR_TLV_FULL) \
     S(IOTDATA_ERR_TLV_STR_NULL) \
     S(IOTDATA_ERR_TLV_STR_LEN_HIGH) \
-    S(IOTDATA_ERR_TLV_STR_CHAR_INVALID) \
-    S(IOTDATA_ERR_TLV_UNMATCHED) \
-    S(IOTDATA_ERR_TLV_KV_MISMATCH) \
-    S(IOTDATA_ERR_TLV_VALUE_HIGH)
+    S(IOTDATA_ERR_TLV_STR_CHAR_INVALID)
 #define IOTDATA_FIELDS_ERR_STRINGS_TLV(D) \
     D(IOTDATA_ERR_TLV_TYPE_HIGH, "TLV type above maximum (63)") \
     D(IOTDATA_ERR_TLV_DATA_NULL, "TLV data pointer is NULL") \
-    D(IOTDATA_ERR_TLV_LEN_HIGH, "TLV length above maximum (255)") \
+    D(IOTDATA_ERR_TLV_LEN_HIGH, "TLV length above what a packet can carry") \
     D(IOTDATA_ERR_TLV_FULL, "TLV fields exhausted (max 8)") \
     D(IOTDATA_ERR_TLV_STR_NULL, "TLV string pointer is NULL") \
     D(IOTDATA_ERR_TLV_STR_LEN_HIGH, "TLV string too long (max 255 chars)") \
-    D(IOTDATA_ERR_TLV_STR_CHAR_INVALID, "TLV string contains unencodable character") \
-    D(IOTDATA_ERR_TLV_UNMATCHED, "TLV global type was unmatched") \
-    D(IOTDATA_ERR_TLV_KV_MISMATCH, "TLV global key-value type missing one pair") \
-    D(IOTDATA_ERR_TLV_VALUE_HIGH, "TLV value above range")
+    D(IOTDATA_ERR_TLV_STR_CHAR_INVALID, "TLV string contains unencodable character")
 #define IOTDATA_FIELD_RESERVED(id) ((id) == IOTDATA_FIELD_TLV)
 #if !defined(IOTDATA_NO_JSON) && !defined(IOTDATA_NO_ENCODE) && !defined(_IOTDATA_NEED_BASE64_DECODE)
 #define _IOTDATA_NEED_BASE64_DECODE
@@ -414,7 +413,20 @@ iotdata_status_t iotdata_encode_tlv(iotdata_encoder_t *enc, uint8_t type, const 
        -- and the packer never dereferences data when length is 0, so NULL is allowed there */
     if (!data && length > 0)
         return IOTDATA_ERR_TLV_DATA_NULL;
-    /* length is uint8_t, and IOTDATA_TLV_LENGTH_MAX is what that field holds, so always in range */
+    /* THE BOUND THAT BINDS IS THE FRAME'S, NOT THE LENGTH FIELD'S. A length of 255 fits the
+       eight-bit field, so comparing against IOTDATA_TLV_LENGTH_MAX can never fail -- which is
+       why this check read as unreachable and was left out. What a packet can actually carry is
+       IOTDATA_TLV_VALUE_MAX: the compiled maximum packet size less the header, the presence
+       bytes and this TLV's own framing. That came to 246, and the whole system already sizes
+       its buffers by it -- the node variant TLV, the runtime key-value buffer, the control
+       payload, the TSA encoder -- while the library itself never checked. A caller handing over
+       247 was accepted here and failed later as a buffer error naming nothing.
+       It is deliberately a STATIC bound rather than the space actually left: it depends only on
+       the TLV and the build, so the same call answers the same way wherever it appears in a
+       sequence. Whether a particular packet fits a particular buffer is a different question,
+       answered at encode_end, and answered there as BUF_TOO_SMALL. */
+    if (length > IOTDATA_TLV_VALUE_MAX)
+        return IOTDATA_ERR_TLV_LEN_HIGH;
 #endif
     if (enc->tlv_count >= IOTDATA_TLV_MAX)
         return IOTDATA_ERR_TLV_FULL;
