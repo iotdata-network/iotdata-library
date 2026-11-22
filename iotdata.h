@@ -133,7 +133,7 @@ static inline uint16_t iotdata_station_from_id(const uint32_t id) {
 }
 
 static inline bool iotdata_station_is_assignable(const uint16_t station) {
-    return station != 0u && station <= IOTDATA_STATION_ASSIGNABLE_MAX;
+    return station > 0u && station <= IOTDATA_STATION_ASSIGNABLE_MAX;
 }
 
 static inline uint16_t iotdata_sequence_next(const uint16_t seq) {

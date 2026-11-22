@@ -22,9 +22,10 @@
         </documentation>
 
         <constants>
-            <constant name="BITS" value="24"/>
+            <constant name="MIN" value="0"/>
+            <constant name="MAX" value="16777215"/>
             <constant name="RES" value="5"/>
-            <constant name="MAX" value="(((uint32_t)1 &lt;&lt; IOTDATA_DATETIME_BITS) - 1)"/>
+            <constant name="BITS" value="24"/>
         </constants>
 
         <quantity name="datetime_secs" type="uint32_t" param="seconds_from_year_start" stem="datetime">

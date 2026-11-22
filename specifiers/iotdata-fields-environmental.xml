@@ -22,7 +22,9 @@
         </documentation>
 
         <constants>
+            <constant name="MIN" value="0"/>
             <constant name="MAX" value="8"/>
+            <constant name="RES" value="1"/>
             <constant name="BITS" value="4"/>
         </constants>
 
@@ -76,7 +78,9 @@
         </documentation>
 
         <constants>
+            <constant name="MIN" value="0"/>
             <constant name="MAX" value="1023"/>
+            <constant name="RES" value="1"/>
             <constant name="BITS" value="10"/>
         </constants>
 
@@ -130,7 +134,9 @@
         </documentation>
 
         <constants>
+            <constant name="MIN" value="0"/>
             <constant name="MAX" value="1023"/>
+            <constant name="RES" value="1"/>
             <constant name="BITS" value="10"/>
         </constants>
 
@@ -180,7 +186,9 @@
     <field name="solar_ultraviolet" id="0x0041u" bits="IOTDATA_SOLAR_ULTRAVIOLET_BITS">
 
         <constants>
+            <constant name="MIN" value="0"/>
             <constant name="MAX" value="15"/>
+            <constant name="RES" value="1"/>
             <constant name="BITS" value="4"/>
         </constants>
 
@@ -279,12 +287,12 @@
         </documentation>
 
         <constants>
-            <constant name="MIN" value="(-40.0f)" when="floating"/>
-            <constant name="MAX" value="(80.0f)" when="floating"/>
-            <constant name="RES" value="(0.25f)" when="floating"/>
-            <constant name="MIN" value="(-4000)" when="integer"/>
-            <constant name="MAX" value="(8000)" when="integer"/>
-            <constant name="RES" value="(25)" when="integer"/>
+            <constant name="MIN" value="-40.0f" when="floating"/>
+            <constant name="MAX" value="80.0f" when="floating"/>
+            <constant name="RES" value="0.25f" when="floating"/>
+            <constant name="MIN" value="-4000" when="integer"/>
+            <constant name="MAX" value="8000" when="integer"/>
+            <constant name="RES" value="25" when="integer"/>
             <constant name="BITS" value="9"/>
         </constants>
 
@@ -354,6 +362,7 @@
         <constants>
             <constant name="MIN" value="850"/>
             <constant name="MAX" value="1105"/>
+            <constant name="RES" value="1"/>
             <constant name="BITS" value="8"/>
         </constants>
 
@@ -404,7 +413,9 @@
     <field name="humidity" id="0x0012u" bits="IOTDATA_HUMIDITY_BITS">
 
         <constants>
+            <constant name="MIN" value="0"/>
             <constant name="MAX" value="100"/>
+            <constant name="RES" value="1"/>
             <constant name="BITS" value="7"/>
         </constants>
 
@@ -514,10 +525,11 @@
         </documentation>
 
         <constants>
-            <constant name="RES" value="(0.5f)" when="floating"/>
-            <constant name="MAX" value="(63.5f)" when="floating"/>
-            <constant name="RES" value="(50)" when="integer"/>
-            <constant name="MAX" value="(6350)" when="integer"/>
+            <constant name="MIN" value="0"/>
+            <constant name="MAX" value="63.5f" when="floating"/>
+            <constant name="RES" value="0.5f" when="floating"/>
+            <constant name="MAX" value="6350" when="integer"/>
+            <constant name="RES" value="50" when="integer"/>
             <constant name="BITS" value="7"/>
         </constants>
 
@@ -583,9 +595,10 @@
     <field name="wind_direction" id="0x0021u" bits="IOTDATA_WIND_DIRECTION_BITS">
 
         <constants>
+            <constant name="MIN" value="0"/>
             <constant name="MAX" value="359"/>
-            <constant name="BITS" value="8"/>
             <constant name="SCALE" value="((float)(IOTDATA_WIND_DIRECTION_MAX + 1) / (float)(1 &lt;&lt; IOTDATA_WIND_DIRECTION_BITS))" when="floating"/>
+            <constant name="BITS" value="8"/>
         </constants>
 
         <quantity name="wind_direction" type="uint16_t" param="direction_deg">
@@ -638,10 +651,11 @@
     <field name="wind_gust" id="0x0022u" bits="IOTDATA_WIND_GUST_BITS">
 
         <constants>
-            <constant name="RES" value="(0.5f)" when="floating"/>
-            <constant name="MAX" value="(63.5f)" when="floating"/>
-            <constant name="RES" value="(50)" when="integer"/>
-            <constant name="MAX" value="(6350)" when="integer"/>
+            <constant name="MIN" value="0"/>
+            <constant name="MAX" value="63.5f" when="floating"/>
+            <constant name="RES" value="0.5f" when="floating"/>
+            <constant name="MAX" value="6350" when="integer"/>
+            <constant name="RES" value="50" when="integer"/>
             <constant name="BITS" value="7"/>
         </constants>
 
@@ -767,7 +781,9 @@
         </documentation>
 
         <constants>
+            <constant name="MIN" value="0"/>
             <constant name="MAX" value="255"/>
+            <constant name="RES" value="1"/>
             <constant name="BITS" value="8"/>
         </constants>
 
@@ -816,9 +832,10 @@
     <field name="rain_size" id="0x0031u" bits="IOTDATA_RAIN_SIZE_BITS">
 
         <constants>
+            <constant name="MIN" value="0"/>
             <constant name="MAX" value="15"/>
-            <constant name="BITS" value="4"/>
             <constant name="SCALE" value="4"/>
+            <constant name="BITS" value="4"/>
         </constants>
 
         <quantity name="rain_size10" type="uint8_t" param="size10_mmd" stem="rain_size">

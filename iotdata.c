@@ -483,10 +483,10 @@ static int dump_add(iotdata_dump_t *dump, int n, size_t bit_offset, size_t bit_l
 #endif
 
 #if !defined(IOTDATA_NO_PRINT) && !defined(IOTDATA_NO_DECODE)
-static const char _padd_spaces[] = "                        "; /* 24 spaces */
 static const char *_padd(const char *label) {
-    const int n = (int)sizeof(_padd_spaces) - (int)strlen(label);
-    return &_padd_spaces[(int)sizeof(_padd_spaces) - (n > 0 ? n : 1)];
+    static const char _spaces[] = "                        "; /* 24 spaces */
+    const int n = (int)sizeof(_spaces) - (int)strlen(label);
+    return &_spaces[(int)sizeof(_spaces) - (n > 0 ? n : 1)];
 }
 #endif
 
@@ -642,7 +642,7 @@ iotdata_status_t iotdata_encode_begin(iotdata_encoder_t *enc, uint8_t *buf, size
     enc->bp = 0;
     enc->pres_bit = 0;
     enc->pres_reserved = 0;
-    if (vdef != NULL) {
+    if (vdef) {
         const int n = _iotdata_field_count(vdef->num_pres_bytes);
         enc->slot_count = (int8_t)((n < IOTDATA_MAX_DATA_FIELDS) ? n : IOTDATA_MAX_DATA_FIELDS);
         const size_t bb = buf_size * 8;
@@ -657,7 +657,7 @@ iotdata_status_t iotdata_encode_begin(iotdata_encoder_t *enc, uint8_t *buf, size
 #else
     for (int t = 0; t < IOTDATA_FIELD_COUNT; t++)
         enc->slot_of_type[t] = IOTDATA_SLOT_NONE;
-    if (vdef != NULL)
+    if (vdef)
         for (int si = 0; si < _iotdata_field_count(vdef->num_pres_bytes) && si < IOTDATA_MAX_DATA_FIELDS; si++) {
             const iotdata_field_type_t t = vdef->fields[si].type;
             if (IOTDATA_FIELD_VALID(t) && (int)t >= 0 && (int)t < IOTDATA_FIELD_COUNT)
@@ -673,14 +673,14 @@ iotdata_status_t iotdata_encode_end(iotdata_encoder_t *enc, size_t *out_bytes) {
     CHECK_CTX_ACTIVE(enc);
 
     const iotdata_variant_def_t *vdef = iotdata_get_variant(enc->variant);
-    if (vdef == NULL)
+    if (!vdef)
         return IOTDATA_ERR_HDR_VARIANT_UNKNOWN;
     size_t bb = enc->buf_size * 8;
 
 #if defined(IOTDATA_OPERATE_ORDERED)
 
 #if defined(IOTDATA_OPERATE_ORDERED_COMPLETE)
-    if (iotdata_encode_slots_remaining(enc) != 0)
+    if (iotdata_encode_slots_remaining(enc))
         return IOTDATA_ERR_CTX_INCOMPLETE_FIELDS;
 #endif
 
@@ -751,7 +751,7 @@ iotdata_status_t iotdata_encode_end(iotdata_encoder_t *enc, size_t *out_bytes) {
 
     enc->packed_bits = bp;
     enc->packed_bytes = bits_to_bytes(bp);
-    if ((bp & 7) != 0)
+    if ((bp & 7))
         enc->buf[bp >> 3] &= (uint8_t)~(uint8_t)((1U << (8 - (bp & 7))) - 1);
     enc->state = IOTDATA_STATE_ENDED;
     if (out_bytes)
@@ -939,14 +939,14 @@ iotdata_status_t iotdata_decode(const uint8_t *buf, size_t len, iotdata_decoder_
     uint8_t pres[IOTDATA_PRES_MAXIMUM] = { 0 };
     pres[0] = (uint8_t)bits_read(buf, bb, &bp, 8);
     int num_pres = 1;
-    while (num_pres < IOTDATA_PRES_MAXIMUM && bp + 8 <= bb && (pres[num_pres - 1] & IOTDATA_PRES_EXT) != 0)
+    while (num_pres < IOTDATA_PRES_MAXIMUM && bp + 8 <= bb && (pres[num_pres - 1] & IOTDATA_PRES_EXT))
         pres[num_pres++] = (uint8_t)bits_read(buf, bb, &bp, 8);
 
     /* Fields + TLV */
     dec->fields = IOTDATA_FIELD_EMPTY;
     dec->slots = IOTDATA_SLOT_EMPTY;
     const iotdata_variant_def_t *vdef = iotdata_get_variant(dec->variant);
-    if (vdef == NULL)
+    if (!vdef)
         return IOTDATA_ERR_HDR_VARIANT_UNKNOWN;
     const int slot_count = (_iotdata_field_count(num_pres) < IOTDATA_MAX_DATA_FIELDS) ? _iotdata_field_count(num_pres) : IOTDATA_MAX_DATA_FIELDS;
     for (int si = 0; si < slot_count; si++)
@@ -968,7 +968,7 @@ iotdata_status_t iotdata_decode(const uint8_t *buf, size_t len, iotdata_decoder_
     dec->slot_count = (int8_t)slot_count;
     dec->cur_slot = 0;
 
-    if ((pres[0] & IOTDATA_PRES_TLV) != 0) {
+    if ((pres[0] & IOTDATA_PRES_TLV)) {
         for (int si = 0; si < slot_count; si++)
             if (IOTDATA_SLOT_PRESENT(dec->slots, si)) {
                 const iotdata_field_type_t t = vdef->fields[si].type;
@@ -1071,7 +1071,7 @@ iotdata_status_t iotdata_decode_to_json(const uint8_t *buf, size_t len, char **j
 
     /* Fields + TLV */
     const iotdata_variant_def_t *vdef = iotdata_get_variant(dec->variant);
-    if (vdef == NULL) {
+    if (!vdef) {
         cJSON_Delete(root);
         return IOTDATA_ERR_HDR_VARIANT_UNKNOWN;
     }
@@ -1134,7 +1134,7 @@ iotdata_status_t iotdata_encode_from_json(const char *json, uint8_t *buf, size_t
 
     /* Fields + TLV */
     const iotdata_variant_def_t *vdef = iotdata_get_variant(enc->variant);
-    if (vdef == NULL) {
+    if (!vdef) {
         cJSON_Delete(root);
         return IOTDATA_ERR_HDR_VARIANT_UNKNOWN;
     }
@@ -1244,7 +1244,7 @@ static iotdata_status_t _iotdata_dump_build(iotdata_dump_t *dump, const uint8_t 
     snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "0x%02" PRIX8, pres[0]);
     n = dump_add(dump, n, s, 8, pres[0], dump->_dec_buf, "ext|tlv|6 fields", "presence[0]");
     int num_pres = 1;
-    while (num_pres < IOTDATA_PRES_MAXIMUM && bp + 8 <= bb && (pres[num_pres - 1] & IOTDATA_PRES_EXT) != 0) {
+    while (num_pres < IOTDATA_PRES_MAXIMUM && bp + 8 <= bb && (pres[num_pres - 1] & IOTDATA_PRES_EXT)) {
         s = bp;
         pres[num_pres] = (uint8_t)bits_read(buf, bb, &bp, 8);
         char pname[24];
@@ -1256,7 +1256,7 @@ static iotdata_status_t _iotdata_dump_build(iotdata_dump_t *dump, const uint8_t 
 
     /* Fields + TLV */
     const iotdata_variant_def_t *vdef = iotdata_get_variant(variant);
-    if (vdef == NULL)
+    if (!vdef)
         return IOTDATA_ERR_HDR_VARIANT_UNKNOWN;
     for (int si = 0; si < _iotdata_field_count(num_pres) && si < IOTDATA_MAX_DATA_FIELDS; si++)
         if (IOTDATA_FIELD_VALID(vdef->fields[si].type))
@@ -1339,7 +1339,7 @@ static void _iotdata_print_field(const iotdata_decoder_t *dec, iotdata_buf_t *bp
 
 static iotdata_status_t _iotdata_print_decoded(const iotdata_decoder_t *dec, iotdata_buf_t *bp) {
     const iotdata_variant_def_t *vdef = iotdata_get_variant(dec->variant);
-    if (vdef == NULL)
+    if (!vdef)
         return IOTDATA_ERR_HDR_VARIANT_UNKNOWN;
 
     bprintf(bp, "Station %" PRIu16 " seq=%" PRIu16 " var=%" PRIu8 " (%s) [%" PRIu32 " bits, %" PRIu32 " bytes]\n", dec->station, dec->sequence, dec->variant, vdef->name, (uint32_t)dec->packed_bits, (uint32_t)dec->packed_bytes);

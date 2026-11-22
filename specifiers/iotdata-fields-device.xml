@@ -22,7 +22,9 @@
         </documentation>
 
         <constants>
+            <constant name="MIN" value="0"/>
             <constant name="MAX" value="100"/>
+            <!-- RES -->
             <constant name="BITS" value="5"/>
         </constants>
 
@@ -168,10 +170,10 @@
         </documentation>
 
         <constants>
-            <constant name="MIN" value="(-120)"/>
-            <constant name="MAX" value="(-60)"/>
-            <constant name="STEP" value="(4)"/>
-            <constant name="BITS" value="(4)"/>
+            <constant name="MIN" value="-120"/>
+            <constant name="MAX" value="-60"/>
+            <constant name="STEP" value="4"/>
+            <constant name="BITS" value="4"/>
         </constants>
 
         <quantity name="link_rssi" type="int8_t" param="rssi_dbm">
@@ -221,13 +223,13 @@
     <field name="link_snr" id="0x0005u" bits="IOTDATA_LINK_SNR_BITS">
 
         <constants>
-            <constant name="MIN" value="(-20.0f)" when="floating"/>
-            <constant name="MAX" value="(10.0f)" when="floating"/>
-            <constant name="STEP" value="(10.0f)" when="floating"/>
-            <constant name="MIN" value="(-200)" when="integer"/>
-            <constant name="MAX" value="(100)" when="integer"/>
-            <constant name="STEP" value="(100)" when="integer"/>
-            <constant name="BITS" value="(2)"/>
+            <constant name="MIN" value="-20.0f" when="floating"/>
+            <constant name="MAX" value="10.0f" when="floating"/>
+            <constant name="STEP" value="10.0f" when="floating"/>
+            <constant name="MIN" value="-200" when="integer"/>
+            <constant name="MAX" value="100" when="integer"/>
+            <constant name="STEP" value="100" when="integer"/>
+            <constant name="BITS" value="2"/>
         </constants>
 
         <quantity name="link_snr" type="iotdata_float_t" param="snr_db">

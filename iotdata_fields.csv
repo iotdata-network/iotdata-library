@@ -1,8 +1,11 @@
 #
 # iotdata_fields.csv - the field registry
 #
-# GENERATED from specifiers/iotdata-fields-*.xml. 
-* Do not edit: the next `make generate` discards it.
+# GENERATED FILE -- DO NOT EDIT.
+#
+# Built by generators/iotdata-generator-fields.js from the field specifiers in
+# specifiers/iotdata-fields-*.xml through generators/templates/fields.registry.csv.tmpl.
+# `make generate` rewrites it.
 #
 # A WIDTH OF 0 MEANS VARIABLE, not empty: a field carrying a presence mask over an
 # array costs only what its filled slots cost, so there is no fixed number to state.
@@ -15,8 +18,8 @@
 id,name,kind,bits,bits_expr,quantities,parameters,errors,document
 0x0001,battery_level,atomic,5,IOTDATA_BATTERY_LEVEL_BITS,battery_level,"uint8_t level_percent","IOTDATA_ERR_BATTERY_LEVEL_HIGH",iotdata-fields-device.xml
 0x0002,battery_charge,atomic,1,IOTDATA_BATTERY_CHARGE_BITS,battery_charging,"bool charging","",iotdata-fields-device.xml
-0x0004,link_rssi,atomic,(4),IOTDATA_LINK_RSSI_BITS,link_rssi,"int8_t rssi_dbm","IOTDATA_ERR_LINK_RSSI_LOW IOTDATA_ERR_LINK_RSSI_HIGH",iotdata-fields-device.xml
-0x0005,link_snr,atomic,(2),IOTDATA_LINK_SNR_BITS,link_snr,"iotdata_float_t snr_db","IOTDATA_ERR_LINK_SNR_LOW IOTDATA_ERR_LINK_SNR_HIGH",iotdata-fields-device.xml
+0x0004,link_rssi,atomic,4,IOTDATA_LINK_RSSI_BITS,link_rssi,"int8_t rssi_dbm","IOTDATA_ERR_LINK_RSSI_LOW IOTDATA_ERR_LINK_RSSI_HIGH",iotdata-fields-device.xml
+0x0005,link_snr,atomic,2,IOTDATA_LINK_SNR_BITS,link_snr,"iotdata_float_t snr_db","IOTDATA_ERR_LINK_SNR_LOW IOTDATA_ERR_LINK_SNR_HIGH",iotdata-fields-device.xml
 0x0008,battery,composite,,IOTDATA_BATTERY_LEVEL_BITS + IOTDATA_BATTERY_CHARGE_BITS,battery_level.battery_level battery_charge.battery_charging,"uint8_t level_percent; bool charging","IOTDATA_ERR_BATTERY_LEVEL_HIGH",iotdata-fields-device.xml
 0x0009,link,composite,,IOTDATA_LINK_RSSI_BITS + IOTDATA_LINK_SNR_BITS,link_rssi.link_rssi link_snr.link_snr,"int8_t rssi_dbm; iotdata_float_t snr_db","IOTDATA_ERR_LINK_RSSI_LOW IOTDATA_ERR_LINK_RSSI_HIGH IOTDATA_ERR_LINK_SNR_LOW IOTDATA_ERR_LINK_SNR_HIGH",iotdata-fields-device.xml
 0x0010,temperature,atomic,9,IOTDATA_TEMPERATURE_BITS,temperature,"iotdata_float_t temperature_c","IOTDATA_ERR_TEMPERATURE_LOW IOTDATA_ERR_TEMPERATURE_HIGH",iotdata-fields-environmental.xml
@@ -42,7 +45,7 @@ id,name,kind,bits,bits_expr,quantities,parameters,errors,document
 0x0061,radiation_dose,atomic,14,IOTDATA_RADIATION_DOSE_BITS,radiation_dose,"iotdata_float_t usvh","IOTDATA_ERR_RADIATION_DOSE_HIGH",iotdata-fields-radiation.xml
 0x0068,radiation,composite,,IOTDATA_RADIATION_CPM_BITS + IOTDATA_RADIATION_DOSE_BITS,radiation_cpm.radiation_cpm radiation_dose.radiation_dose,"uint16_t cpm; iotdata_float_t usvh","IOTDATA_ERR_RADIATION_CPM_HIGH IOTDATA_ERR_RADIATION_DOSE_HIGH",iotdata-fields-radiation.xml
 0x0070,depth,atomic,10,IOTDATA_DEPTH_BITS,depth,"uint16_t depth_cm","IOTDATA_ERR_DEPTH_HIGH",iotdata-fields-environmental.xml
-0x0080,position,atomic,(IOTDATA_POSITION_LAT_BITS + IOTDATA_POSITION_LON_BITS),IOTDATA_POSITION_LAT_BITS + IOTDATA_POSITION_LON_BITS,position_lat position_lon,"iotdata_double_t latitude; iotdata_double_t longitude","IOTDATA_ERR_POSITION_LAT_LOW IOTDATA_ERR_POSITION_LAT_HIGH IOTDATA_ERR_POSITION_LON_LOW IOTDATA_ERR_POSITION_LON_HIGH",iotdata-fields-position.xml
+0x0080,position,atomic,48,IOTDATA_POSITION_LAT_BITS + IOTDATA_POSITION_LON_BITS,position_lat position_lon,"iotdata_double_t latitude; iotdata_double_t longitude","IOTDATA_ERR_POSITION_LAT_LOW IOTDATA_ERR_POSITION_LAT_HIGH IOTDATA_ERR_POSITION_LON_LOW IOTDATA_ERR_POSITION_LON_HIGH",iotdata-fields-position.xml
 0x0081,datetime,atomic,24,IOTDATA_DATETIME_BITS,datetime_secs,"uint32_t seconds_from_year_start","IOTDATA_ERR_DATETIME_HIGH",iotdata-fields-time.xml
 0x0090,image,atomic,,0,image_pixel_format image_size_tier image_compression image_flags image_data image_data_len,"uint8_t pixel_format; uint8_t size_tier; uint8_t compression; uint8_t flags; uint8_t data; uint8_t data_len","IOTDATA_ERR_IMAGE_FORMAT_HIGH IOTDATA_ERR_IMAGE_SIZE_HIGH IOTDATA_ERR_IMAGE_COMPRESSION_HIGH IOTDATA_ERR_IMAGE_DATA_NULL IOTDATA_ERR_IMAGE_DATA_HIGH",iotdata-fields-image.xml
 0x00A0,flags,atomic,8,IOTDATA_FLAGS_BITS,flags,"uint8_t flags","",iotdata-fields-unitary.xml

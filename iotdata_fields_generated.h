@@ -4,9 +4,9 @@
  * GENERATED FILE -- DO NOT EDIT.
  *
  * Built by generators/iotdata-generator-fields.js from the field specifiers in
- * specifiers/iotdata-fields-*.xml, through two templates:
- * generators/templates/fields.c.h.tmpl for the declarations below, and
- * generators/templates/fields.c.c.tmpl for the definitions in the second half.
+ * specifiers/iotdata-fields-*.xml, through generators/templates/fields.c.h.tmpl
+ * for the declarations below, and generators/templates/fields.c.c.tmpl for the
+ * definitions after those.
  * `make generate` rewrites it and `make generate-check` proves it reproduces.
  */
 
@@ -14,7 +14,7 @@
 #define IOTDATA_FIELDS_GENERATED_H_DECLARATIONS
 
 /* ---------------------------------------------------------------------------
- * Field identifiers
+ * Identifiers
  *
  * EVERY FIELD CARRIES TWO NUMBERS, AND THEY ARE NOT THE SAME NUMBER.
  *
@@ -55,7 +55,7 @@
 typedef struct {
     IOTDATA_FIELDS_DAT_BITS32
 } iotdata_field_bits32_t;
-#define IOTDATA_BITS32_BITS 32
+#define IOTDATA_BITS32_BITS (32)
 #if !defined(IOTDATA_NO_ENCODE)
 enum iotdata_status_t_ iotdata_encode_bits32(struct iotdata_encoder_t_ *const enc, uint32_t bits32);
 #if defined(IOTDATA_OPERATE_ORDERED)
@@ -88,7 +88,7 @@ enum iotdata_status_t_ iotdata_decode_bits32(struct iotdata_decoder_t_ *const de
 typedef struct {
     IOTDATA_FIELDS_DAT_FLAGS
 } iotdata_field_flags_t;
-#define IOTDATA_FLAGS_BITS 8
+#define IOTDATA_FLAGS_BITS (8)
 #if !defined(IOTDATA_NO_ENCODE)
 enum iotdata_status_t_ iotdata_encode_flags(struct iotdata_encoder_t_ *const enc, uint8_t flags);
 #if defined(IOTDATA_OPERATE_ORDERED)
@@ -121,8 +121,9 @@ enum iotdata_status_t_ iotdata_decode_flags(struct iotdata_decoder_t_ *const dec
 typedef struct {
     IOTDATA_FIELDS_DAT_BATTERY_LEVEL
 } iotdata_field_battery_level_t;
-#define IOTDATA_BATTERY_LEVEL_MAX  100
-#define IOTDATA_BATTERY_LEVEL_BITS 5
+#define IOTDATA_BATTERY_LEVEL_MIN  (0)
+#define IOTDATA_BATTERY_LEVEL_MAX  (100)
+#define IOTDATA_BATTERY_LEVEL_BITS (5)
 #if !defined(IOTDATA_NO_ENCODE)
 enum iotdata_status_t_ iotdata_encode_battery_level(struct iotdata_encoder_t_ *const enc, uint8_t level_percent);
 #if defined(IOTDATA_OPERATE_ORDERED)
@@ -149,12 +150,13 @@ enum iotdata_status_t_ iotdata_decode_battery_level(struct iotdata_decoder_t_ *c
 #define IOTDATA_FIELDS_DEF_BATTERY_LEVEL(F)
 #define IOTDATA_FIELDS_OPS_BATTERY_LEVEL(E)
 #endif
+
 #if defined(IOTDATA_ENABLE_BATTERY_CHARGE) || defined(IOTDATA_ENABLE_BATTERY)
 #define IOTDATA_FIELDS_DAT_BATTERY_CHARGE bool battery_charging;
 typedef struct {
     IOTDATA_FIELDS_DAT_BATTERY_CHARGE
 } iotdata_field_battery_charge_t;
-#define IOTDATA_BATTERY_CHARGE_BITS 1
+#define IOTDATA_BATTERY_CHARGE_BITS (1)
 #if !defined(IOTDATA_NO_ENCODE)
 enum iotdata_status_t_ iotdata_encode_battery_charge(struct iotdata_encoder_t_ *const enc, bool charging);
 #if defined(IOTDATA_OPERATE_ORDERED)
@@ -179,6 +181,7 @@ enum iotdata_status_t_ iotdata_decode_battery_charge(struct iotdata_decoder_t_ *
 #define IOTDATA_FIELDS_DEF_BATTERY_CHARGE(F)
 #define IOTDATA_FIELDS_OPS_BATTERY_CHARGE(E)
 #endif
+
 #if defined(IOTDATA_ENABLE_BATTERY)
 #if !defined(IOTDATA_NO_ENCODE)
 enum iotdata_status_t_ iotdata_encode_battery(struct iotdata_encoder_t_ *const enc, uint8_t level_percent, bool charging);
@@ -249,6 +252,7 @@ enum iotdata_status_t_ iotdata_decode_link_rssi(struct iotdata_decoder_t_ *const
 #define IOTDATA_FIELDS_DEF_LINK_RSSI(F)
 #define IOTDATA_FIELDS_OPS_LINK_RSSI(E)
 #endif
+
 #if defined(IOTDATA_ENABLE_LINK_SNR) || defined(IOTDATA_ENABLE_LINK)
 #define IOTDATA_FIELDS_DAT_LINK_SNR iotdata_float_t link_snr;
 typedef struct {
@@ -294,6 +298,7 @@ enum iotdata_status_t_ iotdata_decode_link_snr(struct iotdata_decoder_t_ *const 
 #define IOTDATA_FIELDS_DEF_LINK_SNR(F)
 #define IOTDATA_FIELDS_OPS_LINK_SNR(E)
 #endif
+
 #if defined(IOTDATA_ENABLE_LINK)
 #if !defined(IOTDATA_NO_ENCODE)
 enum iotdata_status_t_ iotdata_encode_link(struct iotdata_encoder_t_ *const enc, int8_t rssi_dbm, iotdata_float_t snr_db);
@@ -339,7 +344,7 @@ typedef struct {
 #define IOTDATA_TEMPERATURE_MAX (8000)
 #define IOTDATA_TEMPERATURE_RES (25)
 #endif
-#define IOTDATA_TEMPERATURE_BITS 9
+#define IOTDATA_TEMPERATURE_BITS (9)
 #if !defined(IOTDATA_NO_ENCODE)
 enum iotdata_status_t_ iotdata_encode_temperature(struct iotdata_encoder_t_ *const enc, iotdata_float_t temperature_c);
 #if defined(IOTDATA_OPERATE_ORDERED)
@@ -370,14 +375,16 @@ enum iotdata_status_t_ iotdata_decode_temperature(struct iotdata_decoder_t_ *con
 #define IOTDATA_FIELDS_DEF_TEMPERATURE(F)
 #define IOTDATA_FIELDS_OPS_TEMPERATURE(E)
 #endif
+
 #if defined(IOTDATA_ENABLE_PRESSURE) || defined(IOTDATA_ENABLE_ENVIRONMENT)
 #define IOTDATA_FIELDS_DAT_PRESSURE uint16_t pressure;
 typedef struct {
     IOTDATA_FIELDS_DAT_PRESSURE
 } iotdata_field_pressure_t;
-#define IOTDATA_PRESSURE_MIN  850
-#define IOTDATA_PRESSURE_MAX  1105
-#define IOTDATA_PRESSURE_BITS 8
+#define IOTDATA_PRESSURE_MIN  (850)
+#define IOTDATA_PRESSURE_MAX  (1105)
+#define IOTDATA_PRESSURE_RES  (1)
+#define IOTDATA_PRESSURE_BITS (8)
 #if !defined(IOTDATA_NO_ENCODE)
 enum iotdata_status_t_ iotdata_encode_pressure(struct iotdata_encoder_t_ *const enc, uint16_t pressure_hpa);
 #if defined(IOTDATA_OPERATE_ORDERED)
@@ -408,13 +415,16 @@ enum iotdata_status_t_ iotdata_decode_pressure(struct iotdata_decoder_t_ *const 
 #define IOTDATA_FIELDS_DEF_PRESSURE(F)
 #define IOTDATA_FIELDS_OPS_PRESSURE(E)
 #endif
+
 #if defined(IOTDATA_ENABLE_HUMIDITY) || defined(IOTDATA_ENABLE_ENVIRONMENT)
 #define IOTDATA_FIELDS_DAT_HUMIDITY uint8_t humidity;
 typedef struct {
     IOTDATA_FIELDS_DAT_HUMIDITY
 } iotdata_field_humidity_t;
-#define IOTDATA_HUMIDITY_MAX  100
-#define IOTDATA_HUMIDITY_BITS 7
+#define IOTDATA_HUMIDITY_MIN  (0)
+#define IOTDATA_HUMIDITY_MAX  (100)
+#define IOTDATA_HUMIDITY_RES  (1)
+#define IOTDATA_HUMIDITY_BITS (7)
 #if !defined(IOTDATA_NO_ENCODE)
 enum iotdata_status_t_ iotdata_encode_humidity(struct iotdata_encoder_t_ *const enc, uint8_t humidity_pct);
 #if defined(IOTDATA_OPERATE_ORDERED)
@@ -441,6 +451,7 @@ enum iotdata_status_t_ iotdata_decode_humidity(struct iotdata_decoder_t_ *const 
 #define IOTDATA_FIELDS_DEF_HUMIDITY(F)
 #define IOTDATA_FIELDS_OPS_HUMIDITY(E)
 #endif
+
 #if defined(IOTDATA_ENABLE_ENVIRONMENT)
 #if !defined(IOTDATA_NO_ENCODE)
 enum iotdata_status_t_ iotdata_encode_environment(struct iotdata_encoder_t_ *const enc, iotdata_float_t temp_c, uint16_t pressure_hpa, uint8_t humidity_pct);
@@ -478,14 +489,15 @@ typedef struct {
 typedef struct {
     IOTDATA_FIELDS_DAT_WIND_SPEED
 } iotdata_field_wind_speed_t;
+#define IOTDATA_WIND_SPEED_MIN (0)
 #if !defined(IOTDATA_NO_FLOATING)
-#define IOTDATA_WIND_SPEED_RES (0.5f)
 #define IOTDATA_WIND_SPEED_MAX (63.5f)
+#define IOTDATA_WIND_SPEED_RES (0.5f)
 #else
-#define IOTDATA_WIND_SPEED_RES (50)
 #define IOTDATA_WIND_SPEED_MAX (6350)
+#define IOTDATA_WIND_SPEED_RES (50)
 #endif
-#define IOTDATA_WIND_SPEED_BITS 7
+#define IOTDATA_WIND_SPEED_BITS (7)
 #if !defined(IOTDATA_NO_ENCODE)
 enum iotdata_status_t_ iotdata_encode_wind_speed(struct iotdata_encoder_t_ *const enc, iotdata_float_t speed_ms);
 #if defined(IOTDATA_OPERATE_ORDERED)
@@ -512,16 +524,18 @@ enum iotdata_status_t_ iotdata_decode_wind_speed(struct iotdata_decoder_t_ *cons
 #define IOTDATA_FIELDS_DEF_WIND_SPEED(F)
 #define IOTDATA_FIELDS_OPS_WIND_SPEED(E)
 #endif
+
 #if defined(IOTDATA_ENABLE_WIND_DIRECTION) || defined(IOTDATA_ENABLE_WIND)
 #define IOTDATA_FIELDS_DAT_WIND_DIRECTION uint16_t wind_direction;
 typedef struct {
     IOTDATA_FIELDS_DAT_WIND_DIRECTION
 } iotdata_field_wind_direction_t;
-#define IOTDATA_WIND_DIRECTION_MAX  359
-#define IOTDATA_WIND_DIRECTION_BITS 8
+#define IOTDATA_WIND_DIRECTION_MIN (0)
+#define IOTDATA_WIND_DIRECTION_MAX (359)
 #if !defined(IOTDATA_NO_FLOATING)
-#define IOTDATA_WIND_DIRECTION_SCALE ((float)(IOTDATA_WIND_DIRECTION_MAX + 1) / (float)(1 << IOTDATA_WIND_DIRECTION_BITS))
+#define IOTDATA_WIND_DIRECTION_SCALE (((float)(IOTDATA_WIND_DIRECTION_MAX + 1) / (float)(1 << IOTDATA_WIND_DIRECTION_BITS)))
 #endif
+#define IOTDATA_WIND_DIRECTION_BITS (8)
 #if !defined(IOTDATA_NO_ENCODE)
 enum iotdata_status_t_ iotdata_encode_wind_direction(struct iotdata_encoder_t_ *const enc, uint16_t direction_deg);
 #if defined(IOTDATA_OPERATE_ORDERED)
@@ -548,19 +562,21 @@ enum iotdata_status_t_ iotdata_decode_wind_direction(struct iotdata_decoder_t_ *
 #define IOTDATA_FIELDS_DEF_WIND_DIRECTION(F)
 #define IOTDATA_FIELDS_OPS_WIND_DIRECTION(E)
 #endif
+
 #if defined(IOTDATA_ENABLE_WIND_GUST) || defined(IOTDATA_ENABLE_WIND)
 #define IOTDATA_FIELDS_DAT_WIND_GUST iotdata_float_t wind_gust;
 typedef struct {
     IOTDATA_FIELDS_DAT_WIND_GUST
 } iotdata_field_wind_gust_t;
+#define IOTDATA_WIND_GUST_MIN (0)
 #if !defined(IOTDATA_NO_FLOATING)
-#define IOTDATA_WIND_GUST_RES (0.5f)
 #define IOTDATA_WIND_GUST_MAX (63.5f)
+#define IOTDATA_WIND_GUST_RES (0.5f)
 #else
-#define IOTDATA_WIND_GUST_RES (50)
 #define IOTDATA_WIND_GUST_MAX (6350)
+#define IOTDATA_WIND_GUST_RES (50)
 #endif
-#define IOTDATA_WIND_GUST_BITS 7
+#define IOTDATA_WIND_GUST_BITS (7)
 #if !defined(IOTDATA_NO_ENCODE)
 enum iotdata_status_t_ iotdata_encode_wind_gust(struct iotdata_encoder_t_ *const enc, iotdata_float_t gust_ms);
 #if defined(IOTDATA_OPERATE_ORDERED)
@@ -587,6 +603,7 @@ enum iotdata_status_t_ iotdata_decode_wind_gust(struct iotdata_decoder_t_ *const
 #define IOTDATA_FIELDS_DEF_WIND_GUST(F)
 #define IOTDATA_FIELDS_OPS_WIND_GUST(E)
 #endif
+
 #if defined(IOTDATA_ENABLE_WIND)
 #if !defined(IOTDATA_NO_ENCODE)
 enum iotdata_status_t_ iotdata_encode_wind(struct iotdata_encoder_t_ *const enc, iotdata_float_t speed_ms, uint16_t direction_deg, iotdata_float_t gust_ms);
@@ -624,8 +641,10 @@ typedef struct {
 typedef struct {
     IOTDATA_FIELDS_DAT_RAIN_RATE
 } iotdata_field_rain_rate_t;
-#define IOTDATA_RAIN_RATE_MAX  255
-#define IOTDATA_RAIN_RATE_BITS 8
+#define IOTDATA_RAIN_RATE_MIN  (0)
+#define IOTDATA_RAIN_RATE_MAX  (255)
+#define IOTDATA_RAIN_RATE_RES  (1)
+#define IOTDATA_RAIN_RATE_BITS (8)
 #if !defined(IOTDATA_NO_ENCODE)
 enum iotdata_status_t_ iotdata_encode_rain_rate(struct iotdata_encoder_t_ *const enc, uint8_t rate_mmhr);
 #if defined(IOTDATA_OPERATE_ORDERED)
@@ -650,14 +669,16 @@ enum iotdata_status_t_ iotdata_decode_rain_rate(struct iotdata_decoder_t_ *const
 #define IOTDATA_FIELDS_DEF_RAIN_RATE(F)
 #define IOTDATA_FIELDS_OPS_RAIN_RATE(E)
 #endif
+
 #if defined(IOTDATA_ENABLE_RAIN_SIZE) || defined(IOTDATA_ENABLE_RAIN)
 #define IOTDATA_FIELDS_DAT_RAIN_SIZE uint8_t rain_size10;
 typedef struct {
     IOTDATA_FIELDS_DAT_RAIN_SIZE
 } iotdata_field_rain_size_t;
-#define IOTDATA_RAIN_SIZE_MAX   15
-#define IOTDATA_RAIN_SIZE_BITS  4
-#define IOTDATA_RAIN_SIZE_SCALE 4
+#define IOTDATA_RAIN_SIZE_MIN   (0)
+#define IOTDATA_RAIN_SIZE_MAX   (15)
+#define IOTDATA_RAIN_SIZE_SCALE (4)
+#define IOTDATA_RAIN_SIZE_BITS  (4)
 #if !defined(IOTDATA_NO_ENCODE)
 enum iotdata_status_t_ iotdata_encode_rain_size(struct iotdata_encoder_t_ *const enc, uint8_t size10_mmd);
 #if defined(IOTDATA_OPERATE_ORDERED)
@@ -684,6 +705,7 @@ enum iotdata_status_t_ iotdata_decode_rain_size(struct iotdata_decoder_t_ *const
 #define IOTDATA_FIELDS_DEF_RAIN_SIZE(F)
 #define IOTDATA_FIELDS_OPS_RAIN_SIZE(E)
 #endif
+
 #if defined(IOTDATA_ENABLE_RAIN)
 #if !defined(IOTDATA_NO_ENCODE)
 enum iotdata_status_t_ iotdata_encode_rain(struct iotdata_encoder_t_ *const enc, uint8_t rate_mmhr, uint8_t size10_mmd);
@@ -720,8 +742,10 @@ typedef struct {
 typedef struct {
     IOTDATA_FIELDS_DAT_SOLAR_IRRADIANCE
 } iotdata_field_solar_irradiance_t;
-#define IOTDATA_SOLAR_IRRADIANCE_MAX  1023
-#define IOTDATA_SOLAR_IRRADIANCE_BITS 10
+#define IOTDATA_SOLAR_IRRADIANCE_MIN  (0)
+#define IOTDATA_SOLAR_IRRADIANCE_MAX  (1023)
+#define IOTDATA_SOLAR_IRRADIANCE_RES  (1)
+#define IOTDATA_SOLAR_IRRADIANCE_BITS (10)
 #if !defined(IOTDATA_NO_ENCODE)
 enum iotdata_status_t_ iotdata_encode_solar_irradiance(struct iotdata_encoder_t_ *const enc, uint16_t irradiance_wm2);
 #if defined(IOTDATA_OPERATE_ORDERED)
@@ -748,13 +772,16 @@ enum iotdata_status_t_ iotdata_decode_solar_irradiance(struct iotdata_decoder_t_
 #define IOTDATA_FIELDS_DEF_SOLAR_IRRADIANCE(F)
 #define IOTDATA_FIELDS_OPS_SOLAR_IRRADIANCE(E)
 #endif
+
 #if defined(IOTDATA_ENABLE_SOLAR_ULTRAVIOLET) || defined(IOTDATA_ENABLE_SOLAR)
 #define IOTDATA_FIELDS_DAT_SOLAR_ULTRAVIOLET uint8_t solar_ultraviolet;
 typedef struct {
     IOTDATA_FIELDS_DAT_SOLAR_ULTRAVIOLET
 } iotdata_field_solar_ultraviolet_t;
-#define IOTDATA_SOLAR_ULTRAVIOLET_MAX  15
-#define IOTDATA_SOLAR_ULTRAVIOLET_BITS 4
+#define IOTDATA_SOLAR_ULTRAVIOLET_MIN  (0)
+#define IOTDATA_SOLAR_ULTRAVIOLET_MAX  (15)
+#define IOTDATA_SOLAR_ULTRAVIOLET_RES  (1)
+#define IOTDATA_SOLAR_ULTRAVIOLET_BITS (4)
 #if !defined(IOTDATA_NO_ENCODE)
 enum iotdata_status_t_ iotdata_encode_solar_ultraviolet(struct iotdata_encoder_t_ *const enc, uint8_t ultraviolet_index);
 #if defined(IOTDATA_OPERATE_ORDERED)
@@ -781,6 +808,7 @@ enum iotdata_status_t_ iotdata_decode_solar_ultraviolet(struct iotdata_decoder_t
 #define IOTDATA_FIELDS_DEF_SOLAR_ULTRAVIOLET(F)
 #define IOTDATA_FIELDS_OPS_SOLAR_ULTRAVIOLET(E)
 #endif
+
 #if defined(IOTDATA_ENABLE_SOLAR)
 #if !defined(IOTDATA_NO_ENCODE)
 enum iotdata_status_t_ iotdata_encode_solar(struct iotdata_encoder_t_ *const enc, uint16_t irradiance_wm2, uint8_t ultraviolet_index);
@@ -817,8 +845,10 @@ typedef struct {
 typedef struct {
     IOTDATA_FIELDS_DAT_CLOUDS
 } iotdata_field_clouds_t;
-#define IOTDATA_CLOUDS_MAX  8
-#define IOTDATA_CLOUDS_BITS 4
+#define IOTDATA_CLOUDS_MIN  (0)
+#define IOTDATA_CLOUDS_MAX  (8)
+#define IOTDATA_CLOUDS_RES  (1)
+#define IOTDATA_CLOUDS_BITS (4)
 #if !defined(IOTDATA_NO_ENCODE)
 enum iotdata_status_t_ iotdata_encode_clouds(struct iotdata_encoder_t_ *const enc, uint8_t okta);
 #if defined(IOTDATA_OPERATE_ORDERED)
@@ -854,8 +884,10 @@ enum iotdata_status_t_ iotdata_decode_clouds(struct iotdata_decoder_t_ *const de
 typedef struct {
     IOTDATA_FIELDS_DAT_AIR_QUALITY_INDEX
 } iotdata_field_air_quality_index_t;
-#define IOTDATA_AIR_QUALITY_INDEX_MAX  500
-#define IOTDATA_AIR_QUALITY_INDEX_BITS 9
+#define IOTDATA_AIR_QUALITY_INDEX_MIN  (0)
+#define IOTDATA_AIR_QUALITY_INDEX_MAX  (500)
+#define IOTDATA_AIR_QUALITY_INDEX_RES  (1)
+#define IOTDATA_AIR_QUALITY_INDEX_BITS (9)
 #if !defined(IOTDATA_NO_ENCODE)
 enum iotdata_status_t_ iotdata_encode_air_quality_index(struct iotdata_encoder_t_ *const enc, uint16_t aq_index);
 #if defined(IOTDATA_OPERATE_ORDERED)
@@ -882,23 +914,25 @@ enum iotdata_status_t_ iotdata_decode_air_quality_index(struct iotdata_decoder_t
 #define IOTDATA_FIELDS_DEF_AIR_QUALITY_INDEX(F)
 #define IOTDATA_FIELDS_OPS_AIR_QUALITY_INDEX(E)
 #endif
+
 /* --- Sub-field: AQ_PM (4 channels, presence + 8 bits each, res 5 ug/m3) --- */
 #if defined(IOTDATA_ENABLE_AIR_QUALITY_PM) || defined(IOTDATA_ENABLE_AIR_QUALITY)
-#define IOTDATA_AIR_QUALITY_PM_COUNT 4
+#define IOTDATA_AIR_QUALITY_PM_COUNT (4)
 #define IOTDATA_FIELDS_DAT_AIR_QUALITY_PM \
     uint8_t aq_pm_present; \
     uint16_t aq_pm[IOTDATA_AIR_QUALITY_PM_COUNT];
 typedef struct {
     IOTDATA_FIELDS_DAT_AIR_QUALITY_PM
 } iotdata_field_air_quality_pm_t;
-#define IOTDATA_AIR_QUALITY_PM_PRESENT_BITS 4
-#define IOTDATA_AIR_QUALITY_PM_VALUE_BITS   8
-#define IOTDATA_AIR_QUALITY_PM_VALUE_RES    5
-#define IOTDATA_AIR_QUALITY_PM_VALUE_MAX    1275 /* 255 * 5 */
-#define IOTDATA_AIR_QUALITY_PM_INDEX_PM1    0
-#define IOTDATA_AIR_QUALITY_PM_INDEX_PM25   1
-#define IOTDATA_AIR_QUALITY_PM_INDEX_PM4    2
-#define IOTDATA_AIR_QUALITY_PM_INDEX_PM10   3
+#define IOTDATA_AIR_QUALITY_PM_PRESENT_BITS (4)
+#define IOTDATA_AIR_QUALITY_PM_INDEX_PM1    (0)
+#define IOTDATA_AIR_QUALITY_PM_INDEX_PM25   (1)
+#define IOTDATA_AIR_QUALITY_PM_INDEX_PM4    (2)
+#define IOTDATA_AIR_QUALITY_PM_INDEX_PM10   (3)
+#define IOTDATA_AIR_QUALITY_PM_VALUE_MIN    (0)
+#define IOTDATA_AIR_QUALITY_PM_VALUE_MAX    (1275 /* 255 * 5 */)
+#define IOTDATA_AIR_QUALITY_PM_VALUE_RES    (5)
+#define IOTDATA_AIR_QUALITY_PM_VALUE_BITS   (8)
 #if !defined(IOTDATA_NO_ENCODE)
 enum iotdata_status_t_ iotdata_encode_air_quality_pm(struct iotdata_encoder_t_ *const enc, uint8_t pm_present, const uint16_t pm[IOTDATA_AIR_QUALITY_PM_COUNT]);
 #if defined(IOTDATA_OPERATE_ORDERED)
@@ -925,51 +959,57 @@ enum iotdata_status_t_ iotdata_decode_air_quality_pm(struct iotdata_decoder_t_ *
 #define IOTDATA_FIELDS_DEF_AIR_QUALITY_PM(F)
 #define IOTDATA_FIELDS_OPS_AIR_QUALITY_PM(E)
 #endif
+
 /* --- Sub-field: AQ_GAS (8 slots, presence + variable bits per slot) --- */
 #if defined(IOTDATA_ENABLE_AIR_QUALITY_GAS) || defined(IOTDATA_ENABLE_AIR_QUALITY)
-#define IOTDATA_AIR_QUALITY_GAS_COUNT 8
+#define IOTDATA_AIR_QUALITY_GAS_COUNT (8)
 #define IOTDATA_FIELDS_DAT_AIR_QUALITY_GAS \
     uint8_t aq_gas_present; \
     uint16_t aq_gas[IOTDATA_AIR_QUALITY_GAS_COUNT];
 typedef struct {
     IOTDATA_FIELDS_DAT_AIR_QUALITY_GAS
 } iotdata_field_air_quality_gas_t;
-#define IOTDATA_AIR_QUALITY_GAS_PRESENT_BITS 8
-#define IOTDATA_AIR_QUALITY_GAS_INDEX_VOC    0
-#define IOTDATA_AIR_QUALITY_GAS_INDEX_NOX    1
-#define IOTDATA_AIR_QUALITY_GAS_INDEX_CO2    2
-#define IOTDATA_AIR_QUALITY_GAS_INDEX_CO     3
-#define IOTDATA_AIR_QUALITY_GAS_INDEX_HCHO   4
-#define IOTDATA_AIR_QUALITY_GAS_INDEX_O3     5
-#define IOTDATA_AIR_QUALITY_GAS_INDEX_RSVD6  6
-#define IOTDATA_AIR_QUALITY_GAS_INDEX_RSVD7  7
-/* Bit width per slot: indices=8, concentrations=10 */
-#define IOTDATA_AIR_QUALITY_GAS_BITS_VOC     8  /* 0-510, res 2 index pts   */
-#define IOTDATA_AIR_QUALITY_GAS_BITS_NOX     8  /* 0-510, res 2 index pts   */
-#define IOTDATA_AIR_QUALITY_GAS_BITS_CO2     10 /* 0-51150, res 50 ppm      */
-#define IOTDATA_AIR_QUALITY_GAS_BITS_CO      10 /* 0-1023, res 1 ppm        */
-#define IOTDATA_AIR_QUALITY_GAS_BITS_HCHO    10 /* 0-5115, res 5 ppb        */
-#define IOTDATA_AIR_QUALITY_GAS_BITS_O3      10 /* 0-1023, res 1 ppb        */
-#define IOTDATA_AIR_QUALITY_GAS_BITS_RSVD6   10
-#define IOTDATA_AIR_QUALITY_GAS_BITS_RSVD7   10
-/* Resolution per slot */
-#define IOTDATA_AIR_QUALITY_GAS_RES_VOC      2
-#define IOTDATA_AIR_QUALITY_GAS_RES_NOX      2
-#define IOTDATA_AIR_QUALITY_GAS_RES_CO2      50
-#define IOTDATA_AIR_QUALITY_GAS_RES_CO       1
-#define IOTDATA_AIR_QUALITY_GAS_RES_HCHO     5
-#define IOTDATA_AIR_QUALITY_GAS_RES_O3       1
-#define IOTDATA_AIR_QUALITY_GAS_RES_RSVD6    1
-#define IOTDATA_AIR_QUALITY_GAS_RES_RSVD7    1
-/* Max physical value per slot */
-#define IOTDATA_AIR_QUALITY_GAS_MAX_VOC      510
-#define IOTDATA_AIR_QUALITY_GAS_MAX_NOX      510
-#define IOTDATA_AIR_QUALITY_GAS_MAX_CO2      51150
-#define IOTDATA_AIR_QUALITY_GAS_MAX_CO       1023
-#define IOTDATA_AIR_QUALITY_GAS_MAX_HCHO     5115
-#define IOTDATA_AIR_QUALITY_GAS_MAX_O3       1023
-#define IOTDATA_AIR_QUALITY_GAS_MAX_RSVD6    1023
-#define IOTDATA_AIR_QUALITY_GAS_MAX_RSVD7    1023
+#define IOTDATA_AIR_QUALITY_GAS_PRESENT_BITS (8)
+#define IOTDATA_AIR_QUALITY_GAS_INDEX_VOC    (0)
+#define IOTDATA_AIR_QUALITY_GAS_INDEX_NOX    (1)
+#define IOTDATA_AIR_QUALITY_GAS_INDEX_CO2    (2)
+#define IOTDATA_AIR_QUALITY_GAS_INDEX_CO     (3)
+#define IOTDATA_AIR_QUALITY_GAS_INDEX_HCHO   (4)
+#define IOTDATA_AIR_QUALITY_GAS_INDEX_O3     (5)
+#define IOTDATA_AIR_QUALITY_GAS_INDEX_RSVD6  (6)
+#define IOTDATA_AIR_QUALITY_GAS_INDEX_RSVD7  (7)
+#define IOTDATA_AIR_QUALITY_GAS_MIN_VOC      (0)
+#define IOTDATA_AIR_QUALITY_GAS_MAX_VOC      (510)
+#define IOTDATA_AIR_QUALITY_GAS_RES_VOC      (2)
+#define IOTDATA_AIR_QUALITY_GAS_BITS_VOC     (8)
+#define IOTDATA_AIR_QUALITY_GAS_MIN_NOX      (0)
+#define IOTDATA_AIR_QUALITY_GAS_MAX_NOX      (510)
+#define IOTDATA_AIR_QUALITY_GAS_RES_NOX      (2)
+#define IOTDATA_AIR_QUALITY_GAS_BITS_NOX     (8)
+#define IOTDATA_AIR_QUALITY_GAS_MIN_CO2      (0)
+#define IOTDATA_AIR_QUALITY_GAS_MAX_CO2      (51150)
+#define IOTDATA_AIR_QUALITY_GAS_RES_CO2      (50)
+#define IOTDATA_AIR_QUALITY_GAS_BITS_CO2     (10)
+#define IOTDATA_AIR_QUALITY_GAS_MIN_CO       (0)
+#define IOTDATA_AIR_QUALITY_GAS_MAX_CO       (1023)
+#define IOTDATA_AIR_QUALITY_GAS_RES_CO       (1)
+#define IOTDATA_AIR_QUALITY_GAS_BITS_CO      (10)
+#define IOTDATA_AIR_QUALITY_GAS_MIN_HCHO     (0)
+#define IOTDATA_AIR_QUALITY_GAS_MAX_HCHO     (5115)
+#define IOTDATA_AIR_QUALITY_GAS_RES_HCHO     (5)
+#define IOTDATA_AIR_QUALITY_GAS_BITS_HCHO    (10)
+#define IOTDATA_AIR_QUALITY_GAS_MIN_O3       (0)
+#define IOTDATA_AIR_QUALITY_GAS_MAX_O3       (1023)
+#define IOTDATA_AIR_QUALITY_GAS_RES_O3       (1)
+#define IOTDATA_AIR_QUALITY_GAS_BITS_O3      (10)
+#define IOTDATA_AIR_QUALITY_GAS_MIN_RSVD6    (0)
+#define IOTDATA_AIR_QUALITY_GAS_MAX_RSVD6    (1023)
+#define IOTDATA_AIR_QUALITY_GAS_RES_RSVD6    (1)
+#define IOTDATA_AIR_QUALITY_GAS_BITS_RSVD6   (10)
+#define IOTDATA_AIR_QUALITY_GAS_MIN_RSVD7    (0)
+#define IOTDATA_AIR_QUALITY_GAS_MAX_RSVD7    (1023)
+#define IOTDATA_AIR_QUALITY_GAS_RES_RSVD7    (1)
+#define IOTDATA_AIR_QUALITY_GAS_BITS_RSVD7   (10)
 #if !defined(IOTDATA_NO_ENCODE)
 enum iotdata_status_t_ iotdata_encode_air_quality_gas(struct iotdata_encoder_t_ *const enc, uint8_t gas_present, const uint16_t gas[IOTDATA_AIR_QUALITY_GAS_COUNT]);
 #if defined(IOTDATA_OPERATE_ORDERED)
@@ -996,6 +1036,7 @@ enum iotdata_status_t_ iotdata_decode_air_quality_gas(struct iotdata_decoder_t_ 
 #define IOTDATA_FIELDS_DEF_AIR_QUALITY_GAS(F)
 #define IOTDATA_FIELDS_OPS_AIR_QUALITY_GAS(E)
 #endif
+
 #if defined(IOTDATA_ENABLE_AIR_QUALITY)
 #if !defined(IOTDATA_NO_ENCODE)
 enum iotdata_status_t_ iotdata_encode_air_quality(struct iotdata_encoder_t_ *const enc, uint16_t aq_index, uint8_t pm_present, const uint16_t pm[IOTDATA_AIR_QUALITY_PM_COUNT], uint8_t gas_present,
@@ -1035,8 +1076,10 @@ typedef struct {
 typedef struct {
     IOTDATA_FIELDS_DAT_RADIATION_CPM
 } iotdata_field_radiation_cpm_t;
-#define IOTDATA_RADIATION_CPM_MAX  16383
-#define IOTDATA_RADIATION_CPM_BITS 14
+#define IOTDATA_RADIATION_CPM_MIN  (0)
+#define IOTDATA_RADIATION_CPM_MAX  (16383)
+#define IOTDATA_RADIATION_CPM_RES  (1)
+#define IOTDATA_RADIATION_CPM_BITS (14)
 #if !defined(IOTDATA_NO_ENCODE)
 enum iotdata_status_t_ iotdata_encode_radiation_cpm(struct iotdata_encoder_t_ *const enc, uint16_t cpm);
 #if defined(IOTDATA_OPERATE_ORDERED)
@@ -1063,20 +1106,21 @@ enum iotdata_status_t_ iotdata_decode_radiation_cpm(struct iotdata_decoder_t_ *c
 #define IOTDATA_FIELDS_DEF_RADIATION_CPM(F)
 #define IOTDATA_FIELDS_OPS_RADIATION_CPM(E)
 #endif
+
 #if defined(IOTDATA_ENABLE_RADIATION_DOSE) || defined(IOTDATA_ENABLE_RADIATION)
 #define IOTDATA_FIELDS_DAT_RADIATION_DOSE iotdata_float_t radiation_dose;
 typedef struct {
     IOTDATA_FIELDS_DAT_RADIATION_DOSE
 } iotdata_field_radiation_dose_t;
+#define IOTDATA_RADIATION_DOSE_MIN (0)
 #if !defined(IOTDATA_NO_FLOATING)
-#define IOTDATA_RADIATION_DOSE_MAX_RAW 16383
-#define IOTDATA_RADIATION_DOSE_RES     (0.01f)
-#define IOTDATA_RADIATION_DOSE_MAX     (163.83f)
+#define IOTDATA_RADIATION_DOSE_MAX (163.83f)
+#define IOTDATA_RADIATION_DOSE_RES (0.01f)
 #else
-#define IOTDATA_RADIATION_DOSE_MAX 16383
-#define IOTDATA_RADIATION_DOSE_RES 1
+#define IOTDATA_RADIATION_DOSE_MAX (16383)
+#define IOTDATA_RADIATION_DOSE_RES (1)
 #endif
-#define IOTDATA_RADIATION_DOSE_BITS 14
+#define IOTDATA_RADIATION_DOSE_BITS (14)
 #if !defined(IOTDATA_NO_ENCODE)
 enum iotdata_status_t_ iotdata_encode_radiation_dose(struct iotdata_encoder_t_ *const enc, iotdata_float_t usvh);
 #if defined(IOTDATA_OPERATE_ORDERED)
@@ -1103,6 +1147,7 @@ enum iotdata_status_t_ iotdata_decode_radiation_dose(struct iotdata_decoder_t_ *
 #define IOTDATA_FIELDS_DEF_RADIATION_DOSE(F)
 #define IOTDATA_FIELDS_OPS_RADIATION_DOSE(E)
 #endif
+
 #if defined(IOTDATA_ENABLE_RADIATION)
 #if !defined(IOTDATA_NO_ENCODE)
 enum iotdata_status_t_ iotdata_encode_radiation(struct iotdata_encoder_t_ *const enc, uint16_t cpm, iotdata_float_t usvh);
@@ -1139,8 +1184,10 @@ typedef struct {
 typedef struct {
     IOTDATA_FIELDS_DAT_DEPTH
 } iotdata_field_depth_t;
-#define IOTDATA_DEPTH_MAX  1023
-#define IOTDATA_DEPTH_BITS 10
+#define IOTDATA_DEPTH_MIN  (0)
+#define IOTDATA_DEPTH_MAX  (1023)
+#define IOTDATA_DEPTH_RES  (1)
+#define IOTDATA_DEPTH_BITS (10)
 #if !defined(IOTDATA_NO_ENCODE)
 enum iotdata_status_t_ iotdata_encode_depth(struct iotdata_encoder_t_ *const enc, uint16_t depth_cm);
 #if defined(IOTDATA_OPERATE_ORDERED)
@@ -1167,73 +1214,6 @@ enum iotdata_status_t_ iotdata_decode_depth(struct iotdata_decoder_t_ *const dec
 #endif
 
 /* ---------------------------------------------------------------------------
- * Field POSITION (LATITUDE, LONGITUDE)
- * -------------------------------------------------------------------------*/
-
-#if defined(IOTDATA_ENABLE_POSITION)
-#define IOTDATA_POSITION_LAT_OFFSET   90.0
-#define IOTDATA_POSITION_LAT_RANGE    180.0
-#define IOTDATA_POSITION_LON_OFFSET   180.0
-#define IOTDATA_POSITION_LON_RANGE    360.0
-#define IOTDATA_POSITION_LAT_OFFSET_I INT64_C(900000000)
-#define IOTDATA_POSITION_LAT_RANGE_I  INT64_C(1800000000)
-#define IOTDATA_POSITION_LON_OFFSET_I INT64_C(1800000000)
-#define IOTDATA_POSITION_LON_RANGE_I  INT64_C(3600000000)
-#define IOTDATA_FIELDS_DAT_POSITION \
-    iotdata_double_t position_lat; \
-    iotdata_double_t position_lon;
-typedef struct {
-    IOTDATA_FIELDS_DAT_POSITION
-} iotdata_field_position_t;
-#if !defined(IOTDATA_NO_FLOATING)
-#define IOTDATA_POSITION_LAT_LOW  (-90.0)
-#define IOTDATA_POSITION_LAT_HIGH (90.0)
-#define IOTDATA_POSITION_LON_LOW  (-180.0)
-#define IOTDATA_POSITION_LON_HIGH (180.0)
-#else
-#define IOTDATA_POSITION_LAT_LOW  (-900000000)
-#define IOTDATA_POSITION_LAT_HIGH (900000000)
-#define IOTDATA_POSITION_LON_LOW  (-1800000000)
-#define IOTDATA_POSITION_LON_HIGH (1800000000)
-#endif
-#define IOTDATA_POSITION_LAT_BITS 24
-#define IOTDATA_POSITION_LON_BITS 24
-#define IOTDATA_POSITION_SCALE    16777215 /* (1 << 24) - 1 */
-#define IOTDATA_POSITION_BITS     (IOTDATA_POSITION_LAT_BITS + IOTDATA_POSITION_LON_BITS)
-#if !defined(IOTDATA_NO_ENCODE)
-enum iotdata_status_t_ iotdata_encode_position(struct iotdata_encoder_t_ *const enc, iotdata_double_t latitude, iotdata_double_t longitude);
-#if defined(IOTDATA_OPERATE_ORDERED)
-enum iotdata_status_t_ iotdata_encode_position_by_slot(struct iotdata_encoder_t_ *const enc, const int slot, iotdata_double_t latitude, iotdata_double_t longitude);
-#endif
-#endif
-#if !defined(IOTDATA_NO_DECODE)
-enum iotdata_status_t_ iotdata_decode_position(struct iotdata_decoder_t_ *const dec, iotdata_double_t *latitude, iotdata_double_t *longitude);
-#endif
-#define IOTDATA_FIELDS_MEM_POSITION    iotdata_field_position_t position;
-#define IOTDATA_FIELD_ID_POSITION      0x0080u
-#define IOTDATA_FIELDS_DEF_POSITION(F) F(POSITION)
-#define IOTDATA_FIELDS_OPS_POSITION(E) E(POSITION, _iotdata_field_def_position)
-#define IOTDATA_FIELDS_ERR_IDENTS_POSITION(S) \
-    S(IOTDATA_ERR_POSITION_LAT_LOW) \
-    S(IOTDATA_ERR_POSITION_LAT_HIGH) \
-    S(IOTDATA_ERR_POSITION_LON_LOW) \
-    S(IOTDATA_ERR_POSITION_LON_HIGH)
-#define IOTDATA_FIELDS_ERR_STRINGS_POSITION(D) \
-    D(IOTDATA_ERR_POSITION_LAT_LOW, "Latitude below -90") \
-    D(IOTDATA_ERR_POSITION_LAT_HIGH, "Latitude above +90") \
-    D(IOTDATA_ERR_POSITION_LON_LOW, "Longitude below -180") \
-    D(IOTDATA_ERR_POSITION_LON_HIGH, "Longitude above +180")
-#else
-#define IOTDATA_FIELDS_DAT_POSITION
-#define IOTDATA_FIELDS_MEM_POSITION
-
-#define IOTDATA_FIELDS_DEF_POSITION(F)
-#define IOTDATA_FIELDS_OPS_POSITION(E)
-#define IOTDATA_FIELDS_ERR_IDENTS_POSITION(S)
-#define IOTDATA_FIELDS_ERR_STRINGS_POSITION(D)
-#endif
-
-/* ---------------------------------------------------------------------------
  * Field DATETIME
  * -------------------------------------------------------------------------*/
 
@@ -1242,9 +1222,10 @@ enum iotdata_status_t_ iotdata_decode_position(struct iotdata_decoder_t_ *const 
 typedef struct {
     IOTDATA_FIELDS_DAT_DATETIME
 } iotdata_field_datetime_t;
-#define IOTDATA_DATETIME_BITS 24
-#define IOTDATA_DATETIME_RES  5
-#define IOTDATA_DATETIME_MAX  (((uint32_t)1 << IOTDATA_DATETIME_BITS) - 1)
+#define IOTDATA_DATETIME_MIN  (0)
+#define IOTDATA_DATETIME_MAX  (16777215)
+#define IOTDATA_DATETIME_RES  (5)
+#define IOTDATA_DATETIME_BITS (24)
 #if !defined(IOTDATA_NO_ENCODE)
 enum iotdata_status_t_ iotdata_encode_datetime(struct iotdata_encoder_t_ *const enc, uint32_t seconds_from_year_start);
 #if defined(IOTDATA_OPERATE_ORDERED)
@@ -1284,25 +1265,92 @@ static inline uint32_t iotdata_datetime_convert_utc_to_seconds_from_year_start(c
 }
 
 /* ---------------------------------------------------------------------------
+ * Field POSITION (LATITUDE, LONGITUDE)
+ * -------------------------------------------------------------------------*/
+
+#if defined(IOTDATA_ENABLE_POSITION)
+#define IOTDATA_POSITION_LAT_OFFSET   (90)
+#define IOTDATA_POSITION_LAT_RANGE    (180)
+#define IOTDATA_POSITION_LON_OFFSET   (180)
+#define IOTDATA_POSITION_LON_RANGE    (360)
+#define IOTDATA_POSITION_LAT_OFFSET_I (INT64_C(900000000))
+#define IOTDATA_POSITION_LAT_RANGE_I  (INT64_C(1800000000))
+#define IOTDATA_POSITION_LON_OFFSET_I (INT64_C(1800000000))
+#define IOTDATA_POSITION_LON_RANGE_I  (INT64_C(3600000000))
+#define IOTDATA_FIELDS_DAT_POSITION \
+    iotdata_double_t position_lat; \
+    iotdata_double_t position_lon;
+typedef struct {
+    IOTDATA_FIELDS_DAT_POSITION
+} iotdata_field_position_t;
+#if !defined(IOTDATA_NO_FLOATING)
+#define IOTDATA_POSITION_LAT_LOW  (-90.0)
+#define IOTDATA_POSITION_LAT_HIGH (90.0)
+#define IOTDATA_POSITION_LON_LOW  (-180.0)
+#define IOTDATA_POSITION_LON_HIGH (180.0)
+#else
+#define IOTDATA_POSITION_LAT_LOW  (-900000000)
+#define IOTDATA_POSITION_LAT_HIGH (900000000)
+#define IOTDATA_POSITION_LON_LOW  (-1800000000)
+#define IOTDATA_POSITION_LON_HIGH (1800000000)
+#endif
+#define IOTDATA_POSITION_LAT_BITS (24)
+#define IOTDATA_POSITION_LON_BITS (24)
+#define IOTDATA_POSITION_SCALE    (16777215)
+#define IOTDATA_POSITION_BITS     (48)
+#if !defined(IOTDATA_NO_ENCODE)
+enum iotdata_status_t_ iotdata_encode_position(struct iotdata_encoder_t_ *const enc, iotdata_double_t latitude, iotdata_double_t longitude);
+#if defined(IOTDATA_OPERATE_ORDERED)
+enum iotdata_status_t_ iotdata_encode_position_by_slot(struct iotdata_encoder_t_ *const enc, const int slot, iotdata_double_t latitude, iotdata_double_t longitude);
+#endif
+#endif
+#if !defined(IOTDATA_NO_DECODE)
+enum iotdata_status_t_ iotdata_decode_position(struct iotdata_decoder_t_ *const dec, iotdata_double_t *latitude, iotdata_double_t *longitude);
+#endif
+#define IOTDATA_FIELDS_MEM_POSITION    iotdata_field_position_t position;
+#define IOTDATA_FIELD_ID_POSITION      0x0080u
+#define IOTDATA_FIELDS_DEF_POSITION(F) F(POSITION)
+#define IOTDATA_FIELDS_OPS_POSITION(E) E(POSITION, _iotdata_field_def_position)
+#define IOTDATA_FIELDS_ERR_IDENTS_POSITION(S) \
+    S(IOTDATA_ERR_POSITION_LAT_LOW) \
+    S(IOTDATA_ERR_POSITION_LAT_HIGH) \
+    S(IOTDATA_ERR_POSITION_LON_LOW) \
+    S(IOTDATA_ERR_POSITION_LON_HIGH)
+#define IOTDATA_FIELDS_ERR_STRINGS_POSITION(D) \
+    D(IOTDATA_ERR_POSITION_LAT_LOW, "Latitude below -90") \
+    D(IOTDATA_ERR_POSITION_LAT_HIGH, "Latitude above +90") \
+    D(IOTDATA_ERR_POSITION_LON_LOW, "Longitude below -180") \
+    D(IOTDATA_ERR_POSITION_LON_HIGH, "Longitude above +180")
+#else
+#define IOTDATA_FIELDS_DAT_POSITION
+#define IOTDATA_FIELDS_MEM_POSITION
+
+#define IOTDATA_FIELDS_DEF_POSITION(F)
+#define IOTDATA_FIELDS_OPS_POSITION(E)
+#define IOTDATA_FIELDS_ERR_IDENTS_POSITION(S)
+#define IOTDATA_FIELDS_ERR_STRINGS_POSITION(D)
+#endif
+
+/* ---------------------------------------------------------------------------
  * Field IMAGE
  * -------------------------------------------------------------------------*/
 
 #if defined(IOTDATA_ENABLE_IMAGE)
-#define IOTDATA_IMAGE_DATA_MAX         254 /* max pixel data after control byte */
-#define IOTDATA_IMAGE_FMT_BILEVEL      0   /* 1 bpp */
-#define IOTDATA_IMAGE_FMT_GREY4        1   /* 2 bpp */
-#define IOTDATA_IMAGE_FMT_GREY16       2   /* 4 bpp */
-#define IOTDATA_IMAGE_SIZE_24x18       0
-#define IOTDATA_IMAGE_SIZE_32x24       1
-#define IOTDATA_IMAGE_SIZE_48x36       2
-#define IOTDATA_IMAGE_SIZE_64x48       3
-#define IOTDATA_IMAGE_COMP_RAW         0
-#define IOTDATA_IMAGE_COMP_RLE         1
-#define IOTDATA_IMAGE_COMP_HEATSHRINK  2
-#define IOTDATA_IMAGE_FLAG_FRAGMENT    (1U << 1)
-#define IOTDATA_IMAGE_FLAG_INVERT      (1U << 0)
-#define IOTDATA_IMAGE_HS_WINDOW_SZ2    8 /* 256-byte window */
-#define IOTDATA_IMAGE_HS_LOOKAHEAD_SZ2 4 /* 16-byte lookahead */
+#define IOTDATA_IMAGE_DATA_MAX         (254 /* max pixel data after control byte */)
+#define IOTDATA_IMAGE_FMT_BILEVEL      (0 /* 1 bpp */)
+#define IOTDATA_IMAGE_FMT_GREY4        (1 /* 2 bpp */)
+#define IOTDATA_IMAGE_FMT_GREY16       (2 /* 4 bpp */)
+#define IOTDATA_IMAGE_SIZE_24x18       (0)
+#define IOTDATA_IMAGE_SIZE_32x24       (1)
+#define IOTDATA_IMAGE_SIZE_48x36       (2)
+#define IOTDATA_IMAGE_SIZE_64x48       (3)
+#define IOTDATA_IMAGE_COMP_RAW         (0)
+#define IOTDATA_IMAGE_COMP_RLE         (1)
+#define IOTDATA_IMAGE_COMP_HEATSHRINK  (2)
+#define IOTDATA_IMAGE_FLAG_FRAGMENT    (2)
+#define IOTDATA_IMAGE_FLAG_INVERT      (1)
+#define IOTDATA_IMAGE_HS_WINDOW_SZ2    (8 /* 256-byte window */)
+#define IOTDATA_IMAGE_HS_LOOKAHEAD_SZ2 (4 /* 16-byte lookahead */)
 #if !defined(IOTDATA_NO_ENCODE)
 #define IOTDATA_FIELDS_DAT_IMAGE_ENCODE \
     uint8_t image_pixel_format; \
@@ -1412,7 +1460,7 @@ enum iotdata_status_t_ iotdata_decode_image(struct iotdata_decoder_t_ *const dec
 #endif
 
 /* ---------------------------------------------------------------------------
- * Master
+ * Aggregation
  * -------------------------------------------------------------------------*/
 
 #define IOTDATA_FIELDS_SELECTED(F) \
@@ -1999,6 +2047,7 @@ static const iotdata_field_ops_t _iotdata_field_def_battery_level = { _IOTDATA_O
                                                                               _IOTDATA_OP_PRINT(print_battery_level) _IOTDATA_OP_JSON_SET(json_set_battery_level) _IOTDATA_OP_JSON_GET(json_get_battery_level) };
 #endif
 #endif
+
 #if defined(IOTDATA_ENABLE_BATTERY_CHARGE) || defined(IOTDATA_ENABLE_BATTERY)
 #if !defined(IOTDATA_NO_ENCODE)
 static uint32_t quantise_battery_state(bool charging) {
@@ -2107,6 +2156,7 @@ static const iotdata_field_ops_t _iotdata_field_def_battery_charge = { _IOTDATA_
                                                                                _IOTDATA_OP_PRINT(print_battery_charge) _IOTDATA_OP_JSON_SET(json_set_battery_charge) _IOTDATA_OP_JSON_GET(json_get_battery_charge) };
 #endif
 #endif
+
 #if defined(IOTDATA_ENABLE_BATTERY)
 #if !defined(IOTDATA_NO_ENCODE)
 static bool pack_battery(uint8_t *const buf, const size_t bb, size_t *const bp, const void *const vv) {
@@ -2340,6 +2390,7 @@ static const iotdata_field_ops_t _iotdata_field_def_link_rssi = { _IOTDATA_OP_EN
                                                                           _IOTDATA_OP_PRINT(print_link_rssi) _IOTDATA_OP_JSON_SET(json_set_link_rssi) _IOTDATA_OP_JSON_GET(json_get_link_rssi) };
 #endif
 #endif
+
 #if defined(IOTDATA_ENABLE_LINK_SNR) || defined(IOTDATA_ENABLE_LINK)
 #if !defined(IOTDATA_NO_FLOATING)
 #if !defined(IOTDATA_NO_ENCODE)
@@ -2485,6 +2536,7 @@ static const iotdata_field_ops_t _iotdata_field_def_link_snr = { _IOTDATA_OP_ENC
                                                                          _IOTDATA_OP_PRINT(print_link_snr) _IOTDATA_OP_JSON_SET(json_set_link_snr) _IOTDATA_OP_JSON_GET(json_get_link_snr) };
 #endif
 #endif
+
 #if defined(IOTDATA_ENABLE_LINK)
 #if !defined(IOTDATA_NO_ENCODE)
 static bool pack_link(uint8_t *const buf, const size_t bb, size_t *const bp, const void *const vv) {
@@ -4145,6 +4197,7 @@ static const iotdata_field_ops_t _iotdata_field_def_solar_irradiance = { _IOTDAT
                                                                                      _IOTDATA_OP_JSON_SET(json_set_solar_irradiance) _IOTDATA_OP_JSON_GET(json_get_solar_irradiance) };
 #endif
 #endif
+
 #if defined(IOTDATA_ENABLE_SOLAR_ULTRAVIOLET) || defined(IOTDATA_ENABLE_SOLAR)
 #if !defined(IOTDATA_NO_ENCODE)
 static uint32_t quantise_solar_ultraviolet(uint8_t solar_ultraviolet) {
@@ -4262,6 +4315,7 @@ static const iotdata_field_ops_t _iotdata_field_def_solar_ultraviolet = { _IOTDA
                                                                                       _IOTDATA_OP_JSON_SET(json_set_solar_ultraviolet) _IOTDATA_OP_JSON_GET(json_get_solar_ultraviolet) };
 #endif
 #endif
+
 #if defined(IOTDATA_ENABLE_SOLAR)
 #if !defined(IOTDATA_NO_ENCODE)
 static bool pack_solar(uint8_t *const buf, const size_t bb, size_t *const bp, const void *const vv) {
@@ -5636,6 +5690,127 @@ static const iotdata_field_ops_t _iotdata_field_def_depth = { _IOTDATA_OP_ENC_OF
 #endif
 
 /* =========================================================================
+ * Field DATETIME
+ * ========================================================================= */
+
+#if defined(IOTDATA_ENABLE_DATETIME)
+#if !defined(IOTDATA_NO_ENCODE)
+static uint32_t quantise_datetime(uint32_t datetime) {
+    return (uint32_t)(datetime / IOTDATA_DATETIME_RES);
+}
+#endif
+#if !defined(IOTDATA_NO_DECODE) || !defined(IOTDATA_NO_DUMP)
+static uint32_t dequantise_datetime(uint32_t raw) {
+    return (uint32_t)(raw * IOTDATA_DATETIME_RES);
+}
+#endif
+#if !defined(IOTDATA_NO_ENCODE)
+static bool pack_datetime(uint8_t *const buf, const size_t bb, size_t *const bp, const void *const vv) {
+    const iotdata_field_datetime_t *const v = vv;
+    return bits_write(buf, bb, bp, quantise_datetime(v->datetime_secs), IOTDATA_DATETIME_BITS);
+}
+#endif
+#if !defined(IOTDATA_NO_ENCODE)
+#if defined(IOTDATA_OPERATE_ORDERED)
+iotdata_status_t iotdata_encode_datetime_by_slot(iotdata_encoder_t *const enc, const int slot, uint32_t seconds_from_year_start) {
+    CHECK_CTX_ACTIVE(enc);
+    int si = slot;
+    RESOLVE_SLOT_EXACT(enc, IOTDATA_FIELD_DATETIME, si);
+#if !defined(IOTDATA_NO_CHECKS_TYPES)
+    if ((seconds_from_year_start / IOTDATA_DATETIME_RES) > IOTDATA_DATETIME_MAX)
+        return IOTDATA_ERR_DATETIME_HIGH;
+#endif
+    iotdata_field_datetime_t v;
+    v.datetime_secs = seconds_from_year_start;
+    PACK_DIRECT(enc, pack_datetime, &v);
+    COMMIT_SLOT(enc, si, IOTDATA_FIELD_DATETIME);
+    return IOTDATA_OK;
+}
+iotdata_status_t iotdata_encode_datetime(iotdata_encoder_t *const enc, uint32_t seconds_from_year_start) {
+    CHECK_CTX_ACTIVE(enc);
+    int si = IOTDATA_SLOT_NONE;
+    RESOLVE_SLOT(enc, IOTDATA_FIELD_DATETIME, si);
+    return iotdata_encode_datetime_by_slot(enc, si, seconds_from_year_start);
+}
+#else
+iotdata_status_t iotdata_encode_datetime(iotdata_encoder_t *const enc, uint32_t seconds_from_year_start) {
+    CHECK_CTX_ACTIVE(enc);
+    int si = IOTDATA_SLOT_NONE;
+    RESOLVE_SLOT(enc, IOTDATA_FIELD_DATETIME, si);
+#if !defined(IOTDATA_NO_CHECKS_TYPES)
+    if ((seconds_from_year_start / IOTDATA_DATETIME_RES) > IOTDATA_DATETIME_MAX)
+        return IOTDATA_ERR_DATETIME_HIGH;
+#endif
+    enc->datetime.datetime_secs = seconds_from_year_start;
+    COMMIT_SLOT(enc, si, IOTDATA_FIELD_DATETIME);
+    return IOTDATA_OK;
+}
+#endif
+#endif
+#if !defined(IOTDATA_NO_DECODE)
+static bool unpack_datetime(const uint8_t *const buf, const size_t bb, size_t *const bp, void *const vv) {
+    iotdata_field_datetime_t *const v = vv;
+    if (*bp + IOTDATA_DATETIME_BITS > bb)
+        return false;
+    v->datetime_secs = dequantise_datetime(bits_read(buf, bb, bp, IOTDATA_DATETIME_BITS));
+    return true;
+}
+#endif
+#if !defined(IOTDATA_NO_DECODE)
+iotdata_status_t iotdata_decode_datetime(iotdata_decoder_t *dec, uint32_t *seconds_from_year_start) {
+#if defined(IOTDATA_OPERATE_ORDERED)
+    iotdata_field_datetime_t v;
+    RESOLVE_DEC_FIELD(dec, IOTDATA_FIELD_DATETIME, unpack_datetime, &v);
+    if (seconds_from_year_start)
+        *seconds_from_year_start = v.datetime_secs;
+#else
+    CHECK_DEC_FIELD(dec, IOTDATA_FIELD_DATETIME);
+    if (seconds_from_year_start)
+        *seconds_from_year_start = dec->datetime.datetime_secs;
+#endif
+    return IOTDATA_OK;
+}
+#endif
+#if !defined(IOTDATA_NO_JSON) && !defined(IOTDATA_NO_ENCODE)
+static iotdata_status_t json_get_datetime(cJSON *const root, iotdata_encoder_t *const enc, const char *const label, iotdata_encode_from_json_scratch_t *const scratch) {
+    (void)scratch;
+    cJSON *j = cJSON_GetObjectItem(root, label);
+    if (!j)
+        return IOTDATA_OK;
+    return iotdata_encode_datetime(enc, (uint32_t)j->valueint);
+}
+#endif
+#if !defined(IOTDATA_NO_JSON) && !defined(IOTDATA_NO_DECODE)
+static void json_set_datetime(cJSON *const root, const void *const vv, const char *const label, iotdata_decode_to_json_scratch_t *const scratch) {
+    const iotdata_field_datetime_t *const v = vv;
+    (void)scratch;
+    cJSON_AddNumberToObject(root, label, v->datetime_secs);
+}
+#endif
+#if !defined(IOTDATA_NO_DUMP)
+static int dump_datetime(const uint8_t *const buf, const size_t bb, size_t *const bp, iotdata_dump_t *const dump, int n, const char *const label) {
+    (void)label;
+    const size_t s = *bp;
+    const uint32_t r = bits_read(buf, bb, bp, IOTDATA_DATETIME_BITS);
+    const uint32_t secs = dequantise_datetime(r);
+    snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "day %" PRIu32 " %02" PRIu32 ":%02" PRIu32 ":%02" PRIu32 " (%" PRIu32 "s)", secs / 86400, (secs % 86400) / 3600, (secs % 3600) / 60, secs % 60, secs);
+    n = dump_add(dump, n, s, IOTDATA_DATETIME_BITS, r, dump->_dec_buf, "5s res", "datetime");
+    return n;
+}
+#endif
+#if !defined(IOTDATA_NO_PRINT) && !defined(IOTDATA_NO_DECODE)
+static void print_datetime(const void *const vv, iotdata_buf_t *const bp, const char *const label) {
+    const iotdata_field_datetime_t *const v = vv;
+    bprintf(bp, "  %s:%s day %" PRIu32 " %02" PRIu32 ":%02" PRIu32 ":%02" PRIu32 " (%" PRIu32 "s)\n", label, _padd(label), v->datetime_secs / 86400, (v->datetime_secs % 86400) / 3600, (v->datetime_secs % 3600) / 60, v->datetime_secs % 60,
+            v->datetime_secs);
+}
+#endif
+static const iotdata_field_ops_t _iotdata_field_def_datetime = { _IOTDATA_OP_ENC_OFF(offsetof(iotdata_encoder_t, datetime)) _IOTDATA_OP_DEC_OFF(offsetof(iotdata_decoder_t, datetime)) _IOTDATA_OP_NAME("datetime")
+                                                                     _IOTDATA_OP_BITS(IOTDATA_DATETIME_BITS) _IOTDATA_OP_PACK(pack_datetime) _IOTDATA_OP_UNPACK(unpack_datetime) _IOTDATA_OP_DUMP(dump_datetime)
+                                                                         _IOTDATA_OP_PRINT(print_datetime) _IOTDATA_OP_JSON_SET(json_set_datetime) _IOTDATA_OP_JSON_GET(json_get_datetime) };
+#endif
+
+/* =========================================================================
  * Field POSITION (LATITUDE, LONGITUDE)
  * ========================================================================= */
 
@@ -5842,127 +6017,6 @@ static void print_position(const void *const vv, iotdata_buf_t *const bp, const 
 static const iotdata_field_ops_t _iotdata_field_def_position = { _IOTDATA_OP_ENC_OFF(offsetof(iotdata_encoder_t, position)) _IOTDATA_OP_DEC_OFF(offsetof(iotdata_decoder_t, position)) _IOTDATA_OP_NAME("position")
                                                                      _IOTDATA_OP_BITS(IOTDATA_POSITION_LAT_BITS + IOTDATA_POSITION_LON_BITS) _IOTDATA_OP_PACK(pack_position) _IOTDATA_OP_UNPACK(unpack_position) _IOTDATA_OP_DUMP(dump_position)
                                                                          _IOTDATA_OP_PRINT(print_position) _IOTDATA_OP_JSON_SET(json_set_position) _IOTDATA_OP_JSON_GET(json_get_position) };
-#endif
-
-/* =========================================================================
- * Field DATETIME
- * ========================================================================= */
-
-#if defined(IOTDATA_ENABLE_DATETIME)
-#if !defined(IOTDATA_NO_ENCODE)
-static uint32_t quantise_datetime(uint32_t datetime) {
-    return (uint32_t)(datetime / IOTDATA_DATETIME_RES);
-}
-#endif
-#if !defined(IOTDATA_NO_DECODE) || !defined(IOTDATA_NO_DUMP)
-static uint32_t dequantise_datetime(uint32_t raw) {
-    return (uint32_t)(raw * IOTDATA_DATETIME_RES);
-}
-#endif
-#if !defined(IOTDATA_NO_ENCODE)
-static bool pack_datetime(uint8_t *const buf, const size_t bb, size_t *const bp, const void *const vv) {
-    const iotdata_field_datetime_t *const v = vv;
-    return bits_write(buf, bb, bp, quantise_datetime(v->datetime_secs), IOTDATA_DATETIME_BITS);
-}
-#endif
-#if !defined(IOTDATA_NO_ENCODE)
-#if defined(IOTDATA_OPERATE_ORDERED)
-iotdata_status_t iotdata_encode_datetime_by_slot(iotdata_encoder_t *const enc, const int slot, uint32_t seconds_from_year_start) {
-    CHECK_CTX_ACTIVE(enc);
-    int si = slot;
-    RESOLVE_SLOT_EXACT(enc, IOTDATA_FIELD_DATETIME, si);
-#if !defined(IOTDATA_NO_CHECKS_TYPES)
-    if ((seconds_from_year_start / IOTDATA_DATETIME_RES) > IOTDATA_DATETIME_MAX)
-        return IOTDATA_ERR_DATETIME_HIGH;
-#endif
-    iotdata_field_datetime_t v;
-    v.datetime_secs = seconds_from_year_start;
-    PACK_DIRECT(enc, pack_datetime, &v);
-    COMMIT_SLOT(enc, si, IOTDATA_FIELD_DATETIME);
-    return IOTDATA_OK;
-}
-iotdata_status_t iotdata_encode_datetime(iotdata_encoder_t *const enc, uint32_t seconds_from_year_start) {
-    CHECK_CTX_ACTIVE(enc);
-    int si = IOTDATA_SLOT_NONE;
-    RESOLVE_SLOT(enc, IOTDATA_FIELD_DATETIME, si);
-    return iotdata_encode_datetime_by_slot(enc, si, seconds_from_year_start);
-}
-#else
-iotdata_status_t iotdata_encode_datetime(iotdata_encoder_t *const enc, uint32_t seconds_from_year_start) {
-    CHECK_CTX_ACTIVE(enc);
-    int si = IOTDATA_SLOT_NONE;
-    RESOLVE_SLOT(enc, IOTDATA_FIELD_DATETIME, si);
-#if !defined(IOTDATA_NO_CHECKS_TYPES)
-    if ((seconds_from_year_start / IOTDATA_DATETIME_RES) > IOTDATA_DATETIME_MAX)
-        return IOTDATA_ERR_DATETIME_HIGH;
-#endif
-    enc->datetime.datetime_secs = seconds_from_year_start;
-    COMMIT_SLOT(enc, si, IOTDATA_FIELD_DATETIME);
-    return IOTDATA_OK;
-}
-#endif
-#endif
-#if !defined(IOTDATA_NO_DECODE)
-static bool unpack_datetime(const uint8_t *const buf, const size_t bb, size_t *const bp, void *const vv) {
-    iotdata_field_datetime_t *const v = vv;
-    if (*bp + IOTDATA_DATETIME_BITS > bb)
-        return false;
-    v->datetime_secs = dequantise_datetime(bits_read(buf, bb, bp, IOTDATA_DATETIME_BITS));
-    return true;
-}
-#endif
-#if !defined(IOTDATA_NO_DECODE)
-iotdata_status_t iotdata_decode_datetime(iotdata_decoder_t *dec, uint32_t *seconds_from_year_start) {
-#if defined(IOTDATA_OPERATE_ORDERED)
-    iotdata_field_datetime_t v;
-    RESOLVE_DEC_FIELD(dec, IOTDATA_FIELD_DATETIME, unpack_datetime, &v);
-    if (seconds_from_year_start)
-        *seconds_from_year_start = v.datetime_secs;
-#else
-    CHECK_DEC_FIELD(dec, IOTDATA_FIELD_DATETIME);
-    if (seconds_from_year_start)
-        *seconds_from_year_start = dec->datetime.datetime_secs;
-#endif
-    return IOTDATA_OK;
-}
-#endif
-#if !defined(IOTDATA_NO_JSON) && !defined(IOTDATA_NO_ENCODE)
-static iotdata_status_t json_get_datetime(cJSON *const root, iotdata_encoder_t *const enc, const char *const label, iotdata_encode_from_json_scratch_t *const scratch) {
-    (void)scratch;
-    cJSON *j = cJSON_GetObjectItem(root, label);
-    if (!j)
-        return IOTDATA_OK;
-    return iotdata_encode_datetime(enc, (uint32_t)j->valueint);
-}
-#endif
-#if !defined(IOTDATA_NO_JSON) && !defined(IOTDATA_NO_DECODE)
-static void json_set_datetime(cJSON *const root, const void *const vv, const char *const label, iotdata_decode_to_json_scratch_t *const scratch) {
-    const iotdata_field_datetime_t *const v = vv;
-    (void)scratch;
-    cJSON_AddNumberToObject(root, label, v->datetime_secs);
-}
-#endif
-#if !defined(IOTDATA_NO_DUMP)
-static int dump_datetime(const uint8_t *const buf, const size_t bb, size_t *const bp, iotdata_dump_t *const dump, int n, const char *const label) {
-    (void)label;
-    const size_t s = *bp;
-    const uint32_t r = bits_read(buf, bb, bp, IOTDATA_DATETIME_BITS);
-    const uint32_t secs = dequantise_datetime(r);
-    snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "day %" PRIu32 " %02" PRIu32 ":%02" PRIu32 ":%02" PRIu32 " (%" PRIu32 "s)", secs / 86400, (secs % 86400) / 3600, (secs % 3600) / 60, secs % 60, secs);
-    n = dump_add(dump, n, s, IOTDATA_DATETIME_BITS, r, dump->_dec_buf, "5s res", "datetime");
-    return n;
-}
-#endif
-#if !defined(IOTDATA_NO_PRINT) && !defined(IOTDATA_NO_DECODE)
-static void print_datetime(const void *const vv, iotdata_buf_t *const bp, const char *const label) {
-    const iotdata_field_datetime_t *const v = vv;
-    bprintf(bp, "  %s:%s day %" PRIu32 " %02" PRIu32 ":%02" PRIu32 ":%02" PRIu32 " (%" PRIu32 "s)\n", label, _padd(label), v->datetime_secs / 86400, (v->datetime_secs % 86400) / 3600, (v->datetime_secs % 3600) / 60, v->datetime_secs % 60,
-            v->datetime_secs);
-}
-#endif
-static const iotdata_field_ops_t _iotdata_field_def_datetime = { _IOTDATA_OP_ENC_OFF(offsetof(iotdata_encoder_t, datetime)) _IOTDATA_OP_DEC_OFF(offsetof(iotdata_decoder_t, datetime)) _IOTDATA_OP_NAME("datetime")
-                                                                     _IOTDATA_OP_BITS(IOTDATA_DATETIME_BITS) _IOTDATA_OP_PACK(pack_datetime) _IOTDATA_OP_UNPACK(unpack_datetime) _IOTDATA_OP_DUMP(dump_datetime)
-                                                                         _IOTDATA_OP_PRINT(print_datetime) _IOTDATA_OP_JSON_SET(json_set_datetime) _IOTDATA_OP_JSON_GET(json_get_datetime) };
 #endif
 
 /* =========================================================================

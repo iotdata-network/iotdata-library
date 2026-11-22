@@ -30,7 +30,7 @@ typedef struct {
 #define IOTDATA_FIELDS_ERR_STRINGS_{{NAME}}(D)
 #define IOTDATA_FIELDS_DAT_{{NAME}}{{#each part}} IOTDATA_FIELDS_DAT_{{p.NAME}}{{/each}}
 {{/if}}{{#if atomic}}#if {{enable_guard}}
-{{#each constant_early}}#define IOTDATA_{{NAME}}_{{c.name}} {{c.value}}
+{{#each constant_early}}#define IOTDATA_{{NAME}}_{{c.name}} ({{c.value}})
 {{/each}}{{#if mem_single}}{{#if single}}#define IOTDATA_FIELDS_DAT_{{NAME}} {{#each quantity}}{{q.member}}{{/each}}
 {{/if}}{{#if multi}}#define IOTDATA_FIELDS_DAT_{{NAME}} \
 {{#each quantity}}    {{q.member}}{{#if notlast}} \{{/if}}
@@ -64,7 +64,7 @@ typedef struct {
 {{/if}}{{#each constant}}{{#if has_lead}}/* {{c.lead}} */
 {{/if}}{{#if opens_cond}}#if !defined(IOTDATA_NO_FLOATING)
 {{/if}}{{#if emit_else}}#else
-{{/if}}#define IOTDATA_{{NAME}}_{{c.name}} {{c.value}}
+{{/if}}#define IOTDATA_{{NAME}}_{{c.name}} ({{c.value}})
 {{#if closes_cond}}#endif
 {{/if}}{{/each}}#if !defined(IOTDATA_NO_ENCODE)
 enum iotdata_status_t_ iotdata_encode_{{name}}(struct iotdata_encoder_t_ * const enc{{#each quantity}}, {{q.arg}}{{/each}});
@@ -117,9 +117,9 @@ enum iotdata_status_t_ iotdata_decode_{{name}}(struct iotdata_decoder_t_ * const
  * GENERATED FILE -- DO NOT EDIT.
  *
  * Built by generators/iotdata-generator-fields.js from the field specifiers in
- * specifiers/iotdata-fields-*.xml, through two templates:
- * generators/templates/fields.c.h.tmpl for the declarations below, and
- * generators/templates/fields.c.c.tmpl for the definitions in the second half.
+ * specifiers/iotdata-fields-*.xml, through generators/templates/fields.c.h.tmpl 
+ * for the declarations below, and generators/templates/fields.c.c.tmpl for the
+ * definitions after those.
  * `make generate` rewrites it and `make generate-check` proves it reproduces.
  */
 
@@ -127,7 +127,7 @@ enum iotdata_status_t_ iotdata_decode_{{name}}(struct iotdata_decoder_t_ * const
 #define IOTDATA_FIELDS_GENERATED_H_DECLARATIONS
 
 /* ---------------------------------------------------------------------------
- * Field identifiers
+ * Identifiers
  *
  * EVERY FIELD CARRIES TWO NUMBERS, AND THEY ARE NOT THE SAME NUMBER.
  *
@@ -162,19 +162,37 @@ enum iotdata_status_t_ iotdata_decode_{{name}}(struct iotdata_decoder_t_ * const
 {{field bits32}}
 {{field flags}}
 
-{{field battery_level}}{{field battery_charge}}{{field battery}}
-{{field link_rssi}}{{field link_snr}}{{field link}}
+{{field battery_level}}
+{{field battery_charge}}
+{{field battery}}
+{{field link_rssi}}
+{{field link_snr}}
+{{field link}}
 
-{{field temperature}}{{field pressure}}{{field humidity}}{{field environment}}
-{{field wind_speed}}{{field wind_direction}}{{field wind_gust}}{{field wind}}
-{{field rain_rate}}{{field rain_size}}{{field rain}}
-{{field solar_irradiance}}{{field solar_ultraviolet}}{{field solar}}
+{{field temperature}}
+{{field pressure}}
+{{field humidity}}
+{{field environment}}
+{{field wind_speed}}
+{{field wind_direction}}
+{{field wind_gust}}
+{{field wind}}
+{{field rain_rate}}
+{{field rain_size}}
+{{field rain}}
+{{field solar_irradiance}}
+{{field solar_ultraviolet}}
+{{field solar}}
 {{field clouds}}
-{{field air_quality_index}}{{field air_quality_pm}}{{field air_quality_gas}}{{field air_quality}}
-{{field radiation_cpm}}{{field radiation_dose}}{{field radiation}}
+{{field air_quality_index}}
+{{field air_quality_pm}}
+{{field air_quality_gas}}
+{{field air_quality}}
+{{field radiation_cpm}}
+{{field radiation_dose}}
+{{field radiation}}
 {{field depth}}
 
-{{field position}}
 {{field datetime}}
 static inline uint32_t iotdata_datetime_convert_utc_to_seconds_from_year_start(const int64_t utc) {
     if (utc <= 0)
@@ -188,11 +206,12 @@ static inline uint32_t iotdata_datetime_convert_utc_to_seconds_from_year_start(c
     }
     return (uint32_t)((d - j) * 86400 + r);
 }
+{{field position}}
 
 {{field image}}
 
 /* ---------------------------------------------------------------------------
- * Master
+ * Aggregation
  * -------------------------------------------------------------------------*/
 
 #define IOTDATA_FIELDS_SELECTED(F) \

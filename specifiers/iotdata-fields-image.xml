@@ -60,8 +60,8 @@
             <constant name="COMP_RAW" value="0" early="yes"/>
             <constant name="COMP_RLE" value="1" early="yes"/>
             <constant name="COMP_HEATSHRINK" value="2" early="yes"/>
-            <constant name="FLAG_FRAGMENT" value="(1U &lt;&lt; 1)" early="yes"/>
-            <constant name="FLAG_INVERT" value="(1U &lt;&lt; 0)" early="yes"/>
+            <constant name="FLAG_FRAGMENT" value="2" early="yes"/>
+            <constant name="FLAG_INVERT" value="1" early="yes"/>
             <constant name="HS_WINDOW_SZ2" value="8 /* 256-byte window */" early="yes"/>
             <constant name="HS_LOOKAHEAD_SZ2" value="4 /* 16-byte lookahead */" early="yes"/>
         </constants>

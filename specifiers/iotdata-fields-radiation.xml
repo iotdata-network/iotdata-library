@@ -22,7 +22,9 @@
         </documentation>
 
         <constants>
+            <constant name="MIN" value="0"/>
             <constant name="MAX" value="16383"/>
+            <constant name="RES" value="1"/>
             <constant name="BITS" value="14"/>
         </constants>
 
@@ -72,9 +74,9 @@
     <field name="radiation_dose" id="0x0061u" bits="IOTDATA_RADIATION_DOSE_BITS">
 
         <constants>
-            <constant name="MAX_RAW" value="16383" when="floating"/>
-            <constant name="RES" value="(0.01f)" when="floating"/>
-            <constant name="MAX" value="(163.83f)" when="floating"/>
+            <constant name="MIN" value="0"/>
+            <constant name="MAX" value="163.83f" when="floating"/>
+            <constant name="RES" value="0.01f" when="floating"/>
             <constant name="MAX" value="16383" when="integer"/>
             <constant name="RES" value="1" when="integer"/>
             <constant name="BITS" value="14"/>

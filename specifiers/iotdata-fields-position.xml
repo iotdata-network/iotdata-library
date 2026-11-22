@@ -20,26 +20,26 @@
             <note for="field"><![CDATA[Field POSITION (LATITUDE, LONGITUDE)]]></note>
         </documentation>
         <constants>
-            <constant name="LAT_OFFSET" value="90.0" early="yes"/>
-            <constant name="LAT_RANGE" value="180.0" early="yes"/>
-            <constant name="LON_OFFSET" value="180.0" early="yes"/>
-            <constant name="LON_RANGE" value="360.0" early="yes"/>
+            <constant name="LAT_OFFSET" value="90" early="yes"/>
+            <constant name="LAT_RANGE" value="180" early="yes"/>
+            <constant name="LON_OFFSET" value="180" early="yes"/>
+            <constant name="LON_RANGE" value="360" early="yes"/>
             <constant name="LAT_OFFSET_I" value="INT64_C(900000000)" early="yes"/>
             <constant name="LAT_RANGE_I" value="INT64_C(1800000000)" early="yes"/>
             <constant name="LON_OFFSET_I" value="INT64_C(1800000000)" early="yes"/>
             <constant name="LON_RANGE_I" value="INT64_C(3600000000)" early="yes"/>
-            <constant name="LAT_LOW" value="(-90.0)" when="floating"/>
-            <constant name="LAT_HIGH" value="(90.0)" when="floating"/>
-            <constant name="LON_LOW" value="(-180.0)" when="floating"/>
-            <constant name="LON_HIGH" value="(180.0)" when="floating"/>
-            <constant name="LAT_LOW" value="(-900000000)" when="integer"/>
-            <constant name="LAT_HIGH" value="(900000000)" when="integer"/>
-            <constant name="LON_LOW" value="(-1800000000)" when="integer"/>
-            <constant name="LON_HIGH" value="(1800000000)" when="integer"/>
+            <constant name="LAT_LOW" value="-90.0" when="floating"/>
+            <constant name="LAT_HIGH" value="90.0" when="floating"/>
+            <constant name="LON_LOW" value="-180.0" when="floating"/>
+            <constant name="LON_HIGH" value="180.0" when="floating"/>
+            <constant name="LAT_LOW" value="-900000000" when="integer"/>
+            <constant name="LAT_HIGH" value="900000000" when="integer"/>
+            <constant name="LON_LOW" value="-1800000000" when="integer"/>
+            <constant name="LON_HIGH" value="1800000000" when="integer"/>
             <constant name="LAT_BITS" value="24"/>
             <constant name="LON_BITS" value="24"/>
-            <constant name="SCALE" value="16777215 /* (1 << 24) - 1 */"/>
-            <constant name="BITS" value="(IOTDATA_POSITION_LAT_BITS + IOTDATA_POSITION_LON_BITS)"/>
+            <constant name="SCALE" value="16777215"/>
+            <constant name="BITS" value="48"/>
         </constants>
         <quantity name="position_lat" type="iotdata_double_t" param="latitude">
             <check expr="latitude &lt; (iotdata_double_t)IOTDATA_POSITION_LAT_LOW" error="LAT_LOW" text="Latitude below -90"/>
