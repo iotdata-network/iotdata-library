@@ -2271,7 +2271,6 @@ static const char *_aq_gas_range[IOTDATA_AIR_QUALITY_GAS_COUNT] = {
 };
 #endif
 #endif
-
 #if defined(IOTDATA_ENABLE_AIR_QUALITY_INDEX) || defined(IOTDATA_ENABLE_AIR_QUALITY)
 #if !defined(IOTDATA_NO_ENCODE)
 static uint32_t quantise_air_quality_index(uint16_t v) {
@@ -2352,13 +2351,6 @@ iotdata_status_t iotdata_decode_air_quality_index(iotdata_decoder_t *dec, uint16
     return IOTDATA_OK;
 }
 #endif
-#if !defined(IOTDATA_NO_JSON) && !defined(IOTDATA_NO_DECODE)
-static void json_set_air_quality_index(cJSON *root, const void *vv, const char *label, iotdata_decode_to_json_scratch_t *scratch) {
-    const iotdata_field_air_quality_index_t *const v = vv;
-    (void)scratch;
-    cJSON_AddNumberToObject(root, label, v->aq_index);
-}
-#endif
 #if defined(IOTDATA_ENABLE_AIR_QUALITY_INDEX) && !defined(IOTDATA_NO_JSON) && !defined(IOTDATA_NO_ENCODE)
 static iotdata_status_t json_get_air_quality_index(cJSON *root, iotdata_encoder_t *enc, const char *label, iotdata_encode_from_json_scratch_t *scratch) {
     (void)scratch;
@@ -2366,6 +2358,13 @@ static iotdata_status_t json_get_air_quality_index(cJSON *root, iotdata_encoder_
     if (!j)
         return IOTDATA_OK;
     return iotdata_encode_air_quality_index(enc, (uint16_t)j->valueint);
+}
+#endif
+#if !defined(IOTDATA_NO_JSON) && !defined(IOTDATA_NO_DECODE)
+static void json_set_air_quality_index(cJSON *root, const void *vv, const char *label, iotdata_decode_to_json_scratch_t *scratch) {
+    const iotdata_field_air_quality_index_t *const v = vv;
+    (void)scratch;
+    cJSON_AddNumberToObject(root, label, v->aq_index);
 }
 #endif
 #if !defined(IOTDATA_NO_DUMP)
@@ -2493,16 +2492,6 @@ iotdata_status_t iotdata_decode_air_quality_pm(iotdata_decoder_t *dec, uint8_t *
     return IOTDATA_OK;
 }
 #endif
-#if !defined(IOTDATA_NO_JSON) && !defined(IOTDATA_NO_DECODE)
-static void json_set_air_quality_pm(cJSON *root, const void *vv, const char *label, iotdata_decode_to_json_scratch_t *scratch) {
-    const iotdata_field_air_quality_pm_t *const v = vv;
-    (void)scratch;
-    cJSON *obj = cJSON_AddObjectToObject(root, label);
-    for (int i = 0; i < IOTDATA_AIR_QUALITY_PM_COUNT; i++)
-        if (v->aq_pm_present & (1U << i))
-            cJSON_AddNumberToObject(obj, _aq_pm_names[i], v->aq_pm[i]);
-}
-#endif
 #if defined(IOTDATA_ENABLE_AIR_QUALITY_PM) && !defined(IOTDATA_NO_JSON) && !defined(IOTDATA_NO_ENCODE)
 static iotdata_status_t json_get_air_quality_pm(cJSON *root, iotdata_encoder_t *enc, const char *label, iotdata_encode_from_json_scratch_t *scratch) {
     (void)scratch;
@@ -2519,6 +2508,16 @@ static iotdata_status_t json_get_air_quality_pm(cJSON *root, iotdata_encoder_t *
         }
     }
     return iotdata_encode_air_quality_pm(enc, present, pm);
+}
+#endif
+#if !defined(IOTDATA_NO_JSON) && !defined(IOTDATA_NO_DECODE)
+static void json_set_air_quality_pm(cJSON *root, const void *vv, const char *label, iotdata_decode_to_json_scratch_t *scratch) {
+    const iotdata_field_air_quality_pm_t *const v = vv;
+    (void)scratch;
+    cJSON *obj = cJSON_AddObjectToObject(root, label);
+    for (int i = 0; i < IOTDATA_AIR_QUALITY_PM_COUNT; i++)
+        if (v->aq_pm_present & (1U << i))
+            cJSON_AddNumberToObject(obj, _aq_pm_names[i], v->aq_pm[i]);
 }
 #endif
 #if !defined(IOTDATA_NO_DUMP)
@@ -2657,16 +2656,6 @@ iotdata_status_t iotdata_decode_air_quality_gas(iotdata_decoder_t *dec, uint8_t 
     return IOTDATA_OK;
 }
 #endif
-#if !defined(IOTDATA_NO_JSON) && !defined(IOTDATA_NO_DECODE)
-static void json_set_air_quality_gas(cJSON *root, const void *vv, const char *label, iotdata_decode_to_json_scratch_t *scratch) {
-    const iotdata_field_air_quality_gas_t *const v = vv;
-    (void)scratch;
-    cJSON *obj = cJSON_AddObjectToObject(root, label);
-    for (int i = 0; i < IOTDATA_AIR_QUALITY_GAS_COUNT; i++)
-        if (v->aq_gas_present & (1U << i))
-            cJSON_AddNumberToObject(obj, _aq_gas_names[i], v->aq_gas[i]);
-}
-#endif
 #if defined(IOTDATA_ENABLE_AIR_QUALITY_GAS) && !defined(IOTDATA_NO_JSON) && !defined(IOTDATA_NO_ENCODE)
 static iotdata_status_t json_get_air_quality_gas(cJSON *root, iotdata_encoder_t *enc, const char *label, iotdata_encode_from_json_scratch_t *scratch) {
     (void)scratch;
@@ -2683,6 +2672,16 @@ static iotdata_status_t json_get_air_quality_gas(cJSON *root, iotdata_encoder_t 
         }
     }
     return iotdata_encode_air_quality_gas(enc, present, gas);
+}
+#endif
+#if !defined(IOTDATA_NO_JSON) && !defined(IOTDATA_NO_DECODE)
+static void json_set_air_quality_gas(cJSON *root, const void *vv, const char *label, iotdata_decode_to_json_scratch_t *scratch) {
+    const iotdata_field_air_quality_gas_t *const v = vv;
+    (void)scratch;
+    cJSON *obj = cJSON_AddObjectToObject(root, label);
+    for (int i = 0; i < IOTDATA_AIR_QUALITY_GAS_COUNT; i++)
+        if (v->aq_gas_present & (1U << i))
+            cJSON_AddNumberToObject(obj, _aq_gas_names[i], v->aq_gas[i]);
 }
 #endif
 #if !defined(IOTDATA_NO_DUMP)

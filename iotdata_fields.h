@@ -659,15 +659,14 @@ typedef struct {
 #define IOTDATA_AIR_QUALITY_PM_VALUE_BITS   8
 #define IOTDATA_AIR_QUALITY_PM_VALUE_RES    5
 #define IOTDATA_AIR_QUALITY_PM_VALUE_MAX    1275 /* 255 * 5 */
-
 #define IOTDATA_AIR_QUALITY_PM_INDEX_PM1    0
 #define IOTDATA_AIR_QUALITY_PM_INDEX_PM25   1
 #define IOTDATA_AIR_QUALITY_PM_INDEX_PM4    2
 #define IOTDATA_AIR_QUALITY_PM_INDEX_PM10   3
 #if !defined(IOTDATA_NO_ENCODE)
-enum iotdata_status_t_ iotdata_encode_air_quality_pm(struct iotdata_encoder_t_ *enc, uint8_t pm_present, const uint16_t pm[4]);
+enum iotdata_status_t_ iotdata_encode_air_quality_pm(struct iotdata_encoder_t_ *enc, uint8_t pm_present, const uint16_t pm[IOTDATA_AIR_QUALITY_PM_COUNT]);
 #if defined(IOTDATA_OPERATE_ORDERED)
-enum iotdata_status_t_ iotdata_encode_air_quality_pm_by_slot(struct iotdata_encoder_t_ *enc, int slot, uint8_t pm_present, const uint16_t pm[4]);
+enum iotdata_status_t_ iotdata_encode_air_quality_pm_by_slot(struct iotdata_encoder_t_ *enc, int slot, uint8_t pm_present, const uint16_t pm[IOTDATA_AIR_QUALITY_PM_COUNT]);
 #endif
 #endif
 #if !defined(IOTDATA_NO_DECODE)
@@ -736,9 +735,9 @@ typedef struct {
 #define IOTDATA_AIR_QUALITY_GAS_MAX_RSVD6    1023
 #define IOTDATA_AIR_QUALITY_GAS_MAX_RSVD7    1023
 #if !defined(IOTDATA_NO_ENCODE)
-enum iotdata_status_t_ iotdata_encode_air_quality_gas(struct iotdata_encoder_t_ *enc, uint8_t gas_present, const uint16_t gas[8]);
+enum iotdata_status_t_ iotdata_encode_air_quality_gas(struct iotdata_encoder_t_ *enc, uint8_t gas_present, const uint16_t gas[IOTDATA_AIR_QUALITY_GAS_COUNT]);
 #if defined(IOTDATA_OPERATE_ORDERED)
-enum iotdata_status_t_ iotdata_encode_air_quality_gas_by_slot(struct iotdata_encoder_t_ *enc, int slot, uint8_t gas_present, const uint16_t gas[8]);
+enum iotdata_status_t_ iotdata_encode_air_quality_gas_by_slot(struct iotdata_encoder_t_ *enc, int slot, uint8_t gas_present, const uint16_t gas[IOTDATA_AIR_QUALITY_GAS_COUNT]);
 #endif
 #endif
 #if !defined(IOTDATA_NO_DECODE)
@@ -763,9 +762,11 @@ enum iotdata_status_t_ iotdata_decode_air_quality_gas(struct iotdata_decoder_t_ 
 #endif
 #if defined(IOTDATA_ENABLE_AIR_QUALITY)
 #if !defined(IOTDATA_NO_ENCODE)
-enum iotdata_status_t_ iotdata_encode_air_quality(struct iotdata_encoder_t_ *enc, uint16_t aq_index, uint8_t pm_present, const uint16_t pm[4], uint8_t gas_present, const uint16_t gas[8]);
+enum iotdata_status_t_ iotdata_encode_air_quality(struct iotdata_encoder_t_ *enc, uint16_t aq_index, uint8_t pm_present, const uint16_t pm[IOTDATA_AIR_QUALITY_PM_COUNT], uint8_t gas_present,
+                                                  const uint16_t gas[IOTDATA_AIR_QUALITY_GAS_COUNT]);
 #if defined(IOTDATA_OPERATE_ORDERED)
-enum iotdata_status_t_ iotdata_encode_air_quality_by_slot(struct iotdata_encoder_t_ *enc, int slot, uint16_t aq_index, uint8_t pm_present, const uint16_t pm[4], uint8_t gas_present, const uint16_t gas[8]);
+enum iotdata_status_t_ iotdata_encode_air_quality_by_slot(struct iotdata_encoder_t_ *enc, int slot, uint16_t aq_index, uint8_t pm_present, const uint16_t pm[IOTDATA_AIR_QUALITY_PM_COUNT], uint8_t gas_present,
+                                                          const uint16_t gas[IOTDATA_AIR_QUALITY_GAS_COUNT]);
 #endif
 #endif
 #if !defined(IOTDATA_NO_DECODE)
