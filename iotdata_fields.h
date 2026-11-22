@@ -3,8 +3,8 @@
 /*
  * GENERATED FILE -- DO NOT EDIT.
  *
- * Built by generators/iotdata-generator-fields.js from the field specification in
- * specification/iotdata-fields-*.xml, through two templates:
+ * Built by generators/iotdata-generator-fields.js from the field specifiers in
+ * specifiers/iotdata-fields-*.xml, through two templates:
  * generators/templates/fields.c.h.tmpl for the declarations below, and
  * generators/templates/fields.c.c.tmpl for the definitions in the second half.
  * `make generate` rewrites it and `make generate-check` proves it reproduces.

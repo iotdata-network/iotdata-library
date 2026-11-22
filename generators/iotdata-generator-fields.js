@@ -6,7 +6,7 @@
  *
  * THIS PROGRAM KNOWS NO C. Every brace, guard, typedef and macro form lives in
  * generators/templates/fields.c.*.tmpl; everything true of a field in any
- * language lives in specification/iotdata-fields.xml. So a toolchain that wants
+ * language lives in specifiers/iotdata-fields.xml. So a toolchain that wants
  * the C shaped differently is a template edit, and nobody has to come in here.
  *
  * THE TEMPLATE LANGUAGE IS FIVE CONSTRUCTS AND WILL STAY FIVE:
@@ -544,7 +544,7 @@ function addConstants(scope, f) {
 function main(argv) {
     const here = __dirname;
     const opt = {
-        spec: path.join(here, '..', 'specification'),
+        spec: path.join(here, '..', 'specifiers'),
         pattern: '^iotdata-fields.*\\.xml$',
         registry: 'iotdata_fields.csv',
         templates: path.join(here, 'templates'),

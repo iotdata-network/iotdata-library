@@ -165,7 +165,7 @@ $(LIB_STATIC): $(LIB_OBJ)
 ################################################################################
 # Generation
 #
-# specification/iotdata-fields.xml is the source; generators/templates hold every
+# specifiers/iotdata-fields.xml is the source; generators/templates hold every
 # brace and guard; the generator knows no C and only pumps one into the other.
 #
 # generate-check is the acceptance test, and it is deliberately strict: generate,
@@ -175,7 +175,7 @@ $(LIB_STATIC): $(LIB_OBJ)
 # judged on content and not on its ability to pad columns.
 
 GENERATOR      = generators/iotdata-generator-fields.js
-GENERATOR_SPEC = $(wildcard specification/iotdata-fields*.xml)
+GENERATOR_SPEC = $(wildcard specifiers/iotdata-fields*.xml)
 GENERATOR_TMPL = $(wildcard generators/templates/fields.*.tmpl)
 GENERATOR_DEPS = $(GENERATOR) generators/iotdata-generator-functions-xml.js \
     $(GENERATOR_TMPL) $(GENERATOR_SPEC)

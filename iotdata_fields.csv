@@ -1,7 +1,7 @@
 #
 # iotdata_fields.csv - the field registry
 #
-# GENERATED from specification/iotdata-fields-*.xml. Do not edit: the next
+# GENERATED from specifiers/iotdata-fields-*.xml. Do not edit: the next
 # `make generate` discards it.
 #
 # THE WHOLE-SET VIEW, which is the one thing no single specification document
