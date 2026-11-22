@@ -168,9 +168,6 @@ enum iotdata_status_t_ iotdata_encode_temperature_by_slot(struct iotdata_encoder
 #if !defined(IOTDATA_NO_DECODE)
 enum iotdata_status_t_ iotdata_decode_temperature(struct iotdata_decoder_t_ *dec, iotdata_float_t *temperature_c);
 #endif
-#define IOTDATA_FIELDS_MEM_TEMPERATURE    iotdata_field_temperature_t temperature;
-#define IOTDATA_FIELD_ID_TEMPERATURE      0x0010u
-#define IOTDATA_FIELDS_DEF_TEMPERATURE(F) F(TEMPERATURE)
 #define IOTDATA_FIELDS_ERR_IDENTS_TEMPERATURE(S) \
     S(IOTDATA_ERR_TEMPERATURE_LOW) \
     S(IOTDATA_ERR_TEMPERATURE_HIGH)
@@ -179,14 +176,17 @@ enum iotdata_status_t_ iotdata_decode_temperature(struct iotdata_decoder_t_ *dec
     D(IOTDATA_ERR_TEMPERATURE_HIGH, "Temperature above +80C")
 #else
 #define IOTDATA_FIELDS_DAT_TEMPERATURE
-#define IOTDATA_FIELDS_MEM_TEMPERATURE
-#define IOTDATA_FIELDS_DEF_TEMPERATURE(F)
 #define IOTDATA_FIELDS_ERR_IDENTS_TEMPERATURE(S)
 #define IOTDATA_FIELDS_ERR_STRINGS_TEMPERATURE(D)
 #endif
 #if defined(IOTDATA_ENABLE_TEMPERATURE)
+#define IOTDATA_FIELDS_MEM_TEMPERATURE    iotdata_field_temperature_t temperature;
+#define IOTDATA_FIELD_ID_TEMPERATURE      0x0010u
+#define IOTDATA_FIELDS_DEF_TEMPERATURE(F) F(TEMPERATURE)
 #define IOTDATA_FIELDS_OPS_TEMPERATURE(E) E(TEMPERATURE, _iotdata_field_def_temperature)
 #else
+#define IOTDATA_FIELDS_MEM_TEMPERATURE
+#define IOTDATA_FIELDS_DEF_TEMPERATURE(F)
 #define IOTDATA_FIELDS_OPS_TEMPERATURE(E)
 #endif
 #if defined(IOTDATA_ENABLE_PRESSURE) || defined(IOTDATA_ENABLE_ENVIRONMENT)
@@ -206,9 +206,6 @@ enum iotdata_status_t_ iotdata_encode_pressure_by_slot(struct iotdata_encoder_t_
 #if !defined(IOTDATA_NO_DECODE)
 enum iotdata_status_t_ iotdata_decode_pressure(struct iotdata_decoder_t_ *dec, uint16_t *pressure_hpa);
 #endif
-#define IOTDATA_FIELDS_MEM_PRESSURE    iotdata_field_pressure_t pressure;
-#define IOTDATA_FIELD_ID_PRESSURE      0x0011u
-#define IOTDATA_FIELDS_DEF_PRESSURE(F) F(PRESSURE)
 #define IOTDATA_FIELDS_ERR_IDENTS_PRESSURE(S) \
     S(IOTDATA_ERR_PRESSURE_LOW) \
     S(IOTDATA_ERR_PRESSURE_HIGH)
@@ -217,14 +214,17 @@ enum iotdata_status_t_ iotdata_decode_pressure(struct iotdata_decoder_t_ *dec, u
     D(IOTDATA_ERR_PRESSURE_HIGH, "Pressure above 1105 hPa")
 #else
 #define IOTDATA_FIELDS_DAT_PRESSURE
-#define IOTDATA_FIELDS_MEM_PRESSURE
-#define IOTDATA_FIELDS_DEF_PRESSURE(F)
 #define IOTDATA_FIELDS_ERR_IDENTS_PRESSURE(S)
 #define IOTDATA_FIELDS_ERR_STRINGS_PRESSURE(D)
 #endif
 #if defined(IOTDATA_ENABLE_PRESSURE)
+#define IOTDATA_FIELDS_MEM_PRESSURE    iotdata_field_pressure_t pressure;
+#define IOTDATA_FIELD_ID_PRESSURE      0x0011u
+#define IOTDATA_FIELDS_DEF_PRESSURE(F) F(PRESSURE)
 #define IOTDATA_FIELDS_OPS_PRESSURE(E) E(PRESSURE, _iotdata_field_def_pressure)
 #else
+#define IOTDATA_FIELDS_MEM_PRESSURE
+#define IOTDATA_FIELDS_DEF_PRESSURE(F)
 #define IOTDATA_FIELDS_OPS_PRESSURE(E)
 #endif
 #if defined(IOTDATA_ENABLE_HUMIDITY) || defined(IOTDATA_ENABLE_ENVIRONMENT)
@@ -243,21 +243,21 @@ enum iotdata_status_t_ iotdata_encode_humidity_by_slot(struct iotdata_encoder_t_
 #if !defined(IOTDATA_NO_DECODE)
 enum iotdata_status_t_ iotdata_decode_humidity(struct iotdata_decoder_t_ *dec, uint8_t *humidity_pct);
 #endif
-#define IOTDATA_FIELDS_MEM_HUMIDITY            iotdata_field_humidity_t humidity;
-#define IOTDATA_FIELD_ID_HUMIDITY              0x0012u
-#define IOTDATA_FIELDS_DEF_HUMIDITY(F)         F(HUMIDITY)
 #define IOTDATA_FIELDS_ERR_IDENTS_HUMIDITY(S)  S(IOTDATA_ERR_HUMIDITY_HIGH)
 #define IOTDATA_FIELDS_ERR_STRINGS_HUMIDITY(D) D(IOTDATA_ERR_HUMIDITY_HIGH, "Humidity above 100%")
 #else
 #define IOTDATA_FIELDS_DAT_HUMIDITY
-#define IOTDATA_FIELDS_MEM_HUMIDITY
-#define IOTDATA_FIELDS_DEF_HUMIDITY(F)
 #define IOTDATA_FIELDS_ERR_IDENTS_HUMIDITY(S)
 #define IOTDATA_FIELDS_ERR_STRINGS_HUMIDITY(D)
 #endif
 #if defined(IOTDATA_ENABLE_HUMIDITY)
+#define IOTDATA_FIELDS_MEM_HUMIDITY    iotdata_field_humidity_t humidity;
+#define IOTDATA_FIELD_ID_HUMIDITY      0x0012u
+#define IOTDATA_FIELDS_DEF_HUMIDITY(F) F(HUMIDITY)
 #define IOTDATA_FIELDS_OPS_HUMIDITY(E) E(HUMIDITY, _iotdata_field_def_humidity)
 #else
+#define IOTDATA_FIELDS_MEM_HUMIDITY
+#define IOTDATA_FIELDS_DEF_HUMIDITY(F)
 #define IOTDATA_FIELDS_OPS_HUMIDITY(E)
 #endif
 #if defined(IOTDATA_ENABLE_ENVIRONMENT)
@@ -338,6 +338,9 @@ typedef struct {
 } iotdata_field_wind_direction_t;
 #define IOTDATA_WIND_DIRECTION_MAX  359
 #define IOTDATA_WIND_DIRECTION_BITS 8
+#if !defined(IOTDATA_NO_FLOATING)
+#define IOTDATA_WIND_DIRECTION_SCALE ((float)(IOTDATA_WIND_DIRECTION_MAX + 1) / (float)(1 << IOTDATA_WIND_DIRECTION_BITS))
+#endif
 #if !defined(IOTDATA_NO_ENCODE)
 enum iotdata_status_t_ iotdata_encode_wind_direction(struct iotdata_encoder_t_ *enc, uint16_t direction_deg);
 #if defined(IOTDATA_OPERATE_ORDERED)

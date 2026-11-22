@@ -1086,7 +1086,7 @@ static void print_wind_speed(const void *vv, iotdata_buf_t *bp, const char *labe
 }
 #endif
 // clang-format off
-#if defined(IOTDATA_ENABLE_WIND_SPEED) 
+#if defined(IOTDATA_ENABLE_WIND_SPEED)
 static const iotdata_field_ops_t _iotdata_field_def_wind_speed = {
     _IOTDATA_OP_ENC_OFF(offsetof(iotdata_encoder_t, wind_speed))
     _IOTDATA_OP_DEC_OFF(offsetof(iotdata_decoder_t, wind_speed))
@@ -1105,7 +1105,6 @@ static const iotdata_field_ops_t _iotdata_field_def_wind_speed = {
 
 #if defined(IOTDATA_ENABLE_WIND_DIRECTION) || defined(IOTDATA_ENABLE_WIND)
 #if !defined(IOTDATA_NO_FLOATING)
-#define IOTDATA_WIND_DIRECTION_SCALE ((float)(IOTDATA_WIND_DIRECTION_MAX + 1) / (float)(1 << IOTDATA_WIND_DIRECTION_BITS))
 #if !defined(IOTDATA_NO_ENCODE)
 static uint32_t quantise_wind_direction(uint16_t deg) {
     return (uint32_t)roundf((float)deg / IOTDATA_WIND_DIRECTION_SCALE);
@@ -1230,7 +1229,7 @@ static void print_wind_direction(const void *vv, iotdata_buf_t *bp, const char *
 }
 #endif
 // clang-format off
-#if defined (IOTDATA_ENABLE_WIND_DIRECTION)
+#if defined(IOTDATA_ENABLE_WIND_DIRECTION)
 static const iotdata_field_ops_t _iotdata_field_def_wind_direction = {
     _IOTDATA_OP_ENC_OFF(offsetof(iotdata_encoder_t, wind_direction))
     _IOTDATA_OP_DEC_OFF(offsetof(iotdata_decoder_t, wind_direction))
@@ -1385,7 +1384,7 @@ static void print_wind_gust(const void *vv, iotdata_buf_t *bp, const char *label
 }
 #endif
 // clang-format off
-#if defined(IOTDATA_ENABLE_WIND_GUST) 
+#if defined(IOTDATA_ENABLE_WIND_GUST)
 static const iotdata_field_ops_t _iotdata_field_def_wind_gust = {
     _IOTDATA_OP_ENC_OFF(offsetof(iotdata_encoder_t, wind_gust))
     _IOTDATA_OP_DEC_OFF(offsetof(iotdata_decoder_t, wind_gust))
