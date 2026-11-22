@@ -12,7 +12,7 @@ enum iotdata_status_t_ iotdata_encode_{{name}}_by_slot(struct iotdata_encoder_t_
 #endif
 #endif
 #if !defined(IOTDATA_NO_DECODE)
-enum iotdata_status_t_ iotdata_decode_{{name}}(struct iotdata_decoder_t_ * const dec{{#each quantity}}, {{q.arg_out}}{{/each}});
+enum iotdata_status_t_ iotdata_decode_{{name}}(struct iotdata_decoder_t_ * const dec{{#each quantity}}, {{q.arg_out}}{{/each}}{{arg_extra}});
 #endif
 typedef struct {
 {{#each part}}    iotdata_field_{{p.name}}_t {{p.name}};
@@ -31,13 +31,37 @@ typedef struct {
 #define IOTDATA_FIELDS_DAT_{{NAME}}{{#each part}} IOTDATA_FIELDS_DAT_{{p.NAME}}{{/each}}
 {{/if}}{{#if atomic}}#if {{enable_guard}}
 {{#each constant_early}}#define IOTDATA_{{NAME}}_{{c.name}} {{c.value}}
-{{/each}}{{#if single}}#define IOTDATA_FIELDS_DAT_{{NAME}} {{#each quantity}}{{q.member}}{{/each}}
+{{/each}}{{#if mem_single}}{{#if single}}#define IOTDATA_FIELDS_DAT_{{NAME}} {{#each quantity}}{{q.member}}{{/each}}
 {{/if}}{{#if multi}}#define IOTDATA_FIELDS_DAT_{{NAME}} \
 {{#each quantity}}    {{q.member}}{{#if notlast}} \{{/if}}
 {{/each}}{{/if}}typedef struct {
     IOTDATA_FIELDS_DAT_{{NAME}}
 } iotdata_field_{{name}}_t;
-{{#each constant}}{{#if has_lead}}/* {{c.lead}} */
+{{/if}}{{#if mem_split}}#if !defined(IOTDATA_NO_ENCODE)
+#define IOTDATA_FIELDS_DAT_{{NAME}}_ENCODE \
+{{#each quantity}}    {{q.member_encode}}{{#if notlast}} \{{/if}}
+{{/each}}typedef struct {
+    IOTDATA_FIELDS_DAT_{{NAME}}_ENCODE
+} iotdata_field_{{name}}_enc_t;
+#define IOTDATA_FIELDS_MEM_{{NAME}}_ENCODE iotdata_field_{{name}}_enc_t {{name}};
+{{#if has_decl_encode}}{{impl decl_encode}}
+{{/if}}#else
+#define IOTDATA_FIELDS_DAT_{{NAME}}_ENCODE
+#define IOTDATA_FIELDS_MEM_{{NAME}}_ENCODE
+#endif
+#if !defined(IOTDATA_NO_DECODE)
+#define IOTDATA_FIELDS_DAT_{{NAME}}_DECODE \
+{{#each quantity}}    {{q.member_decode}}{{#if notlast}} \{{/if}}
+{{/each}}typedef struct {
+    IOTDATA_FIELDS_DAT_{{NAME}}_DECODE
+} iotdata_field_{{name}}_dec_t;
+#define IOTDATA_FIELDS_MEM_{{NAME}}_DECODE iotdata_field_{{name}}_dec_t {{name}};
+{{#if has_decl_decode}}{{impl decl_decode}}
+{{/if}}#else
+#define IOTDATA_FIELDS_DAT_{{NAME}}_DECODE
+#define IOTDATA_FIELDS_MEM_{{NAME}}_DECODE
+#endif
+{{/if}}{{#each constant}}{{#if has_lead}}/* {{c.lead}} */
 {{/if}}{{#if opens_cond}}#if !defined(IOTDATA_NO_FLOATING)
 {{/if}}{{#if emit_else}}#else
 {{/if}}#define IOTDATA_{{NAME}}_{{c.name}} {{c.value}}
@@ -49,10 +73,10 @@ enum iotdata_status_t_ iotdata_encode_{{name}}_by_slot(struct iotdata_encoder_t_
 #endif
 #endif
 #if !defined(IOTDATA_NO_DECODE)
-enum iotdata_status_t_ iotdata_decode_{{name}}(struct iotdata_decoder_t_ * const dec{{#each quantity}}, {{q.arg_out}}{{/each}});
+enum iotdata_status_t_ iotdata_decode_{{name}}(struct iotdata_decoder_t_ * const dec{{#each quantity}}, {{q.arg_out}}{{/each}}{{arg_extra}});
 #endif
-{{#if standalone}}#define IOTDATA_FIELDS_MEM_{{NAME}} iotdata_field_{{name}}_t {{name}};
-#define IOTDATA_FIELD_ID_{{NAME}} {{id}}
+{{#if standalone}}{{#if mem_single}}#define IOTDATA_FIELDS_MEM_{{NAME}} iotdata_field_{{name}}_t {{name}};
+{{/if}}#define IOTDATA_FIELD_ID_{{NAME}} {{id}}
 #define IOTDATA_FIELDS_DEF_{{NAME}}(F) F({{NAME}})
 #define IOTDATA_FIELDS_OPS_{{NAME}}(E) E({{NAME}}, _iotdata_field_def_{{name}})
 {{/if}}{{#if one_check}}#define IOTDATA_FIELDS_ERR_IDENTS_{{NAME}}(S) {{#each own_check}}S({{k.ident}}){{/each}}
@@ -62,14 +86,20 @@ enum iotdata_status_t_ iotdata_decode_{{name}}(struct iotdata_decoder_t_ * const
 {{/each}}#define IOTDATA_FIELDS_ERR_STRINGS_{{NAME}}(D) \
 {{#each own_check}}    D({{k.ident}}, "{{k.text}}"){{#if notlast}} \{{/if}}
 {{/each}}{{/if}}#else
-#define IOTDATA_FIELDS_DAT_{{NAME}}
-{{#if standalone}}#define IOTDATA_FIELDS_MEM_{{NAME}}
+{{#if mem_single}}#define IOTDATA_FIELDS_DAT_{{NAME}}
+{{/if}}{{#if mem_split}}#define IOTDATA_FIELDS_DAT_{{NAME}}_ENCODE
+#define IOTDATA_FIELDS_MEM_{{NAME}}_ENCODE
+#define IOTDATA_FIELDS_DAT_{{NAME}}_DECODE
+#define IOTDATA_FIELDS_MEM_{{NAME}}_DECODE
+{{/if}}{{#if standalone}}{{#if mem_single}}#define IOTDATA_FIELDS_MEM_{{NAME}}
+{{/if}}
 #define IOTDATA_FIELDS_DEF_{{NAME}}(F)
 #define IOTDATA_FIELDS_OPS_{{NAME}}(E)
 {{/if}}{{#if checked}}#define IOTDATA_FIELDS_ERR_IDENTS_{{NAME}}(S)
 #define IOTDATA_FIELDS_ERR_STRINGS_{{NAME}}(D)
 {{/if}}#endif
-{{#if unchecked}}#define IOTDATA_FIELDS_ERR_IDENTS_{{NAME}}(S)
+{{#if has_decl_tail}}{{impl decl_tail}}
+{{/if}}{{#if unchecked}}#define IOTDATA_FIELDS_ERR_IDENTS_{{NAME}}(S)
 #define IOTDATA_FIELDS_ERR_STRINGS_{{NAME}}(D)
 {{/if}}{{#if member}}#if defined(IOTDATA_ENABLE_{{NAME}})
 #define IOTDATA_FIELDS_MEM_{{NAME}} iotdata_field_{{name}}_t {{name}};
@@ -93,8 +123,8 @@ enum iotdata_status_t_ iotdata_decode_{{name}}(struct iotdata_decoder_t_ * const
  * `make generate` rewrites it and `make generate-check` proves it reproduces.
  */
 
-#if !defined(IOTDATA_FIELDS_H_DECLARATIONS)
-#define IOTDATA_FIELDS_H_DECLARATIONS
+#if !defined(IOTDATA_FIELDS_GENERATED_H_DECLARATIONS)
+#define IOTDATA_FIELDS_GENERATED_H_DECLARATIONS
 
 /* ---------------------------------------------------------------------------
  * Field identifiers
@@ -105,7 +135,7 @@ enum iotdata_status_t_ iotdata_decode_{{name}}(struct iotdata_decoder_t_ * const
  *   IOTDATA_FIELD_ID_<NAME>  the identifier, defined in its block    STABLE
  *
  * The enum is dense and moves with IOTDATA_ENABLE_*, because it doubles as a bit position in the
- * uint32_t presence mask and as an index into a flat ops table. That makes it a good handle
+ * presence mask -- an iotdata_field_t, 64 bits -- and as an index into a flat ops table. That makes it a good handle
  * inside one program and meaningless between two: enable one more field and every ordinal after
  * it shifts. The identifier does not move, so it is the one that can be written down, kept, or
  * handed to a peer that was built differently.
@@ -129,8 +159,12 @@ enum iotdata_status_t_ iotdata_decode_{{name}}(struct iotdata_decoder_t_ * const
  * escape hatch from typed telemetry rather than a kind of it.
  * -------------------------------------------------------------------------*/
 
+{{field bits32}}
+{{field flags}}
+
 {{field battery_level}}{{field battery_charge}}{{field battery}}
 {{field link_rssi}}{{field link_snr}}{{field link}}
+
 {{field temperature}}{{field pressure}}{{field humidity}}{{field environment}}
 {{field wind_speed}}{{field wind_direction}}{{field wind_gust}}{{field wind}}
 {{field rain_rate}}{{field rain_size}}{{field rain}}
@@ -139,6 +173,7 @@ enum iotdata_status_t_ iotdata_decode_{{name}}(struct iotdata_decoder_t_ * const
 {{field air_quality_index}}{{field air_quality_pm}}{{field air_quality_gas}}{{field air_quality}}
 {{field radiation_cpm}}{{field radiation_dose}}{{field radiation}}
 {{field depth}}
+
 {{field position}}
 {{field datetime}}
 static inline uint32_t iotdata_datetime_convert_utc_to_seconds_from_year_start(const int64_t utc) {
@@ -153,8 +188,8 @@ static inline uint32_t iotdata_datetime_convert_utc_to_seconds_from_year_start(c
     }
     return (uint32_t)((d - j) * 86400 + r);
 }
-{{field flags}}
-{{field bits32}}
+
+{{field image}}
 
 /* ---------------------------------------------------------------------------
  * Master
@@ -217,4 +252,4 @@ typedef union {
  * End
  * -------------------------------------------------------------------------*/
 
-#endif /* IOTDATA_FIELDS_H_DECLARATIONS */
+#endif /* IOTDATA_FIELDS_GENERATED_H_DECLARATIONS */

@@ -109,7 +109,7 @@
         a charger knows whether it is charging without knowing a state of
         charge, and before the split it had to invent a level to say so.
     -->
-    <field name="battery_charge" id="0x0003u" bits="IOTDATA_BATTERY_CHARGE_BITS">
+    <field name="battery_charge" id="0x0002u" bits="IOTDATA_BATTERY_CHARGE_BITS">
 
         <!-- no <note for="field">: shares the family's section banner -->
 
@@ -214,7 +214,7 @@
         strength, which is the half most radios can always report. The bundle
         moved to 0x0009.
     -->
-    <field name="link_rssi" id="0x0002u" bits="IOTDATA_LINK_RSSI_BITS">
+    <field name="link_rssi" id="0x0004u" bits="IOTDATA_LINK_RSSI_BITS">
 
         <documentation>
             <note for="field"><![CDATA[Field LINK, LINK_RSSI, LINK_SNR]]></note>
@@ -276,7 +276,7 @@
         because a receiver that reports SNR without a calibrated RSSI is
         ordinary -- the two come from different parts of a demodulator.
     -->
-    <field name="link_snr" id="0x0004u" bits="IOTDATA_LINK_SNR_BITS">
+    <field name="link_snr" id="0x0005u" bits="IOTDATA_LINK_SNR_BITS">
 
         <!-- no <note for="field">: shares the family's section banner -->
 

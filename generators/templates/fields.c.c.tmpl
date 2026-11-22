@@ -45,7 +45,7 @@ iotdata_status_t iotdata_encode_{{name}}_by_slot(iotdata_encoder_t * const enc, 
     RESOLVE_SLOT_EXACT(enc, IOTDATA_FIELD_{{NAME}}, si);
 {{#if checked}}#if !defined(IOTDATA_NO_CHECKS_TYPES)
 {{#each check}}{{k.test}}{{/each}}#endif
-{{/if}}    iotdata_field_{{name}}_t v;
+{{/if}}    {{enc_type}} v;
 {{#each quantity}}{{q.store_local}}{{/each}}    PACK_DIRECT(enc, pack_{{name}}, &v);
     COMMIT_SLOT(enc, si, IOTDATA_FIELD_{{NAME}});
     return IOTDATA_OK;
@@ -73,15 +73,15 @@ static bool unpack_{{name}}(const uint8_t * const buf, const size_t bb, size_t *
 {{impl unpack}}}
 #endif
 #if {{member_guard}}!defined(IOTDATA_NO_DECODE)
-iotdata_status_t iotdata_decode_{{name}}(iotdata_decoder_t *dec{{#each quantity}}, {{q.arg_out}}{{/each}}) {
-#if defined(IOTDATA_OPERATE_ORDERED)
-    iotdata_field_{{name}}_t v;
+iotdata_status_t iotdata_decode_{{name}}(iotdata_decoder_t *dec{{#each quantity}}, {{q.arg_out}}{{/each}}{{arg_extra}}) {
+{{#if decode_derived}}#if defined(IOTDATA_OPERATE_ORDERED)
+    {{dec_type}} v;
     RESOLVE_DEC_FIELD(dec, IOTDATA_FIELD_{{NAME}}, unpack_{{name}}, &v);
 {{#each quantity}}{{q.fetch_local}}{{/each}}#else
     CHECK_DEC_FIELD(dec, IOTDATA_FIELD_{{NAME}});
 {{#each quantity}}{{q.fetch_member}}{{/each}}#endif
     return IOTDATA_OK;
-}
+{{/if}}{{#if decode_given}}{{impl decode}}{{/if}}}
 #endif
 #if {{member_guard}}!defined(IOTDATA_NO_JSON) && !defined(IOTDATA_NO_ENCODE)
 static iotdata_status_t json_get_{{name}}(cJSON * const root, iotdata_encoder_t * const enc, const char * const label, iotdata_encode_from_json_scratch_t * const scratch) {
@@ -120,8 +120,12 @@ static void print_{{name}}(const void * const vv, iotdata_buf_t * const bp, cons
  * Definitions -- from generators/templates/fields.c.c.tmpl.
  * -------------------------------------------------------------------------*/
 
+{{field bits32}}
+{{field flags}}
+
 {{field battery_level}}{{field battery_charge}}{{field battery}}
 {{field link_rssi}}{{field link_snr}}{{field link}}
+
 {{field temperature}}
 {{field pressure}}
 {{field humidity}}
@@ -143,7 +147,8 @@ static void print_{{name}}(const void * const vv, iotdata_buf_t * const bp, cons
 {{field radiation_dose}}
 {{field radiation}}
 {{field depth}}
+
 {{field position}}
 {{field datetime}}
-{{field flags}}
-{{field bits32}}
+
+{{field image}}

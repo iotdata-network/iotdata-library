@@ -522,27 +522,18 @@ static inline void json_add_number_fixed(cJSON *obj, const char *name, double v,
  * Fields
  * ========================================================================= */
 
-/* The generated fields, their definitions this time: iotdata.h already took the declarations.
-   Three files, one pattern -- each asks for its own implementation half here, where bits_write,
-   bits_read, bprintf, dump_add and CHECK_CTX_ACTIVE exist. */
 #define IOTDATA_FIELDS_IMPLEMENTATION
 #include "iotdata_fields.h"
-#define IOTDATA_FIELDS_TLV_IMPLEMENTATION
-#include "iotdata_fields_tlv.h"
-#define IOTDATA_FIELDS_IMAGE_IMPLEMENTATION
-#include "iotdata_fields_image.h"
 
 /* =========================================================================
  * Internal field operations table
  * ========================================================================= */
 
-// clang-format off
 static const iotdata_field_ops_t *_iotdata_field_ops[IOTDATA_FIELD_COUNT] = {
 #define IOTDATA_FIELDS_OPS_VISITOR_(NAME, DEF) [IOTDATA_FIELD_##NAME] = &DEF,
     IOTDATA_FIELDS_OPS(IOTDATA_FIELDS_OPS_VISITOR_)
 #undef IOTDATA_FIELDS_OPS_VISITOR_
 };
-// clang-format on
 
 #if defined(IOTDATA_OPERATE_ORDERED) && !defined(IOTDATA_NO_DECODE)
 static iotdata_status_t _iotdata_decode_wind_to(iotdata_decoder_t *dec, iotdata_field_type_t type, int *out_slot) {

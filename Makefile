@@ -97,7 +97,7 @@ STACK_USAGE_FILE_EXAMPLE_IOTDATA=tests/test_example-iotdata.su
 
 LIB_SRC    = iotdata.c
 LIB_OBJ    = iotdata.o
-LIB_HDR    = iotdata.h iotdata_node.h iotdata_mesh.h iotdata_fields.h iotdata_fields_tlv.h iotdata_fields_image.h
+LIB_HDR    = iotdata.h iotdata_node.h iotdata_mesh.h iotdata_fields.h iotdata_fields_generated.h iotdata_fields_tlv.h iotdata_fields_impl_image.h
 LIB_STATIC = libiotdata.a
 
 TEST_DEFAULT_SRC = tests/test_default.c
@@ -198,7 +198,7 @@ generate: $(GENERATOR_DEPS)
 # What the generator writes. One header now, where it used to be a header and a
 # source: see the banner in iotdata_fields.h.
 
-GENERATED  = iotdata_fields.h
+GENERATED  = iotdata_fields_generated.h iotdata_fields.h
 
 generate-check: $(GENERATOR_DEPS)
 	@node $(GENERATOR) >/dev/null && $(MAKE) --no-print-directory format >/dev/null

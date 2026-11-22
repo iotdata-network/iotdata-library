@@ -6,7 +6,7 @@
  *
  * TLV IS NOT A FIELD, which is why it lives here and not in the generated files.
  * The iotdata_fields_ prefix is for consistency with the other hand-written
- * piece of the fields layer, iotdata_fields_image.h, and not a claim that TLV
+ * piece of the fields layer, iotdata_fields_impl_image.h, and not a claim that TLV
  * is one of them: it has no identifier, no presence slot, no enum member and no
  * row in the registry.
  * It occupies no data presence slot, it carries no identifier, it is not in the
@@ -72,8 +72,8 @@ typedef struct {
 #define IOTDATA_FIELDS_DAT_TLV_ENCODE \
     uint8_t tlv_count; \
     iotdata_encoder_tlv_t tlv[IOTDATA_TLV_MAX];
-enum iotdata_status_t_ iotdata_encode_tlv(struct iotdata_encoder_t_ *enc, uint8_t type, const uint8_t *data, uint8_t length);
-enum iotdata_status_t_ iotdata_encode_tlv_string(struct iotdata_encoder_t_ *enc, uint8_t type, const char *str);
+enum iotdata_status_t_ iotdata_encode_tlv(struct iotdata_encoder_t_ *enc, uint8_t type, const uint8_t *const data, uint8_t length);
+enum iotdata_status_t_ iotdata_encode_tlv_string(struct iotdata_encoder_t_ *enc, uint8_t type, const char *const str);
 #else
 #define IOTDATA_FIELDS_DAT_TLV_ENCODE
 #endif
@@ -227,13 +227,13 @@ typedef struct {
     bool overflow; /* sticky: a single check after the last add is enough */
 } iotdata_kvr_t;
 
-static inline void iotdata_kvr_init(iotdata_kvr_t *kv, uint8_t *buf, const size_t size) {
+static inline void iotdata_kvr_init(iotdata_kvr_t *const kv, uint8_t *const buf, const size_t size) {
     kv->buf = buf;
     kv->size = size;
     kv->len = 0;
     kv->overflow = (buf == NULL);
 }
-static inline bool iotdata_kvr_add(iotdata_kvr_t *kv, const uint8_t key, const void *val, const uint8_t vlen) {
+static inline bool iotdata_kvr_add(iotdata_kvr_t *const kv, const uint8_t key, const void *const val, const uint8_t vlen) {
     if (kv->overflow || kv->len + 2u + (size_t)vlen > kv->size) {
         kv->overflow = true;
         return false;
@@ -246,24 +246,22 @@ static inline bool iotdata_kvr_add(iotdata_kvr_t *kv, const uint8_t key, const v
     }
     return true;
 }
-static inline bool iotdata_kvr_add_flag(iotdata_kvr_t *kv, const uint8_t key) { /* present, no value */
+static inline bool iotdata_kvr_add_flag(iotdata_kvr_t *const kv, const uint8_t key) { /* present, no value */
     return iotdata_kvr_add(kv, key, NULL, 0);
 }
-static inline bool iotdata_kvr_add_u8(iotdata_kvr_t *kv, const uint8_t key, const uint8_t v) {
+static inline bool iotdata_kvr_add_u8(iotdata_kvr_t *const kv, const uint8_t key, const uint8_t v) {
     return iotdata_kvr_add(kv, key, &v, 1);
 }
-static inline bool iotdata_kvr_add_u16(iotdata_kvr_t *kv, const uint8_t key, const uint16_t v) {
-    const uint8_t b[2] = { (uint8_t)(v >> 8), (uint8_t)v };
-    return iotdata_kvr_add(kv, key, b, 2);
+static inline bool iotdata_kvr_add_u16(iotdata_kvr_t *const kv, const uint8_t key, const uint16_t v) {
+    return iotdata_kvr_add(kv, key, (const uint8_t[2]){ (uint8_t)(v >> 8), (uint8_t)v }, 2);
 }
-static inline bool iotdata_kvr_add_u32(iotdata_kvr_t *kv, const uint8_t key, const uint32_t v) {
-    const uint8_t b[4] = { (uint8_t)(v >> 24), (uint8_t)(v >> 16), (uint8_t)(v >> 8), (uint8_t)v };
-    return iotdata_kvr_add(kv, key, b, 4);
+static inline bool iotdata_kvr_add_u32(iotdata_kvr_t *const kv, const uint8_t key, const uint32_t v) {
+    return iotdata_kvr_add(kv, key, (const uint8_t[4]){ (uint8_t)(v >> 24), (uint8_t)(v >> 16), (uint8_t)(v >> 8), (uint8_t)v }, 4);
 }
-static inline bool iotdata_kvr_add_i8(iotdata_kvr_t *kv, const uint8_t key, const int8_t v) {
+static inline bool iotdata_kvr_add_i8(iotdata_kvr_t *const kv, const uint8_t key, const int8_t v) {
     return iotdata_kvr_add_u8(kv, key, (uint8_t)v);
 }
-static inline bool iotdata_kvr_add_str(iotdata_kvr_t *kv, const uint8_t key, const char *s) {
+static inline bool iotdata_kvr_add_str(iotdata_kvr_t *const kv, const uint8_t key, const char *const s) {
     const size_t n = (s != NULL) ? strlen(s) : 0;
     if (n > 255) {
         kv->overflow = true;
@@ -278,7 +276,7 @@ static inline bool iotdata_kvr_add_str(iotdata_kvr_t *kv, const uint8_t key, con
    rather than running off the buffer). Usage:
      size_t cur = 0; uint8_t k, n; const uint8_t *v;
      while (iotdata_kvr_next(buf, len, &cur, &k, &v, &n)) { ... } */
-static inline bool iotdata_kvr_next(const uint8_t *buf, const size_t len, size_t *cursor, uint8_t *key, const uint8_t **val, uint8_t *vlen) {
+static inline bool iotdata_kvr_next(const uint8_t *const buf, const size_t len, size_t *const cursor, uint8_t *const key, const uint8_t **val, uint8_t *const vlen) {
     if (buf == NULL || cursor == NULL || *cursor + 2u > len)
         return false;
     const uint8_t k = buf[*cursor], l = buf[*cursor + 1];
@@ -294,22 +292,19 @@ static inline bool iotdata_kvr_next(const uint8_t *buf, const size_t len, size_t
     return true;
 }
 
-/* Value readers, mirroring the writers. A width mismatch yields the default rather than garbage,
-   so a reader survives a peer that encoded a key at a different width. */
-static inline uint8_t iotdata_kvr_u8(const uint8_t *v, const uint8_t n, const uint8_t dflt) {
+static inline uint8_t iotdata_kvr_u8(const uint8_t *const v, const uint8_t n, const uint8_t dflt) {
     return (n == 1) ? v[0] : dflt;
 }
-static inline int8_t iotdata_kvr_i8(const uint8_t *v, const uint8_t n, const int8_t dflt) {
+static inline int8_t iotdata_kvr_i8(const uint8_t *const v, const uint8_t n, const int8_t dflt) {
     return (n == 1) ? (int8_t)v[0] : dflt;
 }
-static inline uint16_t iotdata_kvr_u16(const uint8_t *v, const uint8_t n, const uint16_t dflt) {
+static inline uint16_t iotdata_kvr_u16(const uint8_t *const v, const uint8_t n, const uint16_t dflt) {
     return (n == 2) ? (uint16_t)(((uint16_t)v[0] << 8) | v[1]) : dflt;
 }
-static inline uint32_t iotdata_kvr_u32(const uint8_t *v, const uint8_t n, const uint32_t dflt) {
+static inline uint32_t iotdata_kvr_u32(const uint8_t *const v, const uint8_t n, const uint32_t dflt) {
     return (n == 4) ? (((uint32_t)v[0] << 24) | ((uint32_t)v[1] << 16) | ((uint32_t)v[2] << 8) | v[3]) : dflt;
 }
-/* Copy a string value out with a NUL, truncating to fit. Returns the bytes written. */
-static inline size_t iotdata_kvr_str(const uint8_t *v, const uint8_t n, char *out, const size_t out_size) {
+static inline size_t iotdata_kvr_str(const uint8_t *const v, const uint8_t n, char *const out, const size_t out_size) {
     if (out == NULL || out_size == 0)
         return 0;
     const size_t c = ((size_t)n < out_size - 1) ? (size_t)n : out_size - 1;
@@ -328,7 +323,7 @@ typedef struct {
     bool overflow;
 } iotdata_kvs_t;
 
-static inline void iotdata_kvs_init(iotdata_kvs_t *kv, char *buf, const size_t size) {
+static inline void iotdata_kvs_init(iotdata_kvs_t *const kv, char *const buf, const size_t size) {
     kv->buf = buf;
     kv->size = size;
     kv->len = 0;
@@ -336,7 +331,7 @@ static inline void iotdata_kvs_init(iotdata_kvs_t *kv, char *buf, const size_t s
     if (!kv->overflow)
         buf[0] = '\0';
 }
-static inline bool iotdata_kvs_add(iotdata_kvs_t *kv, const char *name, const char *value) {
+static inline bool iotdata_kvs_add(iotdata_kvs_t *const kv, const char *const name, const char *const value) {
     if (kv->overflow || name == NULL || value == NULL) {
         kv->overflow = true;
         return false;
@@ -360,7 +355,7 @@ static inline bool iotdata_kvs_add(iotdata_kvs_t *kv, const char *name, const ch
 
 /* Iterate "name value" pairs in a kvs payload. `name`/`value` point into `str` and are NOT
    NUL-terminated -- use the paired lengths. Returns false at the end or on an odd trailing token. */
-static inline bool iotdata_kvs_next(const char *str, size_t *cursor, const char **name, size_t *name_len, const char **value, size_t *value_len) {
+static inline bool iotdata_kvs_next(const char *const str, size_t *const cursor, const char **name, size_t *const name_len, const char **value, size_t *const value_len) {
     if (str == NULL || cursor == NULL)
         return false;
     size_t i = *cursor;
@@ -404,7 +399,7 @@ static inline bool iotdata_kvs_next(const char *str, size_t *cursor, const char 
 
 #if defined(IOTDATA_ENABLE_TLV)
 #if !defined(IOTDATA_NO_ENCODE)
-iotdata_status_t iotdata_encode_tlv(iotdata_encoder_t *enc, uint8_t type, const uint8_t *data, uint8_t length) {
+iotdata_status_t iotdata_encode_tlv(iotdata_encoder_t *const enc, const uint8_t type, const uint8_t *const data, const uint8_t length) {
     CHECK_CTX_ACTIVE(enc);
 #if !defined(IOTDATA_NO_CHECKS_TYPES)
     if (type > IOTDATA_TLV_TYPE_MAX)
@@ -438,7 +433,7 @@ iotdata_status_t iotdata_encode_tlv(iotdata_encoder_t *enc, uint8_t type, const 
     IOTDATA_FIELD_SET(enc->fields, IOTDATA_FIELD_TLV);
     return IOTDATA_OK;
 }
-iotdata_status_t iotdata_encode_tlv_string(iotdata_encoder_t *enc, uint8_t type, const char *str) {
+iotdata_status_t iotdata_encode_tlv_string(iotdata_encoder_t *const enc, const uint8_t type, const char *const str) {
     CHECK_CTX_ACTIVE(enc);
 #if !defined(IOTDATA_NO_CHECKS_TYPES)
     if (type > IOTDATA_TLV_TYPE_MAX)
@@ -466,7 +461,7 @@ iotdata_status_t iotdata_encode_tlv_string(iotdata_encoder_t *enc, uint8_t type,
     IOTDATA_FIELD_SET(enc->fields, IOTDATA_FIELD_TLV);
     return IOTDATA_OK;
 }
-static bool pack_tlv(uint8_t *buf, size_t bb, size_t *bp, const iotdata_encoder_t *enc) {
+static bool pack_tlv(uint8_t *const buf, const size_t bb, size_t *const bp, const iotdata_encoder_t *const enc) {
     for (int i = 0; i < enc->tlv_count; i++) {
         if (!bits_write(buf, bb, bp, enc->tlv[i].format, IOTDATA_TLV_FMT_BITS))
             return false;
@@ -484,7 +479,7 @@ static bool pack_tlv(uint8_t *buf, size_t bb, size_t *bp, const iotdata_encoder_
 }
 #endif
 #if !defined(IOTDATA_NO_DECODE)
-static bool unpack_tlv(const uint8_t *buf, size_t bb, size_t *bp, iotdata_decoder_t *dec) {
+static bool unpack_tlv(const uint8_t *const buf, const size_t bb, size_t *const bp, iotdata_decoder_t *const dec) {
     bool more = true;
     while (more) {
         if (*bp + IOTDATA_TLV_HEADER_BITS > bb)
@@ -517,14 +512,14 @@ static bool unpack_tlv(const uint8_t *buf, size_t bb, size_t *bp, iotdata_decode
 }
 #endif
 #if !defined(IOTDATA_NO_JSON) && !defined(IOTDATA_NO_DECODE)
-static void _json_set_tlv_data(cJSON *obj, const iotdata_decoder_tlv_t *t, iotdata_decode_to_json_scratch_t *scratch) {
+static void _json_set_tlv_data(cJSON *obj, const iotdata_decoder_tlv_t *t, iotdata_decode_to_json_scratch_t *const scratch) {
     cJSON_AddStringToObject(obj, "format", t->format == IOTDATA_TLV_FMT_STRING ? "string" : "raw");
     if (t->format == IOTDATA_TLV_FMT_STRING)
         cJSON_AddStringToObject(obj, "data", t->str);
     else
         cJSON_AddStringToObject(obj, "data", _b64_encode(t->raw, t->length, scratch->tlv.b64));
 }
-static void json_set_tlv(cJSON *root, const iotdata_decoder_t *dec, const char *label, iotdata_decode_to_json_scratch_t *scratch) {
+static void json_set_tlv(cJSON *root, const iotdata_decoder_t *const dec, const char *const label, iotdata_decode_to_json_scratch_t *const scratch) {
     cJSON *arr = cJSON_AddArrayToObject(root, label);
     for (int i = 0; i < dec->tlv_count; i++) {
         cJSON *obj = cJSON_CreateObject();
@@ -535,7 +530,7 @@ static void json_set_tlv(cJSON *root, const iotdata_decoder_t *dec, const char *
 }
 #endif
 #if !defined(IOTDATA_NO_JSON) && !defined(IOTDATA_NO_ENCODE)
-static iotdata_status_t _json_get_tlv_generic(cJSON *item, iotdata_encoder_t *enc, int tidx, uint8_t type, iotdata_encode_from_json_scratch_tlv_t *scratch) {
+static iotdata_status_t _json_get_tlv_generic(cJSON *item, iotdata_encoder_t *const enc, const int tidx, const uint8_t type, iotdata_encode_from_json_scratch_tlv_t *const scratch) {
     cJSON *format = cJSON_GetObjectItem(item, "format");
     cJSON *data = cJSON_GetObjectItem(item, "data");
     if (!data || !cJSON_IsString(data))
@@ -546,7 +541,7 @@ static iotdata_status_t _json_get_tlv_generic(cJSON *item, iotdata_encoder_t *en
     } else
         return iotdata_encode_tlv(enc, type, scratch->raw[tidx], (uint8_t)_b64_decode(data->valuestring, scratch->raw[tidx], IOTDATA_TLV_LENGTH_MAX));
 }
-static iotdata_status_t json_get_tlv(cJSON *root, iotdata_encoder_t *enc, const char *label, iotdata_encode_from_json_scratch_tlv_t *scratch) {
+static iotdata_status_t json_get_tlv(cJSON *root, iotdata_encoder_t *const enc, const char *const label, iotdata_encode_from_json_scratch_tlv_t *const scratch) {
     cJSON *j = cJSON_GetObjectItem(root, label);
     if (!j || !cJSON_IsArray(j))
         return IOTDATA_OK;
@@ -569,7 +564,7 @@ static iotdata_status_t json_get_tlv(cJSON *root, iotdata_encoder_t *enc, const 
 }
 #endif
 #if !defined(IOTDATA_NO_DUMP)
-static int _dump_tlv_data(size_t *bp, iotdata_dump_t *dump, int n, uint8_t format, uint8_t length, int tlv_idx, const char *name) {
+static int _dump_tlv_data(size_t *const bp, iotdata_dump_t *const dump, int n, const uint8_t format, const uint8_t length, const int tlv_idx, const char *const name) {
     const size_t data_bits = (format == IOTDATA_TLV_FMT_STRING) ? (size_t)length * IOTDATA_TLV_CHAR_BITS : (size_t)length * 8;
     snprintf(dump->_name_buf, sizeof(dump->_name_buf), "tlv[%d].%s", tlv_idx, name);
     snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "(%" PRIu32 " bits)", (uint32_t)data_bits); // XXX string
@@ -577,7 +572,7 @@ static int _dump_tlv_data(size_t *bp, iotdata_dump_t *dump, int n, uint8_t forma
     *bp += data_bits;
     return n;
 }
-static int dump_tlv(const uint8_t *buf, size_t bb, size_t *bp, iotdata_dump_t *dump, int n, const char *label) {
+static int dump_tlv(const uint8_t *const buf, const size_t bb, size_t *const bp, iotdata_dump_t *const dump, int n, const char *const label) {
     (void)label;
     bool more = true;
     int tlv_idx = 0;
@@ -603,7 +598,7 @@ static int dump_tlv(const uint8_t *buf, size_t bb, size_t *bp, iotdata_dump_t *d
 }
 #endif
 #if !defined(IOTDATA_NO_PRINT) && !defined(IOTDATA_NO_DECODE)
-static void _print_tlv_data(const iotdata_decoder_tlv_t *t, iotdata_buf_t *bp, int i) {
+static void _print_tlv_data(const iotdata_decoder_tlv_t *t, iotdata_buf_t *const bp, const int i) {
     /* Application-defined TLVs (0x20+) */
     if (t->format == IOTDATA_TLV_FMT_STRING) {
         bprintf(bp, "    [%d] type=%" PRIu8 " str(%" PRIu8 ")=\"%s\"\n", i, t->type, t->length, t->str);
@@ -616,7 +611,7 @@ static void _print_tlv_data(const iotdata_decoder_tlv_t *t, iotdata_buf_t *bp, i
         bprintf(bp, "\n");
     }
 }
-static void print_tlv(const iotdata_decoder_t *dec, iotdata_buf_t *bp, const char *label) {
+static void print_tlv(const iotdata_decoder_t *const dec, iotdata_buf_t *const bp, const char *const label) {
     bprintf(bp, "  %s: %" PRIu8 " TLV entries\n", label, dec->tlv_count);
     for (int i = 0; i < dec->tlv_count; i++)
         _print_tlv_data(&dec->tlv[i], bp, i);
@@ -630,14 +625,14 @@ static void print_tlv(const iotdata_decoder_t *dec, iotdata_buf_t *bp, const cha
  * unconditionally. */
 
 #if !defined(IOTDATA_NO_ENCODE)
-static void iotdata_encode_tlv_begin(iotdata_encoder_t *enc) {
+static void iotdata_encode_tlv_begin(iotdata_encoder_t *const enc) {
     enc->tlv_count = 0;
 }
-static void iotdata_encode_tlv_pres(const iotdata_encoder_t *enc, uint8_t *pres) {
+static void iotdata_encode_tlv_pres(const iotdata_encoder_t *const enc, uint8_t *const pres) {
     if (IOTDATA_FIELD_PRESENT(enc->fields, IOTDATA_FIELD_TLV))
         pres[0] |= IOTDATA_PRES_TLV;
 }
-static bool iotdata_encode_tlv_data(uint8_t *buf, size_t bb, size_t *bp, const iotdata_encoder_t *enc) {
+static bool iotdata_encode_tlv_data(uint8_t *const buf, const size_t bb, size_t *const bp, const iotdata_encoder_t *const enc) {
     if (IOTDATA_FIELD_PRESENT(enc->fields, IOTDATA_FIELD_TLV))
         return pack_tlv(buf, bb, bp, enc);
     return true;
@@ -645,7 +640,7 @@ static bool iotdata_encode_tlv_data(uint8_t *buf, size_t bb, size_t *bp, const i
 #endif
 
 #if !defined(IOTDATA_NO_DECODE)
-static bool iotdata_decode_tlv_data(const uint8_t *buf, size_t bb, size_t *bp, iotdata_decoder_t *dec, uint8_t pres0) {
+static bool iotdata_decode_tlv_data(const uint8_t *const buf, const size_t bb, size_t *const bp, iotdata_decoder_t *const dec, const uint8_t pres0) {
     dec->tlv_count = 0;
     if ((pres0 & IOTDATA_PRES_TLV) != 0) {
         IOTDATA_FIELD_SET(dec->fields, IOTDATA_FIELD_TLV);
@@ -656,20 +651,20 @@ static bool iotdata_decode_tlv_data(const uint8_t *buf, size_t bb, size_t *bp, i
 #endif
 
 #if !defined(IOTDATA_NO_JSON) && !defined(IOTDATA_NO_DECODE)
-static void iotdata_decode_tlv_json_set(cJSON *root, const iotdata_decoder_t *dec, const char *label, iotdata_decode_to_json_scratch_t *scratch) {
+static void iotdata_decode_tlv_json_set(cJSON *const root, const iotdata_decoder_t *const dec, const char *const label, iotdata_decode_to_json_scratch_t *const scratch) {
     if (IOTDATA_FIELD_PRESENT(dec->fields, IOTDATA_FIELD_TLV))
         json_set_tlv(root, dec, label, scratch);
 }
 #endif
 
 #if !defined(IOTDATA_NO_JSON) && !defined(IOTDATA_NO_ENCODE)
-static iotdata_status_t iotdata_encode_tlv_json_get(cJSON *root, iotdata_encoder_t *enc, const char *label, iotdata_encode_from_json_scratch_t *scratch) {
+static iotdata_status_t iotdata_encode_tlv_json_get(cJSON *const root, iotdata_encoder_t *const enc, const char *const label, iotdata_encode_from_json_scratch_t *const scratch) {
     return json_get_tlv(root, enc, label, &scratch->tlv);
 }
 #endif
 
 #if !defined(IOTDATA_NO_DUMP)
-static int iotdata_dump_tlv(const uint8_t *buf, size_t bb, size_t *bp, iotdata_dump_t *dump, int n, const char *label, uint8_t pres0) {
+static int iotdata_dump_tlv(const uint8_t *const buf, const size_t bb, size_t *const bp, iotdata_dump_t *const dump, int n, const char *const label, const uint8_t pres0) {
     if ((pres0 & IOTDATA_PRES_TLV) != 0)
         return dump_tlv(buf, bb, bp, dump, n, label);
     return n;
@@ -677,7 +672,7 @@ static int iotdata_dump_tlv(const uint8_t *buf, size_t bb, size_t *bp, iotdata_d
 #endif
 
 #if !defined(IOTDATA_NO_PRINT) && !defined(IOTDATA_NO_DECODE)
-static void iotdata_print_tlv(const iotdata_decoder_t *dec, iotdata_buf_t *bp, const char *label) {
+static void iotdata_print_tlv(const iotdata_decoder_t *const dec, iotdata_buf_t *const bp, const char *const label) {
     if (IOTDATA_FIELD_PRESENT(dec->fields, IOTDATA_FIELD_TLV))
         print_tlv(dec, bp, label);
 }
@@ -686,14 +681,14 @@ static void iotdata_print_tlv(const iotdata_decoder_t *dec, iotdata_buf_t *bp, c
 #else /* !IOTDATA_ENABLE_TLV: empty stubs with matching signatures */
 
 #if !defined(IOTDATA_NO_ENCODE)
-static inline void iotdata_encode_tlv_begin(iotdata_encoder_t *enc) {
+static inline void iotdata_encode_tlv_begin(iotdata_encoder_t *const enc) {
     (void)enc;
 }
-static inline void iotdata_encode_tlv_pres(const iotdata_encoder_t *enc, uint8_t *pres) {
+static inline void iotdata_encode_tlv_pres(const iotdata_encoder_t *const enc, uint8_t *const pres) {
     (void)enc;
     (void)pres;
 }
-static inline bool iotdata_encode_tlv_data(uint8_t *buf, size_t bb, size_t *bp, const iotdata_encoder_t *enc) {
+static inline bool iotdata_encode_tlv_data(uint8_t *const buf, const size_t bb, size_t *const bp, const iotdata_encoder_t *const enc) {
     (void)buf;
     (void)bb;
     (void)bp;
@@ -703,7 +698,7 @@ static inline bool iotdata_encode_tlv_data(uint8_t *buf, size_t bb, size_t *bp, 
 #endif
 
 #if !defined(IOTDATA_NO_DECODE)
-static inline bool iotdata_decode_tlv_data(const uint8_t *buf, size_t bb, size_t *bp, iotdata_decoder_t *dec, uint8_t pres0) {
+static inline bool iotdata_decode_tlv_data(const uint8_t *const buf, const size_t bb, size_t *const bp, iotdata_decoder_t *const dec, const uint8_t pres0) {
     (void)buf;
     (void)bb;
     (void)bp;
@@ -714,7 +709,7 @@ static inline bool iotdata_decode_tlv_data(const uint8_t *buf, size_t bb, size_t
 #endif
 
 #if !defined(IOTDATA_NO_JSON) && !defined(IOTDATA_NO_DECODE)
-static inline void iotdata_decode_tlv_json_set(cJSON *root, const iotdata_decoder_t *dec, const char *label, iotdata_decode_to_json_scratch_t *scratch) {
+static inline void iotdata_decode_tlv_json_set(cJSON *const root, const iotdata_decoder_t *const dec, const char *const label, iotdata_decode_to_json_scratch_t *const scratch) {
     (void)root;
     (void)dec;
     (void)label;
@@ -723,7 +718,7 @@ static inline void iotdata_decode_tlv_json_set(cJSON *root, const iotdata_decode
 #endif
 
 #if !defined(IOTDATA_NO_JSON) && !defined(IOTDATA_NO_ENCODE)
-static inline iotdata_status_t iotdata_encode_tlv_json_get(cJSON *root, iotdata_encoder_t *enc, const char *label, iotdata_encode_from_json_scratch_t *scratch) {
+static inline iotdata_status_t iotdata_encode_tlv_json_get(cJSON *const root, iotdata_encoder_t *const enc, const char *const label, iotdata_encode_from_json_scratch_t *const scratch) {
     (void)root;
     (void)enc;
     (void)label;
@@ -733,7 +728,7 @@ static inline iotdata_status_t iotdata_encode_tlv_json_get(cJSON *root, iotdata_
 #endif
 
 #if !defined(IOTDATA_NO_DUMP)
-static inline int iotdata_dump_tlv(const uint8_t *buf, size_t bb, size_t *bp, iotdata_dump_t *dump, int n, const char *label, uint8_t pres0) {
+static inline int iotdata_dump_tlv(const uint8_t *const buf, const size_t bb, size_t *const bp, iotdata_dump_t *const dump, int n, const char *const label, const uint8_t pres0) {
     (void)buf;
     (void)bb;
     (void)bp;
@@ -745,7 +740,7 @@ static inline int iotdata_dump_tlv(const uint8_t *buf, size_t bb, size_t *bp, io
 #endif
 
 #if !defined(IOTDATA_NO_PRINT) && !defined(IOTDATA_NO_DECODE)
-static inline void iotdata_print_tlv(const iotdata_decoder_t *dec, iotdata_buf_t *bp, const char *label) {
+static inline void iotdata_print_tlv(const iotdata_decoder_t *const dec, iotdata_buf_t *const bp, const char *const label) {
     (void)dec;
     (void)bp;
     (void)label;

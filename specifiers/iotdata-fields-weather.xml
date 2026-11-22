@@ -50,7 +50,7 @@
         quantisation, no composite parts, and a range that fits its wire width
         exactly.
     -->
-    <field name="clouds" id="0x0041u" bits="IOTDATA_CLOUDS_BITS">
+    <field name="clouds" id="0x0044u" bits="IOTDATA_CLOUDS_BITS">
 
         <documentation>
             <note for="field"><![CDATA[Field CLOUDS]]></note>
@@ -232,7 +232,7 @@
         Standalone because a UV sensor is its own part: plenty of stations
         carry one without a pyranometer.
     -->
-    <field name="solar_ultraviolet" id="0x0042u" bits="IOTDATA_SOLAR_ULTRAVIOLET_BITS">
+    <field name="solar_ultraviolet" id="0x0041u" bits="IOTDATA_SOLAR_ULTRAVIOLET_BITS">
 
         <!-- no <note for="field">: shares the family's section banner -->
 

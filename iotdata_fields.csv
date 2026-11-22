@@ -1,20 +1,8 @@
 #
 # iotdata_fields.csv - the field registry
 #
-# GENERATED from specifiers/iotdata-fields-*.xml. Do not edit: the next
-# `make generate` discards it.
-#
-# THE WHOLE-SET VIEW, which is the one thing no single specification document
-# has. Rows are in IDENTIFIER order, so the family blocks and the gaps between
-# them are visible at a glance and the next free identifier is the obvious one.
-# Identifiers are grouped in blocks of 16 per family, x0..x7 atomic and x8..xF
-# composite; 0x0000 is unassigned, 0x8000 and above belong to the implementer,
-# 0xFFFF means none. TLV has no identifier and so has no row.
-#
-# This file is for people and for tools that are not the C generator -- a
-# documentation build, a binding generator for another language, or anyone asking
-# what identifier a field carries without reading a template. The C output does
-# not consume it.
+# GENERATED from specifiers/iotdata-fields-*.xml. 
+* Do not edit: the next `make generate` discards it.
 #
 # A WIDTH OF 0 MEANS VARIABLE, not empty: a field carrying a presence mask over an
 # array costs only what its filled slots cost, so there is no fixed number to state.
@@ -26,9 +14,9 @@
 #
 id,name,kind,bits,bits_expr,quantities,parameters,errors,document
 0x0001,battery_level,atomic,5,IOTDATA_BATTERY_LEVEL_BITS,battery_level,"uint8_t level_percent","IOTDATA_ERR_BATTERY_LEVEL_HIGH",iotdata-fields-device.xml
-0x0002,link_rssi,atomic,(4),IOTDATA_LINK_RSSI_BITS,link_rssi,"int8_t rssi_dbm","IOTDATA_ERR_LINK_RSSI_LOW IOTDATA_ERR_LINK_RSSI_HIGH",iotdata-fields-device.xml
-0x0003,battery_charge,atomic,1,IOTDATA_BATTERY_CHARGE_BITS,battery_charging,"bool charging","",iotdata-fields-device.xml
-0x0004,link_snr,atomic,(2),IOTDATA_LINK_SNR_BITS,link_snr,"iotdata_float_t snr_db","IOTDATA_ERR_LINK_SNR_LOW IOTDATA_ERR_LINK_SNR_HIGH",iotdata-fields-device.xml
+0x0002,battery_charge,atomic,1,IOTDATA_BATTERY_CHARGE_BITS,battery_charging,"bool charging","",iotdata-fields-device.xml
+0x0004,link_rssi,atomic,(4),IOTDATA_LINK_RSSI_BITS,link_rssi,"int8_t rssi_dbm","IOTDATA_ERR_LINK_RSSI_LOW IOTDATA_ERR_LINK_RSSI_HIGH",iotdata-fields-device.xml
+0x0005,link_snr,atomic,(2),IOTDATA_LINK_SNR_BITS,link_snr,"iotdata_float_t snr_db","IOTDATA_ERR_LINK_SNR_LOW IOTDATA_ERR_LINK_SNR_HIGH",iotdata-fields-device.xml
 0x0008,battery,composite,,IOTDATA_BATTERY_LEVEL_BITS + IOTDATA_BATTERY_CHARGE_BITS,battery_level.battery_level battery_charge.battery_charging,"uint8_t level_percent; bool charging","IOTDATA_ERR_BATTERY_LEVEL_HIGH",iotdata-fields-device.xml
 0x0009,link,composite,,IOTDATA_LINK_RSSI_BITS + IOTDATA_LINK_SNR_BITS,link_rssi.link_rssi link_snr.link_snr,"int8_t rssi_dbm; iotdata_float_t snr_db","IOTDATA_ERR_LINK_RSSI_LOW IOTDATA_ERR_LINK_RSSI_HIGH IOTDATA_ERR_LINK_SNR_LOW IOTDATA_ERR_LINK_SNR_HIGH",iotdata-fields-device.xml
 0x0010,temperature,atomic,9,IOTDATA_TEMPERATURE_BITS,temperature,"iotdata_float_t temperature_c","IOTDATA_ERR_TEMPERATURE_LOW IOTDATA_ERR_TEMPERATURE_HIGH",iotdata-fields-weather.xml
@@ -43,8 +31,8 @@ id,name,kind,bits,bits_expr,quantities,parameters,errors,document
 0x0031,rain_size,atomic,4,IOTDATA_RAIN_SIZE_BITS,rain_size10,"uint8_t size10_mmd","IOTDATA_ERR_RAIN_SIZE_HIGH",iotdata-fields-weather.xml
 0x0038,rain,composite,,IOTDATA_RAIN_RATE_BITS + IOTDATA_RAIN_SIZE_BITS,rain_rate.rain_rate rain_size.rain_size10,"uint8_t rate_mmhr; uint8_t size10_mmd","IOTDATA_ERR_RAIN_SIZE_HIGH",iotdata-fields-weather.xml
 0x0040,solar_irradiance,atomic,10,IOTDATA_SOLAR_IRRADIANCE_BITS,solar_irradiance,"uint16_t irradiance_wm2","IOTDATA_ERR_SOLAR_IRRADIANCE_HIGH",iotdata-fields-weather.xml
-0x0041,clouds,atomic,4,IOTDATA_CLOUDS_BITS,clouds,"uint8_t okta","IOTDATA_ERR_CLOUDS_HIGH",iotdata-fields-weather.xml
-0x0042,solar_ultraviolet,atomic,4,IOTDATA_SOLAR_ULTRAVIOLET_BITS,solar_ultraviolet,"uint8_t ultraviolet_index","IOTDATA_ERR_SOLAR_ULTRAVIOLET_HIGH",iotdata-fields-weather.xml
+0x0041,solar_ultraviolet,atomic,4,IOTDATA_SOLAR_ULTRAVIOLET_BITS,solar_ultraviolet,"uint8_t ultraviolet_index","IOTDATA_ERR_SOLAR_ULTRAVIOLET_HIGH",iotdata-fields-weather.xml
+0x0044,clouds,atomic,4,IOTDATA_CLOUDS_BITS,clouds,"uint8_t okta","IOTDATA_ERR_CLOUDS_HIGH",iotdata-fields-weather.xml
 0x0048,solar,composite,,IOTDATA_SOLAR_IRRADIANCE_BITS + IOTDATA_SOLAR_ULTRAVIOLET_BITS,solar_irradiance.solar_irradiance solar_ultraviolet.solar_ultraviolet,"uint16_t irradiance_wm2; uint8_t ultraviolet_index","IOTDATA_ERR_SOLAR_IRRADIANCE_HIGH IOTDATA_ERR_SOLAR_ULTRAVIOLET_HIGH",iotdata-fields-weather.xml
 0x0050,air_quality_index,atomic,9,IOTDATA_AIR_QUALITY_INDEX_BITS,aq_index,"uint16_t aq_index","IOTDATA_ERR_AIR_QUALITY_INDEX_HIGH",iotdata-fields-airquality.xml
 0x0051,air_quality_pm,atomic,,0,aq_pm_present aq_pm,"uint8_t pm_present; uint16_t pm","IOTDATA_ERR_AIR_QUALITY_PM_VALUE_HIGH",iotdata-fields-airquality.xml
@@ -59,4 +47,3 @@ id,name,kind,bits,bits_expr,quantities,parameters,errors,document
 0x0090,image,atomic,,0,image_pixel_format image_size_tier image_compression image_flags image_data image_data_len,"uint8_t pixel_format; uint8_t size_tier; uint8_t compression; uint8_t flags; uint8_t data; uint8_t data_len","IOTDATA_ERR_IMAGE_FORMAT_HIGH IOTDATA_ERR_IMAGE_SIZE_HIGH IOTDATA_ERR_IMAGE_COMPRESSION_HIGH IOTDATA_ERR_IMAGE_DATA_NULL IOTDATA_ERR_IMAGE_DATA_HIGH",iotdata-fields-image.xml
 0x00A0,flags,atomic,8,IOTDATA_FLAGS_BITS,flags,"uint8_t flags","",iotdata-fields-unitary.xml
 0x00A1,bits32,atomic,32,IOTDATA_BITS32_BITS,bits32,"uint32_t bits32","",iotdata-fields-unitary.xml
-

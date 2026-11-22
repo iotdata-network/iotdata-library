@@ -37,7 +37,7 @@
     implementer, 0xFFFF means none. TLV has no identifier.
 
     A small monochrome or greyscale picture, and the one field whose CODE is
-    not generated: see iotdata_fields_image.h for why. This document carries
+    not generated: see iotdata_fields_impl_image.h for why. This document carries
     everything about IMAGE that is not code -- its identifier, the quantities
     it puts on the wire, its errors and its documentation -- so that it appears
     in the registry and in the identifier-collision check alongside every other
@@ -48,58 +48,259 @@
     <!-- ---------------------------------------------------------------------------
         IMAGE - a small picture, 1 to 4 bits per pixel, up to 254 bytes.
 
-        THE FIRST VARIABLE-LENGTH FIELD in the protocol: an 8-bit length
-        prefix, then a control byte packing format, size tier, compression and
-        flags into two bits each, then the pixel data. Its wire width is
-        therefore 0 in the registry, like the presence-masked arrays -- what it
-        costs depends on what it carries.
+        THE FIRST VARIABLE-LENGTH FIELD: an 8-bit length prefix, a control byte
+        packing format, size tier, compression and flags into two bits each, then
+        the pixels. Its wire width is 0 for the same reason the presence-masked
+        arrays' is -- what it costs depends on what it carries.
 
-        ITS CODE IS HAND-WRITTEN, in iotdata_fields_image.h, and that file
-        explains the five structural reasons at length. The short version is
-        that an encoder holds a const pointer to pixels it does not own while a
-        decoder holds the 254 bytes itself, so the two contexts need different
-        storage -- and a field whose shape depends on the direction it travels
-        is not the shape the generator describes.
+        ITS STRUCTURES AND SIGNATURES ARE GENERATED like every other field's, and
+        that is the point. They were hand-written once, and a change to the
+        template would then have had to be copied into them by hand, which is
+        exactly the drift the generator exists to prevent.
 
-        NOTHING HERE IS CHECKED BY A COMPILER, which is the price of code="no":
-        the five errors below were first written from memory and all five were
-        wrong, and the registry printed the fiction without complaint. What
-        keeps this document honest is tests/test_fields.c, whose IMAGE test
-        names every error and every constant -- a wrong name there does not
-        compile.
+        WHAT IS NOT GENERATED is the compression: run-length and heatshrink LZSS,
+        eight functions in iotdata_fields_impl_image.h. That file is declared from
+        here so the prototypes stay beside the field that needs them.
 
-        WHAT STAYS HERE is everything that is not code. The identifier, so the
-        collision check sees it. The quantities, so the registry lists what the
-        field puts on the wire. The errors, so they are written down once. And
-        this documentation, so a reader who wants to know what IMAGE is does not
-        have to read its implementation to find out.
-    -->    <field name="image" id="0x0090u" bits="0" code="no" mem="split">
+        FOUR THINGS ABOUT IT ARE UNLIKE ANY OTHER FIELD, and each is stated rather
+        than inferred:
+          - its storage differs by DIRECTION. An encoder holds a const pointer to
+            pixels it does not own; a decoder holds the 254 bytes. mem="split",
+            and the two member spellings below.
+          - its decoder takes the caller's scratch, because the pixels must live
+            somewhere and the decoder will not carry 254 bytes for a field that
+            may be absent. arg_extra.
+          - it has three scratch types of its own, and two macros feeding the
+            library-wide JSON scratch. decl_encode, decl_decode, decl_tail.
+          - its decoder's body is its own: both modes set up a POINTER where the
+            generated form declares a local, so the whole body differs rather
+            than a spelling inside it. The only hook in the library that replaces
+            generated control flow.
+    -->
+    <field name="image" id="0x0090u" bits="0" mem="split" arg_extra="iotdata_field_image_scratch_t * const scratch">
         <documentation>
             <note for="field"><![CDATA[Field IMAGE]]></note>
         </documentation>
         <constants>
-            <constant name="DATA_MAX" value="254 /* max pixel data after control byte */"/>
-            <constant name="FMT_BILEVEL" value="0 /* 1 bpp */"/>
-            <constant name="FMT_GREY4" value="1 /* 2 bpp */"/>
-            <constant name="FMT_GREY16" value="2 /* 4 bpp */"/>
-            <constant name="SIZE_24x18" value="0"/>
-            <constant name="SIZE_32x24" value="1"/>
-            <constant name="SIZE_48x36" value="2"/>
-            <constant name="SIZE_64x48" value="3"/>
-            <constant name="COMP_RAW" value="0"/>
-            <constant name="COMP_RLE" value="1"/>
-            <constant name="COMP_HEATSHRINK" value="2"/>
-            <constant name="FLAG_FRAGMENT" value="(1U &lt;&lt; 1)"/>
-            <constant name="FLAG_INVERT" value="(1U &lt;&lt; 0)"/>
-            <constant name="HS_WINDOW_SZ2" value="8 /* 256-byte window */"/>
-            <constant name="HS_LOOKAHEAD_SZ2" value="4 /* 16-byte lookahead */"/>
+            <constant name="DATA_MAX" value="254 /* max pixel data after control byte */" early="yes"/>
+            <constant name="FMT_BILEVEL" value="0 /* 1 bpp */" early="yes"/>
+            <constant name="FMT_GREY4" value="1 /* 2 bpp */" early="yes"/>
+            <constant name="FMT_GREY16" value="2 /* 4 bpp */" early="yes"/>
+            <constant name="SIZE_24x18" value="0" early="yes"/>
+            <constant name="SIZE_32x24" value="1" early="yes"/>
+            <constant name="SIZE_48x36" value="2" early="yes"/>
+            <constant name="SIZE_64x48" value="3" early="yes"/>
+            <constant name="COMP_RAW" value="0" early="yes"/>
+            <constant name="COMP_RLE" value="1" early="yes"/>
+            <constant name="COMP_HEATSHRINK" value="2" early="yes"/>
+            <constant name="FLAG_FRAGMENT" value="(1U &lt;&lt; 1)" early="yes"/>
+            <constant name="FLAG_INVERT" value="(1U &lt;&lt; 0)" early="yes"/>
+            <constant name="HS_WINDOW_SZ2" value="8 /* 256-byte window */" early="yes"/>
+            <constant name="HS_LOOKAHEAD_SZ2" value="4 /* 16-byte lookahead */" early="yes"/>
         </constants>
-        <!-- bilevel, 4-level grey or 16-level grey -->        <quantity name="image_pixel_format" type="uint8_t" param="pixel_format">            <check error="FORMAT_HIGH" text="Image pixel format above 2"/>            <check error="SIZE_HIGH" text="Image size tier above 3"/>            <check error="COMPRESSION_HIGH" text="Image compression above 2"/>            <check error="DATA_NULL" text="Image data pointer is NULL"/>            <check error="DATA_HIGH" text="Image data exceeds 254 bytes"/>        </quantity>
-        <!-- one of four fixed pixel geometries -->        <quantity name="image_size_tier" type="uint8_t" param="size_tier">        </quantity>
-        <!-- raw, run-length or heatshrink LZSS -->        <quantity name="image_compression" type="uint8_t" param="compression">        </quantity>
-        <!-- fragment and invert -->        <quantity name="image_flags" type="uint8_t" param="flags">        </quantity>
-        <!-- the pixels; a const pointer when encoding, a 254-byte buffer when decoding -->        <quantity name="image_data" type="uint8_t" param="data">        </quantity>
-        <!-- how many of those bytes are real -->        <quantity name="image_data_len" type="uint8_t" param="data_len">        </quantity>
+        <!-- its own types, and the prototypes of the compression that lives outside -->
+        <impl lang="c" hook="decl_encode"><![CDATA[typedef struct {
+    union {
+        uint8_t data[IOTDATA_IMAGE_DATA_MAX];
+    };
+} iotdata_encode_to_json_scratch_image_t;
+size_t iotdata_image_pixel_count(uint8_t size_tier);
+uint8_t iotdata_image_bpp(uint8_t pixel_format);
+size_t iotdata_image_bytes(uint8_t pixel_format, uint8_t size_tier);
+/* RLE: returns output bytes written, 0 on error */
+size_t iotdata_image_rle_compress(const uint8_t *pixels, size_t pixel_count, uint8_t bpp, uint8_t *out, size_t out_max);
+size_t iotdata_image_rle_decompress(const uint8_t *compressed, size_t comp_len, uint8_t bpp, uint8_t *pixels, size_t pixel_buf_bytes);
+/* Heatshrink LZSS (w=8, l=4): returns output bytes written, 0 on error */
+size_t iotdata_image_hs_compress(const uint8_t *in, size_t in_len, uint8_t *out, size_t out_max);
+size_t iotdata_image_hs_decompress(const uint8_t *in, size_t in_len, uint8_t *out, size_t out_max);]]></impl>
+        <impl lang="c" hook="decl_decode"><![CDATA[typedef union {
+    iotdata_field_image_dec_t _image; /* named, not spelled out, so the size and alignment are
+                                         right without the caller having any reason to look */
+} iotdata_field_image_scratch_t;
+typedef struct {
+    union {
+        char b64[((IOTDATA_IMAGE_DATA_MAX + 2) / 3) * 4 + 1];
+    };
+} iotdata_decode_to_json_scratch_image_t;]]></impl>
+        <impl lang="c" hook="decl_tail"><![CDATA[/* BASE64 IS WANTED BY THE JSON PATHS, and asking for it is a poke at a shared flag rather than
+   anything of IMAGE's own, so it sits out here with the condition spelled in full. */
+#if defined(IOTDATA_ENABLE_IMAGE) && !defined(IOTDATA_NO_JSON) && !defined(IOTDATA_NO_ENCODE) && !defined(_IOTDATA_NEED_BASE64_DECODE)
+#define _IOTDATA_NEED_BASE64_DECODE
+#endif
+#if defined(IOTDATA_ENABLE_IMAGE) && !defined(IOTDATA_NO_JSON) && !defined(IOTDATA_NO_DECODE) && !defined(_IOTDATA_NEED_BASE64_ENCODE)
+#define _IOTDATA_NEED_BASE64_ENCODE
+#endif
+/* AND THE TWO THAT FEED THE LIBRARY-WIDE JSON SCRATCH. They must exist whether IMAGE is enabled
+   or not, because the aggregate names them either way, so each carries the whole condition and
+   an empty arm -- which is why this block sits outside the field's enable guard rather than
+   inside it with a counterpart in the #else. */
+#if defined(IOTDATA_ENABLE_IMAGE) && !defined(IOTDATA_NO_ENCODE)
+#define IOTDATA_IMAGE_ENCODE_FROM_JSON_SCRATCH iotdata_encode_to_json_scratch_image_t image;
+#else
+#define IOTDATA_IMAGE_ENCODE_FROM_JSON_SCRATCH
+#endif
+#if defined(IOTDATA_ENABLE_IMAGE) && !defined(IOTDATA_NO_DECODE)
+#define IOTDATA_IMAGE_DECODE_TO_JSON_SCRATCH iotdata_decode_to_json_scratch_image_t image;
+#else
+#define IOTDATA_IMAGE_DECODE_TO_JSON_SCRATCH
+#endif]]></impl>
+        <quantity name="image_pixel_format" type="uint8_t" param="pixel_format">            <check expr="pixel_format &gt; IOTDATA_IMAGE_FMT_GREY16" error="FORMAT_HIGH" text="Image pixel format above 2"/>        </quantity>
+        <quantity name="image_size_tier" type="uint8_t" param="size_tier">            <check expr="size_tier &gt; IOTDATA_IMAGE_SIZE_64x48" error="SIZE_HIGH" text="Image size tier above 3"/>        </quantity>
+        <quantity name="image_compression" type="uint8_t" param="compression">            <check expr="compression &gt; IOTDATA_IMAGE_COMP_HEATSHRINK" error="COMPRESSION_HIGH" text="Image compression above 2"/>        </quantity>
+        <quantity name="image_flags" type="uint8_t" param="flags">            <store_local><![CDATA[    v.image_flags = flags & 0x03;
+]]></store_local>            <store_member><![CDATA[    enc->image.image_flags = flags & 0x03;
+]]></store_member>        </quantity>
+        <quantity name="image_data" type="uint8_t" param="data" member_encode="const uint8_t *image_data;" member_decode="uint8_t image_data[IOTDATA_IMAGE_DATA_MAX];" arg="const uint8_t *data" arg_out="const uint8_t **data">            <check expr="!data &amp;&amp; data_len &gt; 0" error="DATA_NULL" text="Image data pointer is NULL"/>            <check expr="data_len &gt; IOTDATA_IMAGE_DATA_MAX" error="DATA_HIGH" text="Image data exceeds 254 bytes"/>        </quantity>
+        <quantity name="image_data_len" type="uint8_t" param="data_len">        </quantity>
+        <impl lang="c" hook="tables"><![CDATA[/* the names print and dump put on the control byte's three fields */
+/* the tables hook is emitted OUTSIDE the field's enable guard, as the air quality family's
+   are, so this block carries the enable itself -- otherwise a build without IMAGE has three
+   unused tables and -Wunused-variable refuses it */
+#if defined(IOTDATA_ENABLE_IMAGE) && (!defined(IOTDATA_NO_JSON) || !defined(IOTDATA_NO_DUMP) || !defined(IOTDATA_NO_PRINT))
+static const char *_image_fmt_names[] = { "bilevel", "grey4", "grey16", "reserved" };
+static const char *_image_size_names[] = { "24x18", "32x24", "48x36", "64x48" };
+static const char *_image_comp_names[] = { "raw", "rle", "heatshrink", "reserved" };
+#endif]]></impl>
+        <impl lang="c" hook="pack"><![CDATA[    const iotdata_field_image_enc_t *const v = vv;
+    /* Length = 1 (control byte) + pixel data bytes */
+    if (!bits_write(buf, bb, bp, (uint8_t)(1 + v->image_data_len), 8))
+        return false;
+    /* Control byte: format(2) | size(2) | compression(2) | flags(2) */
+    if (!bits_write(buf, bb, bp, (uint8_t)((v->image_pixel_format << 6) | (v->image_size_tier << 4) | (v->image_compression << 2) | (v->image_flags & 0x03)), 8))
+        return false;
+    /* Pixel data (compressed or raw, as provided by caller) */
+    for (int i = 0; i < v->image_data_len; i++)
+        if (!bits_write(buf, bb, bp, v->image_data[i], 8))
+            return false;
+    return true;
+]]></impl>        <impl lang="c" hook="unpack"><![CDATA[    iotdata_field_image_dec_t *const v = vv;
+    if (*bp + 16 > bb)
+        return false; /* need at least length + control */
+    const uint8_t length = (uint8_t)bits_read(buf, bb, bp, 8);
+    if (length < 1)
+        return false; /* control byte required */
+    if (*bp + (length * 8) > bb)
+        return false; /* short data */
+    const uint8_t control = (uint8_t)bits_read(buf, bb, bp, 8);
+    v->image_pixel_format = (control >> 6) & 0x03;
+    v->image_size_tier = (control >> 4) & 0x03;
+    v->image_compression = (control >> 2) & 0x03;
+    v->image_flags = control & 0x03;
+    v->image_data_len = 0;
+    for (int i = 0; i < (length - 1); i++) {
+        const uint8_t pixel = (uint8_t)bits_read(buf, bb, bp, 8);
+        if (i < IOTDATA_IMAGE_DATA_MAX)
+            v->image_data[v->image_data_len++] = pixel;
+    }
+    return true;
+]]></impl>        <impl lang="c" hook="json_get"><![CDATA[    cJSON *j = cJSON_GetObjectItem(root, label);
+    if (!j)
+        return IOTDATA_OK;
+    /* Parse pixel_format */
+    uint8_t fmt = 0;
+    cJSON *jf = cJSON_GetObjectItem(j, "format");
+    if (jf && jf->valuestring)
+        for (int i = 0; i < (int)(sizeof(_image_fmt_names) / sizeof(_image_fmt_names[0])); i++)
+            if (strcmp(jf->valuestring, _image_fmt_names[i]) == 0) {
+                fmt = (uint8_t)i;
+                break;
+            }
+    /* Parse size */
+    uint8_t sz = 0;
+    cJSON *js = cJSON_GetObjectItem(j, "size");
+    if (js && js->valuestring)
+        for (int i = 0; i < (int)(sizeof(_image_size_names) / sizeof(_image_size_names[0])); i++)
+            if (strcmp(js->valuestring, _image_size_names[i]) == 0) {
+                sz = (uint8_t)i;
+                break;
+            }
+    /* Parse compression */
+    uint8_t comp = 0;
+    cJSON *jc = cJSON_GetObjectItem(j, "compression");
+    if (jc && jc->valuestring)
+        for (int i = 0; i < (int)(sizeof(_image_comp_names) / sizeof(_image_comp_names[0])); i++)
+            if (strcmp(jc->valuestring, _image_comp_names[i]) == 0) {
+                comp = (uint8_t)i;
+                break;
+            }
+    /* Parse flags */
+    uint8_t flags = 0;
+    if (cJSON_IsTrue(cJSON_GetObjectItem(j, "fragment")))
+        flags |= IOTDATA_IMAGE_FLAG_FRAGMENT;
+    if (cJSON_IsTrue(cJSON_GetObjectItem(j, "invert")))
+        flags |= IOTDATA_IMAGE_FLAG_INVERT;
+    /* Parse pixels (base64 → raw bytes) */
+    cJSON *jp = cJSON_GetObjectItem(j, "pixels");
+    return iotdata_encode_image(enc, fmt, sz, comp, flags, scratch->image.data, jp && jp->valuestring ? (uint8_t)_b64_decode(jp->valuestring, scratch->image.data, sizeof(scratch->image.data)) : 0);
+]]></impl>        <impl lang="c" hook="json_set"><![CDATA[    const iotdata_field_image_dec_t *const v = vv;
+    cJSON *obj = cJSON_AddObjectToObject(root, label);
+    cJSON_AddStringToObject(obj, "format", _image_fmt_names[v->image_pixel_format & 0x03]);
+    cJSON_AddStringToObject(obj, "size", _image_size_names[v->image_size_tier & 0x03]);
+    cJSON_AddStringToObject(obj, "compression", _image_comp_names[v->image_compression & 0x03]);
+    cJSON_AddBoolToObject(obj, "fragment", (v->image_flags & IOTDATA_IMAGE_FLAG_FRAGMENT) != 0);
+    cJSON_AddBoolToObject(obj, "invert", (v->image_flags & IOTDATA_IMAGE_FLAG_INVERT) != 0);
+    if (v->image_data_len > 0)
+        cJSON_AddStringToObject(obj, "pixels", _b64_encode(v->image_data, v->image_data_len, scratch->image.b64));
+]]></impl>        <impl lang="c" hook="dump"><![CDATA[    (void)label;
+    if (*bp + 16 > bb)
+        return n;
+    /* Length byte */
+    size_t s = *bp;
+    const uint8_t length = (uint8_t)bits_read(buf, bb, bp, 8);
+    snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "%" PRIu8 " (%" PRIu8 " total)", length, 1 + length);
+    n = dump_add(dump, n, s, 8, length, dump->_dec_buf, "1..255", "image_length");
+    /* Control byte */
+    s = *bp;
+    const uint8_t control = (uint8_t)bits_read(buf, bb, bp, 8);
+    snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "%s %s %s%s%s", _image_fmt_names[(control >> 6) & 3], _image_size_names[(control >> 4) & 3], _image_comp_names[(control >> 2) & 3], (control & IOTDATA_IMAGE_FLAG_FRAGMENT) ? " frag" : "",
+             (control & IOTDATA_IMAGE_FLAG_INVERT) ? " inv" : "");
+    n = dump_add(dump, n, s, 8, control, dump->_dec_buf, "fmt|sz|comp|flg", "image_control");
+    /* Pixel data (show as single span) */
+    const uint8_t data_len = (length > 1) ? (uint8_t)(length - 1) : 0;
+    if (data_len > 0) {
+        s = *bp;
+        const size_t data_bits = (size_t)data_len * 8;
+        if (*bp + data_bits <= bb)
+            *bp += data_bits;
+        else
+            *bp = bb;
+        snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "%" PRIu8 " bytes", data_len);
+        n = dump_add(dump, n, s, data_bits, 0, dump->_dec_buf, "pixel data", "image_pixels");
+    }
+    return n;
+]]></impl>        <impl lang="c" hook="print"><![CDATA[    const iotdata_field_image_dec_t *const v = vv;
+    bprintf(bp, "  %s:%s %s %s %s, %" PRIu8 " bytes%s%s\n", label, _padd(label), _image_fmt_names[v->image_pixel_format & 3], _image_size_names[v->image_size_tier & 3], _image_comp_names[v->image_compression & 3], v->image_data_len,
+            (v->image_flags & IOTDATA_IMAGE_FLAG_FRAGMENT) ? " [fragment]" : "", (v->image_flags & IOTDATA_IMAGE_FLAG_INVERT) ? " [inverted]" : "");
+]]></impl>        <!-- the one body the generator cannot derive: see the notes above -->        <impl lang="c" hook="decode"><![CDATA[    if (!scratch)
+        return IOTDATA_ERR_BUF_NULL;
+#if defined(IOTDATA_OPERATE_ORDERED)
+    /* THE PIXELS LAND IN THE CALLER'S SCRATCH, which is the whole reason it is a parameter: there
+       is no decoder storage here, and a 254-byte local would die on return with *data still
+       pointing into it. */
+    iotdata_field_image_dec_t *const v = &scratch->_image;
+    RESOLVE_DEC_FIELD(dec, IOTDATA_FIELD_IMAGE, unpack_image, v);
+#else
+    CHECK_DEC_FIELD(dec, IOTDATA_FIELD_IMAGE);
+    /* The pixels are already in the decoder, so the scratch goes unwritten and *data is the
+       decoder's own buffer. It is still demanded, so that a caller cannot pass NULL in this mode
+       and discover on the day it switches to ORDERED that there was nowhere to decode into. */
+    const iotdata_field_image_dec_t *const v = &dec->image;
+#endif
+    if (pixel_format)
+        *pixel_format = v->image_pixel_format;
+    if (size_tier)
+        *size_tier = v->image_size_tier;
+    if (compression)
+        *compression = v->image_compression;
+    if (flags)
+        *flags = v->image_flags;
+    /* Good until the next decode on this decoder, or until the scratch dies -- whichever first. */
+    if (data)
+        *data = v->image_data;
+    if (data_len)
+        *data_len = v->image_data_len;
+    return IOTDATA_OK;
+]]></impl>
     </field>
 
 </fields>

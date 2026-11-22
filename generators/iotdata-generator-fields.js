@@ -168,6 +168,12 @@ function readSpec(file) {
                    specification states the three spellings and the generator uses them as
                    given. Silence keeps the scalar forms. */
                 member: attr(q, 'member', ''),
+                /* AND WHERE IT DIFFERS BY DIRECTION. An encoder may hold a const pointer to data
+                   it does not own while a decoder holds the bytes themselves -- IMAGE does, and
+                   it is the only field that does. Both default to `member`, so a field with one
+                   storage says nothing. */
+                member_encode: attr(q, 'member_encode', ''),
+                member_decode: attr(q, 'member_decode', ''),
                 arg: attr(q, 'arg', ''),
                 arg_out: attr(q, 'arg_out', ''),
                 impls: qi,
@@ -208,7 +214,7 @@ function readSpec(file) {
                an ops entry -- but its code differs from every other field in structure rather
                than spelling (separate encode and decode storage, three scratch types, two
                library-wide scratch macros, a compression library, an extra decode parameter), so
-               it is hand-written in iotdata_fields_image.h. Saying so here keeps it in the
+               it is hand-written in iotdata_fields_impl_image.h. Saying so here keeps it in the
                registry and in the identifier-collision check, which is the whole reason it has a
                specification document at all. */
             code: attr(f, 'code', 'yes') !== 'no',
@@ -218,6 +224,11 @@ function readSpec(file) {
                are the only place that distinction shows, which is why it is a flag and not a
                second storage mechanism. */
             mem: attr(f, 'mem', 'single'),
+            /* AN EXTRA TRAILING ARGUMENT ON THE DECODER. IMAGE's decoded pixels have to live
+               somewhere and the decoder will not carry 254 bytes for a field that may be absent,
+               so the caller provides scratch. Nothing else needs this, and a field that says
+               nothing gets the ordinary signature. */
+            arg_extra: attr(f, 'arg_extra', ''),
             notes,
             impls,
             quantities,
@@ -230,7 +241,12 @@ function readSpec(file) {
  * The pump
  * -------------------------------------------------------------------------*/
 
-const TAG = /\{\{(#each|#if|#field|\/each|\/if|\/field|impl|ret|arg|doc|field)?\s*([A-Za-z_][\w.]*)?\s*\}\}/;
+/* A WORD-LIKE KIND MUST BE FOLLOWED BY WHITESPACE, which the lookahead insists on. Without it
+   the alternation matched the PREFIX of a value's name: {{arg_extra}} was read as {{arg _extra}}
+   and the generator asked the specification for a hook called "_extra". Any value named fields,
+   document, argument or implementation would have gone the same way. The four closing and
+   definition kinds take no name, so they need no lookahead. */
+const TAG = /\{\{((?:#each|#if|impl|ret|arg|doc|field)(?=\s)|#field|\/each|\/if|\/field)?\s*([A-Za-z_][\w.]*)?\s*\}\}/;
 
 /* Find the body of a block that starts at `from`, honouring nesting of the same
    kind, and return [body, indexAfterCloser]. */
@@ -352,6 +368,8 @@ function fieldScope(f, lang) {
             'q.param': q.param,
             'q.stem': q.stem,
             'q.member': q.member || `${q.type} ${q.name};`,
+            'q.member_encode': q.member_encode || q.member || `${q.type} ${q.name};`,
+            'q.member_decode': q.member_decode || q.member || `${q.type} ${q.name};`,
             'q.arg': q.arg || `${q.type} ${q.param}`,
             'q.arg_out': q.arg_out || `${q.type} *${q.param}`,
             /* the four movements, each falling back to the scalar form */
@@ -436,6 +454,11 @@ function fieldScope(f, lang) {
             /* THE PUBLIC FUNCTIONS of a family member answer to the member alone: its setter
                resolves ITS slot and its decoder names ITS enum member, neither of which exists
                when only the composite is enabled. */
+            arg_extra: f.arg_extra ? `, ${f.arg_extra}` : '',
+            /* THE STORAGE TYPE BY NAME. One per field normally; a field whose storage differs by
+               direction has two, and the setters want the encoding one. */
+            enc_type: f.mem === 'split' ? `iotdata_field_${f.name}_enc_t` : `iotdata_field_${f.name}_t`,
+            dec_type: f.mem === 'split' ? `iotdata_field_${f.name}_dec_t` : `iotdata_field_${f.name}_t`,
             member_guard: f.family ? `defined(IOTDATA_ENABLE_${f.name.toUpperCase()}) && ` : '',
             /* ITS INTERNAL OPERATIONS may not: where the composite delegates, pack_x and
                print_x are called from the composite's own pack and print, so they have to exist
@@ -487,6 +510,19 @@ function fieldScope(f, lang) {
             has_tables: hasImpl(f.impls, 'tables'),
             mem_single: f.mem !== 'split',
             mem_split: f.mem === 'split',
+            /* verbatim declarations a field needs that no other field has: its own scratch
+               types, prototypes for code that lives outside the generated file, macros that feed
+               a library-wide aggregate. Placed by guard, so there are three. */
+            has_decl_encode: hasImpl(f.impls, 'decl_encode'),
+            has_decl_decode: hasImpl(f.impls, 'decl_decode'),
+            has_decl_tail: hasImpl(f.impls, 'decl_tail'),
+            /* A DECODER WHOSE BODY IS ITS OWN. IMAGE's puts the pixels in the caller's scratch,
+               so both its modes set up a pointer where the generated form declares a local and
+               reads members off it -- the whole body differs, not a spelling inside it. Every
+               other field derives one, and this is the only hook that replaces generated
+               control flow rather than filling a hole in it. */
+            decode_given: hasImpl(f.impls, 'decode'),
+            decode_derived: !hasImpl(f.impls, 'decode'),
         },
         impls: f.impls,
         defaults: {},
@@ -576,19 +612,24 @@ function main(argv) {
     /* ONE FILE, TWO PHASES. The declarations and the definitions used to be a .h and a .c, with
        iotdata.c doing `#include "iotdata_fields.c"` -- a .c file included into another .c file,
        which is a thing no reader expects to see twice. They are one header now, on the pattern
-       iotdata_tlv.h and iotdata_fields_image.h already follow: the declarations always, and the
+       iotdata_tlv.h and iotdata_fields_impl_image.h already follow: the declarations always, and the
        definitions only where IOTDATA_FIELDS_IMPLEMENTATION says so. Two templates still, because
        the output is [all declarations][all definitions] while a merged template would interleave
        them field by field. */
     const outputs = [
+        /* The generated field code, in its two phases. Named _generated because that is the one
+           thing a reader needs to know about it before touching it. */
         {
-            out: 'iotdata_fields.h',
+            out: 'iotdata_fields_generated.h',
             lang: 'c',
             parts: [
                 { tmpl: 'fields.c.h.tmpl' },
-                { tmpl: 'fields.c.c.tmpl', select: 'IOTDATA_FIELDS_IMPLEMENTATION', guard: 'IOTDATA_FIELDS_H_DEFINITIONS' },
+                { tmpl: 'fields.c.c.tmpl', select: 'IOTDATA_FIELDS_GENERATED_IMPLEMENTATION', guard: 'IOTDATA_FIELDS_GENERATED_H_DEFINITIONS' },
             ],
         },
+        /* The umbrella: the enable list, and the three field headers in the order they need.
+           iotdata.h includes this and nothing else field-related. */
+        { out: 'iotdata_fields.h', lang: 'c', parts: [{ tmpl: 'fields.c.all.tmpl' }] },
     ];
     if (opt.registry !== 'none')
         outputs.push({ out: opt.registry, lang: 'c', parts: [{ tmpl: 'fields.registry.csv.tmpl' }] });
