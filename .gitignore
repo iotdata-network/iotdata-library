@@ -1,7 +1,6 @@
 *.o
 *.a
 *.su
-*.csv
 .vscode
 tests/test_default
 tests/test_complete
