@@ -804,14 +804,14 @@ static bool pack_environment(uint8_t *buf, size_t bb, size_t *bp, const void *vv
 #if defined(IOTDATA_OPERATE_ORDERED)
 /* The precise form: this slot, not "the next one of this type". Slots between the cursor
    and here are left absent. */
-iotdata_status_t iotdata_encode_environment_by_slot(iotdata_encoder_t *enc, int slot, iotdata_float_t temperature_c, uint16_t pressure_hpa, uint8_t humidity_pct) {
+iotdata_status_t iotdata_encode_environment_by_slot(iotdata_encoder_t *enc, int slot, iotdata_float_t temp_c, uint16_t pressure_hpa, uint8_t humidity_pct) {
     CHECK_CTX_ACTIVE(enc);
     int si = slot;
     RESOLVE_SLOT_EXACT(enc, IOTDATA_FIELD_ENVIRONMENT, si);
 #if !defined(IOTDATA_NO_CHECKS_TYPES)
-    if (temperature_c < IOTDATA_TEMPERATURE_MIN)
+    if (temp_c < IOTDATA_TEMPERATURE_MIN)
         return IOTDATA_ERR_TEMPERATURE_LOW;
-    if (temperature_c > IOTDATA_TEMPERATURE_MAX)
+    if (temp_c > IOTDATA_TEMPERATURE_MAX)
         return IOTDATA_ERR_TEMPERATURE_HIGH;
     if (pressure_hpa < IOTDATA_PRESSURE_MIN)
         return IOTDATA_ERR_PRESSURE_LOW;
@@ -821,28 +821,28 @@ iotdata_status_t iotdata_encode_environment_by_slot(iotdata_encoder_t *enc, int 
         return IOTDATA_ERR_HUMIDITY_HIGH;
 #endif
     iotdata_field_environment_t v;
-    v.temperature.temperature = temperature_c;
+    v.temperature.temperature = temp_c;
     v.pressure.pressure = pressure_hpa;
     v.humidity.humidity = humidity_pct;
     PACK_DIRECT(enc, pack_environment, &v);
     COMMIT_SLOT(enc, si, IOTDATA_FIELD_ENVIRONMENT);
     return IOTDATA_OK;
 }
-iotdata_status_t iotdata_encode_environment(iotdata_encoder_t *enc, iotdata_float_t temperature_c, uint16_t pressure_hpa, uint8_t humidity_pct) {
+iotdata_status_t iotdata_encode_environment(iotdata_encoder_t *enc, iotdata_float_t temp_c, uint16_t pressure_hpa, uint8_t humidity_pct) {
     CHECK_CTX_ACTIVE(enc);
     int si = IOTDATA_SLOT_NONE;
     RESOLVE_SLOT(enc, IOTDATA_FIELD_ENVIRONMENT, si);
-    return iotdata_encode_environment_by_slot(enc, si, temperature_c, pressure_hpa, humidity_pct);
+    return iotdata_encode_environment_by_slot(enc, si, temp_c, pressure_hpa, humidity_pct);
 }
 #else
-iotdata_status_t iotdata_encode_environment(iotdata_encoder_t *enc, iotdata_float_t temperature_c, uint16_t pressure_hpa, uint8_t humidity_pct) {
+iotdata_status_t iotdata_encode_environment(iotdata_encoder_t *enc, iotdata_float_t temp_c, uint16_t pressure_hpa, uint8_t humidity_pct) {
     CHECK_CTX_ACTIVE(enc);
     int si = IOTDATA_SLOT_NONE;
     RESOLVE_SLOT(enc, IOTDATA_FIELD_ENVIRONMENT, si);
 #if !defined(IOTDATA_NO_CHECKS_TYPES)
-    if (temperature_c < IOTDATA_TEMPERATURE_MIN)
+    if (temp_c < IOTDATA_TEMPERATURE_MIN)
         return IOTDATA_ERR_TEMPERATURE_LOW;
-    if (temperature_c > IOTDATA_TEMPERATURE_MAX)
+    if (temp_c > IOTDATA_TEMPERATURE_MAX)
         return IOTDATA_ERR_TEMPERATURE_HIGH;
     if (pressure_hpa < IOTDATA_PRESSURE_MIN)
         return IOTDATA_ERR_PRESSURE_LOW;
@@ -851,7 +851,7 @@ iotdata_status_t iotdata_encode_environment(iotdata_encoder_t *enc, iotdata_floa
     if (humidity_pct > IOTDATA_HUMIDITY_MAX)
         return IOTDATA_ERR_HUMIDITY_HIGH;
 #endif
-    enc->environment.temperature.temperature = temperature_c;
+    enc->environment.temperature.temperature = temp_c;
     enc->environment.pressure.pressure = pressure_hpa;
     enc->environment.humidity.humidity = humidity_pct;
     COMMIT_SLOT(enc, si, IOTDATA_FIELD_ENVIRONMENT);
