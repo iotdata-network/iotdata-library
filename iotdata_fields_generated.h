@@ -1346,8 +1346,7 @@ typedef struct {
 } iotdata_field_image_dec_t;
 #define IOTDATA_FIELDS_MEM_IMAGE_DECODE iotdata_field_image_dec_t image;
 typedef union {
-    iotdata_field_image_dec_t _image; /* named, not spelled out, so the size and alignment are
-                                         right without the caller having any reason to look */
+    iotdata_field_image_dec_t _image; /* named, not spelled out, so the size and alignment are right without the caller having any reason to look */
 } iotdata_field_image_scratch_t;
 typedef struct {
     union {
@@ -1394,18 +1393,13 @@ enum iotdata_status_t_ iotdata_decode_image(struct iotdata_decoder_t_ *const dec
 #define IOTDATA_FIELDS_ERR_IDENTS_IMAGE(S)
 #define IOTDATA_FIELDS_ERR_STRINGS_IMAGE(D)
 #endif
-/* BASE64 IS WANTED BY THE JSON PATHS, and asking for it is a poke at a shared flag rather than
-   anything of IMAGE's own, so it sits out here with the condition spelled in full. */
+
 #if defined(IOTDATA_ENABLE_IMAGE) && !defined(IOTDATA_NO_JSON) && !defined(IOTDATA_NO_ENCODE) && !defined(_IOTDATA_NEED_BASE64_DECODE)
 #define _IOTDATA_NEED_BASE64_DECODE
 #endif
 #if defined(IOTDATA_ENABLE_IMAGE) && !defined(IOTDATA_NO_JSON) && !defined(IOTDATA_NO_DECODE) && !defined(_IOTDATA_NEED_BASE64_ENCODE)
 #define _IOTDATA_NEED_BASE64_ENCODE
 #endif
-/* AND THE TWO THAT FEED THE LIBRARY-WIDE JSON SCRATCH. They must exist whether IMAGE is enabled
-   or not, because the aggregate names them either way, so each carries the whole condition and
-   an empty arm -- which is why this block sits outside the field's enable guard rather than
-   inside it with a counterpart in the #else. */
 #if defined(IOTDATA_ENABLE_IMAGE) && !defined(IOTDATA_NO_ENCODE)
 #define IOTDATA_IMAGE_ENCODE_FROM_JSON_SCRATCH iotdata_encode_to_json_scratch_image_t image;
 #else
@@ -1768,8 +1762,8 @@ static void json_set_bits32(cJSON *const root, const void *const vv, const char 
 #if !defined(IOTDATA_NO_DUMP)
 static int dump_bits32(const uint8_t *const buf, const size_t bb, size_t *const bp, iotdata_dump_t *const dump, int n, const char *const label) {
     (void)label;
-    size_t s = *bp;
-    uint32_t r = bits_read(buf, bb, bp, IOTDATA_BITS32_BITS);
+    const size_t s = *bp;
+    const uint32_t r = bits_read(buf, bb, bp, IOTDATA_BITS32_BITS);
     snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "0x%08" PRIX32, r);
     n = dump_add(dump, n, s, IOTDATA_BITS32_BITS, r, dump->_dec_buf, "32-bit unit", "bits32");
     return n;
@@ -1868,8 +1862,8 @@ static void json_set_flags(cJSON *const root, const void *const vv, const char *
 #if !defined(IOTDATA_NO_DUMP)
 static int dump_flags(const uint8_t *const buf, const size_t bb, size_t *const bp, iotdata_dump_t *const dump, int n, const char *const label) {
     (void)label;
-    size_t s = *bp;
-    uint32_t r = bits_read(buf, bb, bp, IOTDATA_FLAGS_BITS);
+    const size_t s = *bp;
+    const uint32_t r = bits_read(buf, bb, bp, IOTDATA_FLAGS_BITS);
     snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "0x%02" PRIX32, r);
     n = dump_add(dump, n, s, IOTDATA_FLAGS_BITS, r, dump->_dec_buf, "8-bit bitmask", "flags");
     return n;
@@ -1986,8 +1980,8 @@ static void json_set_battery_level(cJSON *const root, const void *const vv, cons
 #if !defined(IOTDATA_NO_DUMP)
 static int dump_battery_level(const uint8_t *const buf, const size_t bb, size_t *const bp, iotdata_dump_t *const dump, int n, const char *const label) {
     (void)label;
-    size_t s = *bp;
-    uint32_t r = bits_read(buf, bb, bp, IOTDATA_BATTERY_LEVEL_BITS);
+    const size_t s = *bp;
+    const uint32_t r = bits_read(buf, bb, bp, IOTDATA_BATTERY_LEVEL_BITS);
     snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "%" PRIu8 "%%", dequantise_battery_level(r));
     n = dump_add(dump, n, s, IOTDATA_BATTERY_LEVEL_BITS, r, dump->_dec_buf, "0..100%, 5b quant", "battery_level");
     return n;
@@ -2094,8 +2088,8 @@ static void json_set_battery_charge(cJSON *const root, const void *const vv, con
 #if !defined(IOTDATA_NO_DUMP)
 static int dump_battery_charge(const uint8_t *const buf, const size_t bb, size_t *const bp, iotdata_dump_t *const dump, int n, const char *const label) {
     (void)label;
-    size_t s = *bp;
-    uint32_t r = bits_read(buf, bb, bp, IOTDATA_BATTERY_CHARGE_BITS);
+    const size_t s = *bp;
+    const uint32_t r = bits_read(buf, bb, bp, IOTDATA_BATTERY_CHARGE_BITS);
     snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "%s", dequantise_battery_state(r) ? "charging" : "discharging");
     n = dump_add(dump, n, s, IOTDATA_BATTERY_CHARGE_BITS, r, dump->_dec_buf, "0/1", "battery_state");
     return n;
@@ -2327,8 +2321,8 @@ static void json_set_link_rssi(cJSON *const root, const void *const vv, const ch
 #if !defined(IOTDATA_NO_DUMP)
 static int dump_link_rssi(const uint8_t *const buf, const size_t bb, size_t *const bp, iotdata_dump_t *const dump, int n, const char *const label) {
     (void)label;
-    size_t s = *bp;
-    uint32_t r = bits_read(buf, bb, bp, IOTDATA_LINK_RSSI_BITS);
+    const size_t s = *bp;
+    const uint32_t r = bits_read(buf, bb, bp, IOTDATA_LINK_RSSI_BITS);
     snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "%" PRIi8 " dBm", dequantise_link_rssi(r));
     n = dump_add(dump, n, s, IOTDATA_LINK_RSSI_BITS, r, dump->_dec_buf, "-120..-60, 4dBm", "link_rssi");
     return n;
@@ -2464,8 +2458,8 @@ static void json_set_link_snr(cJSON *const root, const void *const vv, const cha
 #if !defined(IOTDATA_NO_DUMP)
 static int dump_link_snr(const uint8_t *const buf, const size_t bb, size_t *const bp, iotdata_dump_t *const dump, int n, const char *const label) {
     (void)label;
-    size_t s = *bp;
-    uint32_t r = bits_read(buf, bb, bp, IOTDATA_LINK_SNR_BITS);
+    const size_t s = *bp;
+    const uint32_t r = bits_read(buf, bb, bp, IOTDATA_LINK_SNR_BITS);
 #if !defined(IOTDATA_NO_FLOATING)
     snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "%.0f dB", (double)dequantise_link_snr(r));
 #else
@@ -2738,8 +2732,8 @@ static void json_set_temperature(cJSON *const root, const void *const vv, const 
 #if !defined(IOTDATA_NO_DUMP)
 static int dump_temperature(const uint8_t *const buf, const size_t bb, size_t *const bp, iotdata_dump_t *const dump, int n, const char *const label) {
     (void)label;
-    size_t s = *bp;
-    uint32_t r = bits_read(buf, bb, bp, IOTDATA_TEMPERATURE_BITS);
+    const size_t s = *bp;
+    const uint32_t r = bits_read(buf, bb, bp, IOTDATA_TEMPERATURE_BITS);
 #if !defined(IOTDATA_NO_FLOATING)
     snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "%.2f C", (double)dequantise_temperature(r));
 #else
@@ -2868,8 +2862,8 @@ static void json_set_pressure(cJSON *const root, const void *const vv, const cha
 #if !defined(IOTDATA_NO_DUMP)
 static int dump_pressure(const uint8_t *const buf, const size_t bb, size_t *const bp, iotdata_dump_t *const dump, int n, const char *const label) {
     (void)label;
-    size_t s = *bp;
-    uint32_t r = bits_read(buf, bb, bp, IOTDATA_PRESSURE_BITS);
+    const size_t s = *bp;
+    const uint32_t r = bits_read(buf, bb, bp, IOTDATA_PRESSURE_BITS);
     snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "%" PRIu16 " hPa", dequantise_pressure(r));
     n = dump_add(dump, n, s, IOTDATA_PRESSURE_BITS, r, dump->_dec_buf, "850..1105 hPa", "pressure");
     return n;
@@ -2985,8 +2979,8 @@ static void json_set_humidity(cJSON *const root, const void *const vv, const cha
 #if !defined(IOTDATA_NO_DUMP)
 static int dump_humidity(const uint8_t *const buf, const size_t bb, size_t *const bp, iotdata_dump_t *const dump, int n, const char *const label) {
     (void)label;
-    size_t s = *bp;
-    uint32_t r = bits_read(buf, bb, bp, IOTDATA_HUMIDITY_BITS);
+    const size_t s = *bp;
+    const uint32_t r = bits_read(buf, bb, bp, IOTDATA_HUMIDITY_BITS);
     snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "%" PRIu8 "%%", dequantise_humidity(r));
     n = dump_add(dump, n, s, IOTDATA_HUMIDITY_BITS, r, dump->_dec_buf, "0..100%", "humidity");
     return n;
@@ -3261,8 +3255,8 @@ static void json_set_wind_speed(cJSON *const root, const void *const vv, const c
 #if !defined(IOTDATA_NO_DUMP)
 static int dump_wind_speed(const uint8_t *const buf, const size_t bb, size_t *const bp, iotdata_dump_t *const dump, int n, const char *const label) {
     (void)label;
-    size_t s = *bp;
-    uint32_t r = bits_read(buf, bb, bp, IOTDATA_WIND_SPEED_BITS);
+    const size_t s = *bp;
+    const uint32_t r = bits_read(buf, bb, bp, IOTDATA_WIND_SPEED_BITS);
 #if !defined(IOTDATA_NO_FLOATING)
     snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "%.1f m/s", (double)dequantise_wind_speed(r));
 #else
@@ -3399,8 +3393,8 @@ static void json_set_wind_direction(cJSON *const root, const void *const vv, con
 #if !defined(IOTDATA_NO_DUMP)
 static int dump_wind_direction(const uint8_t *const buf, const size_t bb, size_t *const bp, iotdata_dump_t *const dump, int n, const char *const label) {
     (void)label;
-    size_t s = *bp;
-    uint32_t r = bits_read(buf, bb, bp, IOTDATA_WIND_DIRECTION_BITS);
+    const size_t s = *bp;
+    const uint32_t r = bits_read(buf, bb, bp, IOTDATA_WIND_DIRECTION_BITS);
     snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "%" PRIu16 " deg", dequantise_wind_direction(r));
     n = dump_add(dump, n, s, IOTDATA_WIND_DIRECTION_BITS, r, dump->_dec_buf, "0..355, ~1.4deg", "wind_direction");
     return n;
@@ -3533,8 +3527,8 @@ static void json_set_wind_gust(cJSON *const root, const void *const vv, const ch
 #if !defined(IOTDATA_NO_DUMP)
 static int dump_wind_gust(const uint8_t *const buf, const size_t bb, size_t *const bp, iotdata_dump_t *const dump, int n, const char *const label) {
     (void)label;
-    size_t s = *bp;
-    uint32_t r = bits_read(buf, bb, bp, IOTDATA_WIND_GUST_BITS);
+    const size_t s = *bp;
+    const uint32_t r = bits_read(buf, bb, bp, IOTDATA_WIND_GUST_BITS);
 #if !defined(IOTDATA_NO_FLOATING)
     snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "%.1f m/s", (double)dequantise_wind_gust(r));
 #else
@@ -3784,8 +3778,8 @@ static void json_set_rain_rate(cJSON *const root, const void *const vv, const ch
 #if !defined(IOTDATA_NO_DUMP)
 static int dump_rain_rate(const uint8_t *const buf, const size_t bb, size_t *const bp, iotdata_dump_t *const dump, int n, const char *const label) {
     (void)label;
-    size_t s = *bp;
-    uint32_t r = bits_read(buf, bb, bp, IOTDATA_RAIN_RATE_BITS);
+    const size_t s = *bp;
+    const uint32_t r = bits_read(buf, bb, bp, IOTDATA_RAIN_RATE_BITS);
     snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "%" PRIu8 " mm/hr", dequantise_rain_rate(r));
     n = dump_add(dump, n, s, IOTDATA_RAIN_RATE_BITS, r, dump->_dec_buf, "0..255 mm/hr", "rain_rate");
     return n;
@@ -3901,8 +3895,8 @@ static void json_set_rain_size(cJSON *const root, const void *const vv, const ch
 #if !defined(IOTDATA_NO_DUMP)
 static int dump_rain_size(const uint8_t *const buf, const size_t bb, size_t *const bp, iotdata_dump_t *const dump, int n, const char *const label) {
     (void)label;
-    size_t s = *bp;
-    uint32_t r = bits_read(buf, bb, bp, IOTDATA_RAIN_SIZE_BITS);
+    const size_t s = *bp;
+    const uint32_t r = bits_read(buf, bb, bp, IOTDATA_RAIN_SIZE_BITS);
     snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "%" PRIu8 ".%" PRIu8 " mm/d", dequantise_rain_size(r) / 10, dequantise_rain_size(r) % 10);
     n = dump_add(dump, n, s, IOTDATA_RAIN_SIZE_BITS, r, dump->_dec_buf, "0..6.3 mm/d", "rain_size");
     return n;
@@ -4131,8 +4125,8 @@ static void json_set_solar_irradiance(cJSON *const root, const void *const vv, c
 #if !defined(IOTDATA_NO_DUMP)
 static int dump_solar_irradiance(const uint8_t *const buf, const size_t bb, size_t *const bp, iotdata_dump_t *const dump, int n, const char *const label) {
     (void)label;
-    size_t s = *bp;
-    uint32_t r = bits_read(buf, bb, bp, IOTDATA_SOLAR_IRRADIANCE_BITS);
+    const size_t s = *bp;
+    const uint32_t r = bits_read(buf, bb, bp, IOTDATA_SOLAR_IRRADIANCE_BITS);
     snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "%" PRIu16 " W/m2", dequantise_solar_irradiance(r));
     n = dump_add(dump, n, s, IOTDATA_SOLAR_IRRADIANCE_BITS, r, dump->_dec_buf, "0..1023 W/m2", "solar_ir");
     return n;
@@ -4248,8 +4242,8 @@ static void json_set_solar_ultraviolet(cJSON *const root, const void *const vv, 
 #if !defined(IOTDATA_NO_DUMP)
 static int dump_solar_ultraviolet(const uint8_t *const buf, const size_t bb, size_t *const bp, iotdata_dump_t *const dump, int n, const char *const label) {
     (void)label;
-    size_t s = *bp;
-    uint32_t r = bits_read(buf, bb, bp, IOTDATA_SOLAR_ULTRAVIOLET_BITS);
+    const size_t s = *bp;
+    const uint32_t r = bits_read(buf, bb, bp, IOTDATA_SOLAR_ULTRAVIOLET_BITS);
     snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "%" PRIu8, dequantise_solar_ultraviolet(r));
     n = dump_add(dump, n, s, IOTDATA_SOLAR_ULTRAVIOLET_BITS, r, dump->_dec_buf, "0..15", "solar_uv");
     return n;
@@ -4482,8 +4476,8 @@ static void json_set_clouds(cJSON *const root, const void *const vv, const char 
 #if !defined(IOTDATA_NO_DUMP)
 static int dump_clouds(const uint8_t *const buf, const size_t bb, size_t *const bp, iotdata_dump_t *const dump, int n, const char *const label) {
     (void)label;
-    size_t s = *bp;
-    uint32_t r = bits_read(buf, bb, bp, IOTDATA_CLOUDS_BITS);
+    const size_t s = *bp;
+    const uint32_t r = bits_read(buf, bb, bp, IOTDATA_CLOUDS_BITS);
     snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "%" PRIu8 " okta", dequantise_clouds(r));
     n = dump_add(dump, n, s, IOTDATA_CLOUDS_BITS, r, dump->_dec_buf, "0..8 okta", "clouds");
     return n;
@@ -4521,18 +4515,12 @@ static const uint16_t _aq_gas_res[IOTDATA_AIR_QUALITY_GAS_COUNT] = {
     IOTDATA_AIR_QUALITY_GAS_RES_VOC,  IOTDATA_AIR_QUALITY_GAS_RES_NOX, IOTDATA_AIR_QUALITY_GAS_RES_CO2,   IOTDATA_AIR_QUALITY_GAS_RES_CO,
     IOTDATA_AIR_QUALITY_GAS_RES_HCHO, IOTDATA_AIR_QUALITY_GAS_RES_O3,  IOTDATA_AIR_QUALITY_GAS_RES_RSVD6, IOTDATA_AIR_QUALITY_GAS_RES_RSVD7,
 };
-/* Already inside the GAS || AIR_QUALITY guard, so asking for GAS again was a NARROWING, and the
-   wrong one: the composite's setter reads this table, so with AIR_QUALITY enabled and the part
-   not, the table was missing while the code that indexes it was present. Its two siblings above
-   never carried that extra condition. */
 #if !defined(IOTDATA_NO_ENCODE) && !defined(IOTDATA_NO_CHECKS_TYPES)
 static const uint16_t _aq_gas_max[IOTDATA_AIR_QUALITY_GAS_COUNT] = {
     IOTDATA_AIR_QUALITY_GAS_MAX_VOC,  IOTDATA_AIR_QUALITY_GAS_MAX_NOX, IOTDATA_AIR_QUALITY_GAS_MAX_CO2,   IOTDATA_AIR_QUALITY_GAS_MAX_CO,
     IOTDATA_AIR_QUALITY_GAS_MAX_HCHO, IOTDATA_AIR_QUALITY_GAS_MAX_O3,  IOTDATA_AIR_QUALITY_GAS_MAX_RSVD6, IOTDATA_AIR_QUALITY_GAS_MAX_RSVD7,
 };
 #endif
-/* The JSON paths name the gas slots too, so this table is not print/dump's alone -- with JSON on
-   and both of those off, the guard it used to carry left it undeclared. */
 #if !defined(IOTDATA_NO_PRINT) || !defined(IOTDATA_NO_DUMP) || !defined(IOTDATA_NO_JSON)
 static const char *_aq_gas_names[IOTDATA_AIR_QUALITY_GAS_COUNT] = {
     "voc", "nox", "co2", "co", "hcho", "o3", "rsvd6", "rsvd7",
@@ -4652,8 +4640,8 @@ static void json_set_air_quality_index(cJSON *const root, const void *const vv, 
 #if !defined(IOTDATA_NO_DUMP)
 static int dump_air_quality_index(const uint8_t *const buf, const size_t bb, size_t *const bp, iotdata_dump_t *const dump, int n, const char *const label) {
     (void)label;
-    size_t s = *bp;
-    uint32_t r = bits_read(buf, bb, bp, IOTDATA_AIR_QUALITY_INDEX_BITS);
+    const size_t s = *bp;
+    const uint32_t r = bits_read(buf, bb, bp, IOTDATA_AIR_QUALITY_INDEX_BITS);
     snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "%" PRIu16 " AQI", dequantise_air_quality_index(r));
     n = dump_add(dump, n, s, IOTDATA_AIR_QUALITY_INDEX_BITS, r, dump->_dec_buf, "0..500 AQI", "aq_index");
     return n;
@@ -4793,16 +4781,16 @@ static void json_set_air_quality_pm(cJSON *const root, const void *const vv, con
 #if !defined(IOTDATA_NO_DUMP)
 static int dump_air_quality_pm(const uint8_t *const buf, const size_t bb, size_t *const bp, iotdata_dump_t *const dump, int n, const char *const label) {
     (void)label;
-    size_t s = *bp;
-    uint32_t present = bits_read(buf, bb, bp, IOTDATA_AIR_QUALITY_PM_PRESENT_BITS);
+    const size_t s1 = *bp;
+    const uint32_t present = bits_read(buf, bb, bp, IOTDATA_AIR_QUALITY_PM_PRESENT_BITS);
     snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "0x%" PRIX32, present);
-    n = dump_add(dump, n, s, IOTDATA_AIR_QUALITY_PM_PRESENT_BITS, present, dump->_dec_buf, "4-bit mask", "aq_pm_present");
+    n = dump_add(dump, n, s1, IOTDATA_AIR_QUALITY_PM_PRESENT_BITS, present, dump->_dec_buf, "4-bit mask", "aq_pm_present");
     for (int i = 0; i < IOTDATA_AIR_QUALITY_PM_COUNT; i++)
         if (present & (1U << i)) {
-            s = *bp;
-            uint32_t r = bits_read(buf, bb, bp, IOTDATA_AIR_QUALITY_PM_VALUE_BITS);
+            const size_t s2 = *bp;
+            const uint32_t r = bits_read(buf, bb, bp, IOTDATA_AIR_QUALITY_PM_VALUE_BITS);
             snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "%" PRIu32 " ug/m3", (uint32_t)(r * IOTDATA_AIR_QUALITY_PM_VALUE_RES));
-            n = dump_add(dump, n, s, IOTDATA_AIR_QUALITY_PM_VALUE_BITS, r, dump->_dec_buf, "0..1275, 5 ug/m3", _aq_pm_names[i]);
+            n = dump_add(dump, n, s2, IOTDATA_AIR_QUALITY_PM_VALUE_BITS, r, dump->_dec_buf, "0..1275, 5 ug/m3", _aq_pm_names[i]);
         }
     return n;
 }
@@ -4944,16 +4932,16 @@ static void json_set_air_quality_gas(cJSON *const root, const void *const vv, co
 #if !defined(IOTDATA_NO_DUMP)
 static int dump_air_quality_gas(const uint8_t *const buf, const size_t bb, size_t *const bp, iotdata_dump_t *const dump, int n, const char *const label) {
     (void)label;
-    size_t s = *bp;
-    uint32_t present = bits_read(buf, bb, bp, IOTDATA_AIR_QUALITY_GAS_PRESENT_BITS);
+    const size_t s1 = *bp;
+    const uint32_t present = bits_read(buf, bb, bp, IOTDATA_AIR_QUALITY_GAS_PRESENT_BITS);
     snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "0x%02" PRIX32, present);
-    n = dump_add(dump, n, s, IOTDATA_AIR_QUALITY_GAS_PRESENT_BITS, present, dump->_dec_buf, "8-bit mask", "aq_gas_present");
+    n = dump_add(dump, n, s1, IOTDATA_AIR_QUALITY_GAS_PRESENT_BITS, present, dump->_dec_buf, "8-bit mask", "aq_gas_present");
     for (int i = 0; i < IOTDATA_AIR_QUALITY_GAS_COUNT; i++)
         if (present & (1U << i)) {
-            s = *bp;
+            const size_t s2 = *bp;
             uint32_t r = bits_read(buf, bb, bp, _aq_gas_bits[i]);
             snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "%" PRIu32 " %s", r * _aq_gas_res[i], _aq_gas_units[i]);
-            n = dump_add(dump, n, s, _aq_gas_bits[i], r, dump->_dec_buf, _aq_gas_range[i], _aq_gas_names[i]);
+            n = dump_add(dump, n, s2, _aq_gas_bits[i], r, dump->_dec_buf, _aq_gas_range[i], _aq_gas_names[i]);
         }
     return n;
 }
@@ -5250,8 +5238,8 @@ static void json_set_radiation_cpm(cJSON *const root, const void *const vv, cons
 #if !defined(IOTDATA_NO_DUMP)
 static int dump_radiation_cpm(const uint8_t *const buf, const size_t bb, size_t *const bp, iotdata_dump_t *const dump, int n, const char *const label) {
     (void)label;
-    size_t s = *bp;
-    uint32_t r = bits_read(buf, bb, bp, IOTDATA_RADIATION_CPM_BITS);
+    const size_t s = *bp;
+    const uint32_t r = bits_read(buf, bb, bp, IOTDATA_RADIATION_CPM_BITS);
     snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "%" PRIu16 " CPM", dequantise_radiation_cpm(r));
     n = dump_add(dump, n, s, IOTDATA_RADIATION_CPM_BITS, r, dump->_dec_buf, "0..65535 CPM", "radiation_cpm");
     return n;
@@ -5384,8 +5372,8 @@ static void json_set_radiation_dose(cJSON *const root, const void *const vv, con
 #if !defined(IOTDATA_NO_DUMP)
 static int dump_radiation_dose(const uint8_t *const buf, const size_t bb, size_t *const bp, iotdata_dump_t *const dump, int n, const char *const label) {
     (void)label;
-    size_t s = *bp;
-    uint32_t r = bits_read(buf, bb, bp, IOTDATA_RADIATION_DOSE_BITS);
+    const size_t s = *bp;
+    const uint32_t r = bits_read(buf, bb, bp, IOTDATA_RADIATION_DOSE_BITS);
 #if !defined(IOTDATA_NO_FLOATING)
     snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "%.2f uSv/h", (double)dequantise_radiation_dose(r));
 #else
@@ -5630,8 +5618,8 @@ static void json_set_depth(cJSON *const root, const void *const vv, const char *
 #if !defined(IOTDATA_NO_DUMP)
 static int dump_depth(const uint8_t *const buf, const size_t bb, size_t *const bp, iotdata_dump_t *const dump, int n, const char *const label) {
     (void)label;
-    size_t s = *bp;
-    uint32_t r = bits_read(buf, bb, bp, IOTDATA_DEPTH_BITS);
+    const size_t s = *bp;
+    const uint32_t r = bits_read(buf, bb, bp, IOTDATA_DEPTH_BITS);
     snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "%" PRIu16 " cm", dequantise_depth(r));
     n = dump_add(dump, n, s, IOTDATA_DEPTH_BITS, r, dump->_dec_buf, "0..1023 cm", "depth");
     return n;
@@ -5821,22 +5809,22 @@ static void json_set_position(cJSON *const root, const void *const vv, const cha
 #if !defined(IOTDATA_NO_DUMP)
 static int dump_position(const uint8_t *const buf, const size_t bb, size_t *const bp, iotdata_dump_t *const dump, int n, const char *const label) {
     (void)label;
-    size_t s = *bp;
-    uint32_t r = bits_read(buf, bb, bp, IOTDATA_POSITION_LAT_BITS);
+    const size_t s1 = *bp;
+    const uint32_t r1 = bits_read(buf, bb, bp, IOTDATA_POSITION_LAT_BITS);
 #if !defined(IOTDATA_NO_FLOATING)
-    snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "%.6f", (double)dequantise_position_lat(r));
+    snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "%.6f", (double)dequantise_position_lat(r1));
 #else
-    fmt_scaled(dump->_dec_buf, sizeof(dump->_dec_buf), dequantise_position_lat(r), 10000000, "");
+    fmt_scaled(dump->_dec_buf, sizeof(dump->_dec_buf), dequantise_position_lat(r1), 10000000, "");
 #endif
-    n = dump_add(dump, n, s, IOTDATA_POSITION_LAT_BITS, r, dump->_dec_buf, "-90..+90", "latitude");
-    s = *bp;
-    r = bits_read(buf, bb, bp, IOTDATA_POSITION_LON_BITS);
+    n = dump_add(dump, n, s1, IOTDATA_POSITION_LAT_BITS, r1, dump->_dec_buf, "-90..+90", "latitude");
+    const size_t s2 = *bp;
+    const uint32_t r2 = bits_read(buf, bb, bp, IOTDATA_POSITION_LON_BITS);
 #if !defined(IOTDATA_NO_FLOATING)
-    snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "%.6f", (double)dequantise_position_lon(r));
+    snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "%.6f", (double)dequantise_position_lon(r2));
 #else
-    fmt_scaled(dump->_dec_buf, sizeof(dump->_dec_buf), dequantise_position_lon(r), 10000000, "");
+    fmt_scaled(dump->_dec_buf, sizeof(dump->_dec_buf), dequantise_position_lon(r2), 10000000, "");
 #endif
-    n = dump_add(dump, n, s, IOTDATA_POSITION_LON_BITS, r, dump->_dec_buf, "-180..+180", "longitude");
+    n = dump_add(dump, n, s2, IOTDATA_POSITION_LON_BITS, r2, dump->_dec_buf, "-180..+180", "longitude");
     return n;
 }
 #endif
@@ -5957,8 +5945,8 @@ static void json_set_datetime(cJSON *const root, const void *const vv, const cha
 #if !defined(IOTDATA_NO_DUMP)
 static int dump_datetime(const uint8_t *const buf, const size_t bb, size_t *const bp, iotdata_dump_t *const dump, int n, const char *const label) {
     (void)label;
-    size_t s = *bp;
-    uint32_t r = bits_read(buf, bb, bp, IOTDATA_DATETIME_BITS);
+    const size_t s = *bp;
+    const uint32_t r = bits_read(buf, bb, bp, IOTDATA_DATETIME_BITS);
     const uint32_t secs = dequantise_datetime(r);
     snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "day %" PRIu32 " %02" PRIu32 ":%02" PRIu32 ":%02" PRIu32 " (%" PRIu32 "s)", secs / 86400, (secs % 86400) / 3600, (secs % 3600) / 60, secs % 60, secs);
     n = dump_add(dump, n, s, IOTDATA_DATETIME_BITS, r, dump->_dec_buf, "5s res", "datetime");
@@ -5982,9 +5970,6 @@ static const iotdata_field_ops_t _iotdata_field_def_datetime = { _IOTDATA_OP_ENC
  * ========================================================================= */
 
 /* the names print and dump put on the control byte's three fields */
-/* the tables hook is emitted OUTSIDE the field's enable guard, as the air quality family's
-   are, so this block carries the enable itself -- otherwise a build without IMAGE has three
-   unused tables and -Wunused-variable refuses it */
 #if defined(IOTDATA_ENABLE_IMAGE) && (!defined(IOTDATA_NO_JSON) || !defined(IOTDATA_NO_DUMP) || !defined(IOTDATA_NO_PRINT))
 static const char *_image_fmt_names[] = { "bilevel", "grey4", "grey16", "reserved" };
 static const char *_image_size_names[] = { "24x18", "32x24", "48x36", "64x48" };
@@ -6100,16 +6085,10 @@ iotdata_status_t iotdata_decode_image(iotdata_decoder_t *dec, uint8_t *pixel_for
     if (!scratch)
         return IOTDATA_ERR_BUF_NULL;
 #if defined(IOTDATA_OPERATE_ORDERED)
-    /* THE PIXELS LAND IN THE CALLER'S SCRATCH, which is the whole reason it is a parameter: there
-       is no decoder storage here, and a 254-byte local would die on return with *data still
-       pointing into it. */
     iotdata_field_image_dec_t *const v = &scratch->_image;
     RESOLVE_DEC_FIELD(dec, IOTDATA_FIELD_IMAGE, unpack_image, v);
 #else
     CHECK_DEC_FIELD(dec, IOTDATA_FIELD_IMAGE);
-    /* The pixels are already in the decoder, so the scratch goes unwritten and *data is the
-       decoder's own buffer. It is still demanded, so that a caller cannot pass NULL in this mode
-       and discover on the day it switches to ORDERED that there was nowhere to decode into. */
     const iotdata_field_image_dec_t *const v = &dec->image;
 #endif
     if (pixel_format)
@@ -6190,20 +6169,20 @@ static int dump_image(const uint8_t *const buf, const size_t bb, size_t *const b
     if (*bp + 16 > bb)
         return n;
     /* Length byte */
-    size_t s = *bp;
+    const size_t s1 = *bp;
     const uint8_t length = (uint8_t)bits_read(buf, bb, bp, 8);
     snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "%" PRIu8 " (%" PRIu8 " total)", length, 1 + length);
-    n = dump_add(dump, n, s, 8, length, dump->_dec_buf, "1..255", "image_length");
+    n = dump_add(dump, n, s1, 8, length, dump->_dec_buf, "1..255", "image_length");
     /* Control byte */
-    s = *bp;
+    const size_t s2 = *bp;
     const uint8_t control = (uint8_t)bits_read(buf, bb, bp, 8);
     snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "%s %s %s%s%s", _image_fmt_names[(control >> 6) & 3], _image_size_names[(control >> 4) & 3], _image_comp_names[(control >> 2) & 3], (control & IOTDATA_IMAGE_FLAG_FRAGMENT) ? " frag" : "",
              (control & IOTDATA_IMAGE_FLAG_INVERT) ? " inv" : "");
-    n = dump_add(dump, n, s, 8, control, dump->_dec_buf, "fmt|sz|comp|flg", "image_control");
+    n = dump_add(dump, n, s2, 8, control, dump->_dec_buf, "fmt|sz|comp|flg", "image_control");
     /* Pixel data (show as single span) */
     const uint8_t data_len = (length > 1) ? (uint8_t)(length - 1) : 0;
     if (data_len > 0) {
-        s = *bp;
+        const size_t s = *bp;
         const size_t data_bits = (size_t)data_len * 8;
         if (*bp + data_bits <= bb)
             *bp += data_bits;

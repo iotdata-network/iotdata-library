@@ -5,54 +5,15 @@
 
     iotdata-fields-unitary.xml - unitary fields
 
-    THIS IS THE SOURCE. iotdata_fields.h and iotdata_fields.c are generated from
-    it by generators/iotdata-generator-fields.js through the templates in
-    generators/templates, and editing them directly loses the edit at the next
+    iotdata_fields.h and iotdata_fields.c are generated from this source
+    by generators/iotdata-generator-fields.js through the templates in
+    generators/templates. editing them directly loses the edit at the next
     `make generate`.
-
-    WHAT IS HERE AND WHAT IS IN THE TEMPLATE. This document carries what is true
-    of a field in any language: its identifier, its quantities, their ranges and
-    wire widths, the errors it can raise, its documentation -- and, for now, the
-    bodies of its operations as literal C. The template carries what is true of
-    the LANGUAGE: every brace, guard, typedef and macro form. So a toolchain that
-    needs the C shaped differently is a template edit, not a generator change.
-
-    <impl> IS LANGUAGE-SPECIFIC AND DELIBERATELY VERBATIM. Lifting the existing
-    bodies in unchanged is the whole approach: nothing is re-derived, so nothing
-    silently changes behaviour. A later <abstract> element may describe a
-    quantisation rule declaratively, and the generator will use it only where no
-    <impl> for that language and hook exists -- so a field migrates when someone
-    chooses to migrate it, and until then the C that has been in service stays
-    the definition.
-
-    WHEN AN <impl> HAS A 'when' ATTRIBUTE it is selected by build configuration:
-    'floating' and 'integer' are the two forms of iotdata_float_t. Several
-    quantities need genuinely different arithmetic in the two, not the same
-    expression at two widths, which is why they are separate bodies rather than
-    one body and a cast.
-
-    IDENTIFIERS are grouped in blocks of 16 per family, x0..x7 atomic and
-    x8..xF composite. A convention only: identifiers are compared, never
-    calculated with. 0x0000 is unassigned, 0x8000 and above belong to the
-    implementer, 0xFFFF means none. TLV has no identifier.
-
-    Fields with no unit and no range: a container of bits whose meaning belongs
-    entirely to the application. Nothing to quantise and nothing to reject, which
-    is why they are the simplest blocks in the specification -- and why they were
-    the fields that showed quantisation and range checking to be separable from
-    everything else.
 -->
 <fields>
 
     <!-- ---------------------------------------------------------------------------
         FLAGS - an eight-bit bitmask whose meaning belongs to the application.
-
-        The first field with NO quantisation and NO range check, which makes it
-        the one that shows those are separable. It goes on the wire as it stands,
-        so pack reads the member directly and there is no quantise_ to emit; and
-        having nothing to reject, its error macros are defined once as empty
-        OUTSIDE the enable guard rather than inside it. Both are shape, not
-        content, so both live in the template behind a flag.
     -->
     <field name="flags" id="0x00A0u" bits="IOTDATA_FLAGS_BITS">
 
@@ -86,8 +47,8 @@
     cJSON_AddNumberToObject(root, label, v->flags);
 ]]></impl>
         <impl lang="c" hook="dump"><![CDATA[    (void)label;
-    size_t s = *bp;
-    uint32_t r = bits_read(buf, bb, bp, IOTDATA_FLAGS_BITS);
+    const size_t s = *bp;
+    const uint32_t r = bits_read(buf, bb, bp, IOTDATA_FLAGS_BITS);
     snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "0x%02" PRIX32, r);
     n = dump_add(dump, n, s, IOTDATA_FLAGS_BITS, r, dump->_dec_buf, "8-bit bitmask", "flags");
     return n;
@@ -100,11 +61,6 @@
 
     <!-- ---------------------------------------------------------------------------
         BITS32 - a thirty-two bit unit whose meaning belongs to the application.
-
-        FLAGS at four times the width, and here to show that a field whose whole
-        description differs only in its numbers really does come out of the same
-        block. The only interesting thing about it is that its quantity occupies
-        the full 32 bits a presence slot can carry.
     -->
     <field name="bits32" id="0x00A1u" bits="IOTDATA_BITS32_BITS">
 
@@ -138,8 +94,8 @@
     cJSON_AddNumberToObject(root, label, v->bits32);
 ]]></impl>
         <impl lang="c" hook="dump"><![CDATA[    (void)label;
-    size_t s = *bp;
-    uint32_t r = bits_read(buf, bb, bp, IOTDATA_BITS32_BITS);
+    const size_t s = *bp;
+    const uint32_t r = bits_read(buf, bb, bp, IOTDATA_BITS32_BITS);
     snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "0x%08" PRIX32, r);
     n = dump_add(dump, n, s, IOTDATA_BITS32_BITS, r, dump->_dec_buf, "32-bit unit", "bits32");
     return n;

@@ -5,43 +5,10 @@
 
     iotdata-fields-image.xml - the image field
 
-    THIS IS THE SOURCE. iotdata_fields.h and iotdata_fields.c are generated from
-    it by generators/iotdata-generator-fields.js through the templates in
-    generators/templates, and editing them directly loses the edit at the next
+    iotdata_fields.h and iotdata_fields.c are generated from this source
+    by generators/iotdata-generator-fields.js through the templates in
+    generators/templates. editing them directly loses the edit at the next
     `make generate`.
-
-    WHAT IS HERE AND WHAT IS IN THE TEMPLATE. This document carries what is true
-    of a field in any language: its identifier, its quantities, their ranges and
-    wire widths, the errors it can raise, its documentation -- and, for now, the
-    bodies of its operations as literal C. The template carries what is true of
-    the LANGUAGE: every brace, guard, typedef and macro form. So a toolchain that
-    needs the C shaped differently is a template edit, not a generator change.
-
-    <impl> IS LANGUAGE-SPECIFIC AND DELIBERATELY VERBATIM. Lifting the existing
-    bodies in unchanged is the whole approach: nothing is re-derived, so nothing
-    silently changes behaviour. A later <abstract> element may describe a
-    quantisation rule declaratively, and the generator will use it only where no
-    <impl> for that language and hook exists -- so a field migrates when someone
-    chooses to migrate it, and until then the C that has been in service stays
-    the definition.
-
-    WHEN AN <impl> HAS A 'when' ATTRIBUTE it is selected by build configuration:
-    'floating' and 'integer' are the two forms of iotdata_float_t. Several
-    quantities need genuinely different arithmetic in the two, not the same
-    expression at two widths, which is why they are separate bodies rather than
-    one body and a cast.
-
-    IDENTIFIERS are grouped in blocks of 16 per family, x0..x7 atomic and
-    x8..xF composite. A convention only: identifiers are compared, never
-    calculated with. 0x0000 is unassigned, 0x8000 and above belong to the
-    implementer, 0xFFFF means none. TLV has no identifier.
-
-    A small monochrome or greyscale picture, and the one field whose CODE is
-    not generated: see iotdata_fields_impl_image.h for why. This document carries
-    everything about IMAGE that is not code -- its identifier, the quantities
-    it puts on the wire, its errors and its documentation -- so that it appears
-    in the registry and in the identifier-collision check alongside every other
-    field, and so that there is one place to read what the field IS.
 -->
 <fields>
 
@@ -98,7 +65,6 @@
             <constant name="HS_WINDOW_SZ2" value="8 /* 256-byte window */" early="yes"/>
             <constant name="HS_LOOKAHEAD_SZ2" value="4 /* 16-byte lookahead */" early="yes"/>
         </constants>
-        <!-- its own types, and the prototypes of the compression that lives outside -->
         <impl lang="c" hook="decl_encode"><![CDATA[typedef struct {
     union {
         uint8_t data[IOTDATA_IMAGE_DATA_MAX];
@@ -114,26 +80,20 @@ size_t iotdata_image_rle_decompress(const uint8_t *compressed, size_t comp_len, 
 size_t iotdata_image_hs_compress(const uint8_t *in, size_t in_len, uint8_t *out, size_t out_max);
 size_t iotdata_image_hs_decompress(const uint8_t *in, size_t in_len, uint8_t *out, size_t out_max);]]></impl>
         <impl lang="c" hook="decl_decode"><![CDATA[typedef union {
-    iotdata_field_image_dec_t _image; /* named, not spelled out, so the size and alignment are
-                                         right without the caller having any reason to look */
+    iotdata_field_image_dec_t _image; /* named, not spelled out, so the size and alignment are right without the caller having any reason to look */
 } iotdata_field_image_scratch_t;
 typedef struct {
     union {
         char b64[((IOTDATA_IMAGE_DATA_MAX + 2) / 3) * 4 + 1];
     };
 } iotdata_decode_to_json_scratch_image_t;]]></impl>
-        <impl lang="c" hook="decl_tail"><![CDATA[/* BASE64 IS WANTED BY THE JSON PATHS, and asking for it is a poke at a shared flag rather than
-   anything of IMAGE's own, so it sits out here with the condition spelled in full. */
+        <impl lang="c" hook="decl_tail"><![CDATA[
 #if defined(IOTDATA_ENABLE_IMAGE) && !defined(IOTDATA_NO_JSON) && !defined(IOTDATA_NO_ENCODE) && !defined(_IOTDATA_NEED_BASE64_DECODE)
 #define _IOTDATA_NEED_BASE64_DECODE
 #endif
 #if defined(IOTDATA_ENABLE_IMAGE) && !defined(IOTDATA_NO_JSON) && !defined(IOTDATA_NO_DECODE) && !defined(_IOTDATA_NEED_BASE64_ENCODE)
 #define _IOTDATA_NEED_BASE64_ENCODE
 #endif
-/* AND THE TWO THAT FEED THE LIBRARY-WIDE JSON SCRATCH. They must exist whether IMAGE is enabled
-   or not, because the aggregate names them either way, so each carries the whole condition and
-   an empty arm -- which is why this block sits outside the field's enable guard rather than
-   inside it with a counterpart in the #else. */
 #if defined(IOTDATA_ENABLE_IMAGE) && !defined(IOTDATA_NO_ENCODE)
 #define IOTDATA_IMAGE_ENCODE_FROM_JSON_SCRATCH iotdata_encode_to_json_scratch_image_t image;
 #else
@@ -153,9 +113,6 @@ typedef struct {
         <quantity name="image_data" type="uint8_t" param="data" member_encode="const uint8_t *image_data;" member_decode="uint8_t image_data[IOTDATA_IMAGE_DATA_MAX];" arg="const uint8_t *data" arg_out="const uint8_t **data">            <check expr="!data &amp;&amp; data_len &gt; 0" error="DATA_NULL" text="Image data pointer is NULL"/>            <check expr="data_len &gt; IOTDATA_IMAGE_DATA_MAX" error="DATA_HIGH" text="Image data exceeds 254 bytes"/>        </quantity>
         <quantity name="image_data_len" type="uint8_t" param="data_len">        </quantity>
         <impl lang="c" hook="tables"><![CDATA[/* the names print and dump put on the control byte's three fields */
-/* the tables hook is emitted OUTSIDE the field's enable guard, as the air quality family's
-   are, so this block carries the enable itself -- otherwise a build without IMAGE has three
-   unused tables and -Wunused-variable refuses it */
 #if defined(IOTDATA_ENABLE_IMAGE) && (!defined(IOTDATA_NO_JSON) || !defined(IOTDATA_NO_DUMP) || !defined(IOTDATA_NO_PRINT))
 static const char *_image_fmt_names[] = { "bilevel", "grey4", "grey16", "reserved" };
 static const char *_image_size_names[] = { "24x18", "32x24", "48x36", "64x48" };
@@ -245,20 +202,20 @@ static const char *_image_comp_names[] = { "raw", "rle", "heatshrink", "reserved
     if (*bp + 16 > bb)
         return n;
     /* Length byte */
-    size_t s = *bp;
+    const size_t s1 = *bp;
     const uint8_t length = (uint8_t)bits_read(buf, bb, bp, 8);
     snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "%" PRIu8 " (%" PRIu8 " total)", length, 1 + length);
-    n = dump_add(dump, n, s, 8, length, dump->_dec_buf, "1..255", "image_length");
+    n = dump_add(dump, n, s1, 8, length, dump->_dec_buf, "1..255", "image_length");
     /* Control byte */
-    s = *bp;
+    const size_t s2 = *bp;
     const uint8_t control = (uint8_t)bits_read(buf, bb, bp, 8);
     snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "%s %s %s%s%s", _image_fmt_names[(control >> 6) & 3], _image_size_names[(control >> 4) & 3], _image_comp_names[(control >> 2) & 3], (control & IOTDATA_IMAGE_FLAG_FRAGMENT) ? " frag" : "",
              (control & IOTDATA_IMAGE_FLAG_INVERT) ? " inv" : "");
-    n = dump_add(dump, n, s, 8, control, dump->_dec_buf, "fmt|sz|comp|flg", "image_control");
+    n = dump_add(dump, n, s2, 8, control, dump->_dec_buf, "fmt|sz|comp|flg", "image_control");
     /* Pixel data (show as single span) */
     const uint8_t data_len = (length > 1) ? (uint8_t)(length - 1) : 0;
     if (data_len > 0) {
-        s = *bp;
+        const size_t s = *bp;
         const size_t data_bits = (size_t)data_len * 8;
         if (*bp + data_bits <= bb)
             *bp += data_bits;
@@ -274,16 +231,10 @@ static const char *_image_comp_names[] = { "raw", "rle", "heatshrink", "reserved
 ]]></impl>        <!-- the one body the generator cannot derive: see the notes above -->        <impl lang="c" hook="decode"><![CDATA[    if (!scratch)
         return IOTDATA_ERR_BUF_NULL;
 #if defined(IOTDATA_OPERATE_ORDERED)
-    /* THE PIXELS LAND IN THE CALLER'S SCRATCH, which is the whole reason it is a parameter: there
-       is no decoder storage here, and a 254-byte local would die on return with *data still
-       pointing into it. */
     iotdata_field_image_dec_t *const v = &scratch->_image;
     RESOLVE_DEC_FIELD(dec, IOTDATA_FIELD_IMAGE, unpack_image, v);
 #else
     CHECK_DEC_FIELD(dec, IOTDATA_FIELD_IMAGE);
-    /* The pixels are already in the decoder, so the scratch goes unwritten and *data is the
-       decoder's own buffer. It is still demanded, so that a caller cannot pass NULL in this mode
-       and discover on the day it switches to ORDERED that there was nowhere to decode into. */
     const iotdata_field_image_dec_t *const v = &dec->image;
 #endif
     if (pixel_format)

@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    IoT Sensor Telemetry Protocol
+    Copyright(C) 2026 Matthew Gream (https://libiotdata.org)
+
+    iotdata-fields-time.xml - time fields
+
+    iotdata_fields.h and iotdata_fields.c are generated from this source
+    by generators/iotdata-generator-fields.js through the templates in
+    generators/templates. editing them directly loses the edit at the next
+    `make generate`.
+-->
+<fields>
+
+    <!-- ---------------------------------------------------------------------------
+        DATETIME - seconds from the start of the year, to five-second resolution.
+    -->
+    <field name="datetime" id="0x0081u" bits="IOTDATA_DATETIME_BITS">
+
+        <documentation>
+            <note for="field"><![CDATA[Field DATETIME]]></note>
+        </documentation>
+
+        <constants>
+            <constant name="BITS" value="24"/>
+            <constant name="RES" value="5"/>
+            <constant name="MAX" value="(((uint32_t)1 &lt;&lt; IOTDATA_DATETIME_BITS) - 1)"/>
+        </constants>
+
+        <quantity name="datetime_secs" type="uint32_t" param="seconds_from_year_start" stem="datetime">
+            <check expr="(seconds_from_year_start / IOTDATA_DATETIME_RES) &gt; IOTDATA_DATETIME_MAX" error="HIGH" text="Datetime ticks above maximum"/>
+            <impl lang="c" hook="quantise" arg="uint32_t datetime"><![CDATA[    return (uint32_t)(datetime / IOTDATA_DATETIME_RES);
+]]></impl>
+            <impl lang="c" hook="dequantise"><![CDATA[    return (uint32_t)(raw * IOTDATA_DATETIME_RES);
+]]></impl>
+        </quantity>
+
+        <impl lang="c" hook="pack"><![CDATA[    const iotdata_field_datetime_t *const v = vv;
+    return bits_write(buf, bb, bp, quantise_datetime(v->datetime_secs), IOTDATA_DATETIME_BITS);
+]]></impl>
+        <impl lang="c" hook="unpack"><![CDATA[    iotdata_field_datetime_t *const v = vv;
+    if (*bp + IOTDATA_DATETIME_BITS > bb)
+        return false;
+    v->datetime_secs = dequantise_datetime(bits_read(buf, bb, bp, IOTDATA_DATETIME_BITS));
+    return true;
+]]></impl>
+        <impl lang="c" hook="json_get"><![CDATA[    (void)scratch;
+    cJSON *j = cJSON_GetObjectItem(root, label);
+    if (!j)
+        return IOTDATA_OK;
+    return iotdata_encode_datetime(enc, (uint32_t)j->valueint);
+]]></impl>
+        <impl lang="c" hook="json_set"><![CDATA[    const iotdata_field_datetime_t *const v = vv;
+    (void)scratch;
+    cJSON_AddNumberToObject(root, label, v->datetime_secs);
+]]></impl>
+        <impl lang="c" hook="dump"><![CDATA[    (void)label;
+    const size_t s = *bp;
+    const uint32_t r = bits_read(buf, bb, bp, IOTDATA_DATETIME_BITS);
+    const uint32_t secs = dequantise_datetime(r);
+    snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "day %" PRIu32 " %02" PRIu32 ":%02" PRIu32 ":%02" PRIu32 " (%" PRIu32 "s)", secs / 86400, (secs % 86400) / 3600, (secs % 3600) / 60, secs % 60, secs);
+    n = dump_add(dump, n, s, IOTDATA_DATETIME_BITS, r, dump->_dec_buf, "5s res", "datetime");
+    return n;
+]]></impl>
+        <impl lang="c" hook="print"><![CDATA[    const iotdata_field_datetime_t *const v = vv;
+    bprintf(bp, "  %s:%s day %" PRIu32 " %02" PRIu32 ":%02" PRIu32 ":%02" PRIu32 " (%" PRIu32 "s)\n", label, _padd(label), v->datetime_secs / 86400, (v->datetime_secs % 86400) / 3600, (v->datetime_secs % 3600) / 60, v->datetime_secs % 60, v->datetime_secs);
+]]></impl>
+
+    </field>
+
+</fields>

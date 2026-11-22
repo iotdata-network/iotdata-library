@@ -5,55 +5,15 @@
 
     iotdata-fields-airquality.xml - air quality fields
 
-    THIS IS THE SOURCE. iotdata_fields.h and iotdata_fields.c are generated from
-    it by generators/iotdata-generator-fields.js through the templates in
-    generators/templates, and editing them directly loses the edit at the next
+    iotdata_fields.h and iotdata_fields.c are generated from this source
+    by generators/iotdata-generator-fields.js through the templates in
+    generators/templates. editing them directly loses the edit at the next
     `make generate`.
-
-    WHAT IS HERE AND WHAT IS IN THE TEMPLATE. This document carries what is true
-    of a field in any language: its identifier, its quantities, their ranges and
-    wire widths, the errors it can raise, its documentation -- and, for now, the
-    bodies of its operations as literal C. The template carries what is true of
-    the LANGUAGE: every brace, guard, typedef and macro form. So a toolchain that
-    needs the C shaped differently is a template edit, not a generator change.
-
-    <impl> IS LANGUAGE-SPECIFIC AND DELIBERATELY VERBATIM. Lifting the existing
-    bodies in unchanged is the whole approach: nothing is re-derived, so nothing
-    silently changes behaviour. A later <abstract> element may describe a
-    quantisation rule declaratively, and the generator will use it only where no
-    <impl> for that language and hook exists -- so a field migrates when someone
-    chooses to migrate it, and until then the C that has been in service stays
-    the definition.
-
-    WHEN AN <impl> HAS A 'when' ATTRIBUTE it is selected by build configuration:
-    'floating' and 'integer' are the two forms of iotdata_float_t. Several
-    quantities need genuinely different arithmetic in the two, not the same
-    expression at two widths, which is why they are separate bodies rather than
-    one body and a cast.
-
-    IDENTIFIERS are grouped in blocks of 16 per family, x0..x7 atomic and
-    x8..xF composite. A convention only: identifiers are compared, never
-    calculated with. 0x0000 is unassigned, 0x8000 and above belong to the
-    implementer, 0xFFFF means none. TLV has no identifier.
-
-    Air quality: an aggregate index, particulate mass, and gas concentrations.
-    Its own document because this is the family that carries ARRAYS -- a presence
-    mask and a vector of slots -- and so the family that made the specification
-    say how a quantity is spelled and how it moves, instead of deriving both
-    from a type and a name.
 -->
 <fields>
 
     <!-- ---------------------------------------------------------------------------
         AIR_QUALITY_INDEX - an aggregate air quality index, 0..500 AQI.
-
-        The plain scalar of this family: nine bits hold 0..500 directly.
-
-        THE FAMILY'S SHARED TABLES hang off this field, because they must be
-        emitted once and this is the family's first field. They are not its own
-        -- the pm names belong to PM and the gas bits to GAS -- but they belong
-        to no single function either, which is why they are a field-level
-        <impl> rather than part of any operation's body.
     -->
     <field name="air_quality_index" id="0x0050u" bits="IOTDATA_AIR_QUALITY_INDEX_BITS">
 
@@ -67,7 +27,6 @@
             <constant name="BITS" value="9"/>
         </constants>
 
-        <!-- the whole family indexes its slots through these; emitted once, after the banner -->
         <impl lang="c" hook="tables"><![CDATA[#if defined(IOTDATA_ENABLE_AIR_QUALITY_PM) || defined(IOTDATA_ENABLE_AIR_QUALITY)
 #if !defined(IOTDATA_NO_PRINT) || !defined(IOTDATA_NO_DUMP) || !defined(IOTDATA_NO_JSON)
 static const char *_aq_pm_names[IOTDATA_AIR_QUALITY_PM_COUNT] = { "pm1", "pm25", "pm4", "pm10" };
@@ -86,18 +45,12 @@ static const uint16_t _aq_gas_res[IOTDATA_AIR_QUALITY_GAS_COUNT] = {
     IOTDATA_AIR_QUALITY_GAS_RES_VOC,  IOTDATA_AIR_QUALITY_GAS_RES_NOX, IOTDATA_AIR_QUALITY_GAS_RES_CO2,   IOTDATA_AIR_QUALITY_GAS_RES_CO,
     IOTDATA_AIR_QUALITY_GAS_RES_HCHO, IOTDATA_AIR_QUALITY_GAS_RES_O3,  IOTDATA_AIR_QUALITY_GAS_RES_RSVD6, IOTDATA_AIR_QUALITY_GAS_RES_RSVD7,
 };
-/* Already inside the GAS || AIR_QUALITY guard, so asking for GAS again was a NARROWING, and the
-   wrong one: the composite's setter reads this table, so with AIR_QUALITY enabled and the part
-   not, the table was missing while the code that indexes it was present. Its two siblings above
-   never carried that extra condition. */
 #if !defined(IOTDATA_NO_ENCODE) && !defined(IOTDATA_NO_CHECKS_TYPES)
 static const uint16_t _aq_gas_max[IOTDATA_AIR_QUALITY_GAS_COUNT] = {
     IOTDATA_AIR_QUALITY_GAS_MAX_VOC,  IOTDATA_AIR_QUALITY_GAS_MAX_NOX, IOTDATA_AIR_QUALITY_GAS_MAX_CO2,   IOTDATA_AIR_QUALITY_GAS_MAX_CO,
     IOTDATA_AIR_QUALITY_GAS_MAX_HCHO, IOTDATA_AIR_QUALITY_GAS_MAX_O3,  IOTDATA_AIR_QUALITY_GAS_MAX_RSVD6, IOTDATA_AIR_QUALITY_GAS_MAX_RSVD7,
 };
 #endif
-/* The JSON paths name the gas slots too, so this table is not print/dump's alone -- with JSON on
-   and both of those off, the guard it used to carry left it undeclared. */
 #if !defined(IOTDATA_NO_PRINT) || !defined(IOTDATA_NO_DUMP) || !defined(IOTDATA_NO_JSON)
 static const char *_aq_gas_names[IOTDATA_AIR_QUALITY_GAS_COUNT] = {
     "voc", "nox", "co2", "co", "hcho", "o3", "rsvd6", "rsvd7",
@@ -150,8 +103,8 @@ static const char *_aq_gas_range[IOTDATA_AIR_QUALITY_GAS_COUNT] = {
     cJSON_AddNumberToObject(root, label, v->aq_index);
 ]]></impl>
         <impl lang="c" hook="dump"><![CDATA[    (void)label;
-    size_t s = *bp;
-    uint32_t r = bits_read(buf, bb, bp, IOTDATA_AIR_QUALITY_INDEX_BITS);
+    const size_t s = *bp;
+    const uint32_t r = bits_read(buf, bb, bp, IOTDATA_AIR_QUALITY_INDEX_BITS);
     snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "%" PRIu16 " AQI", dequantise_air_quality_index(r));
     n = dump_add(dump, n, s, IOTDATA_AIR_QUALITY_INDEX_BITS, r, dump->_dec_buf, "0..500 AQI", "aq_index");
     return n;
@@ -164,16 +117,6 @@ static const char *_aq_gas_range[IOTDATA_AIR_QUALITY_GAS_COUNT] = {
 
     <!-- ---------------------------------------------------------------------------
         AIR_QUALITY_PM - particulate mass for four size channels.
-
-        THE FIRST FIELD WITH AN ARRAY, and so the field that made the
-        specification state how a quantity is spelled and how it moves. A
-        presence mask says which channels carry a reading; the values are a
-        vector, which = cannot copy, which const decays in an argument, and
-        which an out-parameter takes without a star.
-
-        The mask is MASKED on the way in -- & 0x0F -- because only four
-        channels exist and a caller who sets a fifth bit would otherwise write
-        a presence claim for a channel that is not there.
     -->
     <field name="air_quality_pm" id="0x0051u" bits="0">
 
@@ -262,16 +205,16 @@ static const char *_aq_gas_range[IOTDATA_AIR_QUALITY_GAS_COUNT] = {
             cJSON_AddNumberToObject(obj, _aq_pm_names[i], v->aq_pm[i]);
 ]]></impl>
         <impl lang="c" hook="dump"><![CDATA[    (void)label;
-    size_t s = *bp;
-    uint32_t present = bits_read(buf, bb, bp, IOTDATA_AIR_QUALITY_PM_PRESENT_BITS);
+    const size_t s1 = *bp;
+    const uint32_t present = bits_read(buf, bb, bp, IOTDATA_AIR_QUALITY_PM_PRESENT_BITS);
     snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "0x%" PRIX32, present);
-    n = dump_add(dump, n, s, IOTDATA_AIR_QUALITY_PM_PRESENT_BITS, present, dump->_dec_buf, "4-bit mask", "aq_pm_present");
+    n = dump_add(dump, n, s1, IOTDATA_AIR_QUALITY_PM_PRESENT_BITS, present, dump->_dec_buf, "4-bit mask", "aq_pm_present");
     for (int i = 0; i < IOTDATA_AIR_QUALITY_PM_COUNT; i++)
         if (present & (1U << i)) {
-            s = *bp;
-            uint32_t r = bits_read(buf, bb, bp, IOTDATA_AIR_QUALITY_PM_VALUE_BITS);
+            const size_t s2 = *bp;
+            const uint32_t r = bits_read(buf, bb, bp, IOTDATA_AIR_QUALITY_PM_VALUE_BITS);
             snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "%" PRIu32 " ug/m3", (uint32_t)(r * IOTDATA_AIR_QUALITY_PM_VALUE_RES));
-            n = dump_add(dump, n, s, IOTDATA_AIR_QUALITY_PM_VALUE_BITS, r, dump->_dec_buf, "0..1275, 5 ug/m3", _aq_pm_names[i]);
+            n = dump_add(dump, n, s2, IOTDATA_AIR_QUALITY_PM_VALUE_BITS, r, dump->_dec_buf, "0..1275, 5 ug/m3", _aq_pm_names[i]);
         }
     return n;
 ]]></impl>
@@ -287,18 +230,6 @@ static const char *_aq_gas_range[IOTDATA_AIR_QUALITY_GAS_COUNT] = {
 
     <!-- ---------------------------------------------------------------------------
         AIR_QUALITY_GAS - gas concentrations across eight slots.
-
-        Like PM, but each slot has its OWN width, resolution and ceiling, so
-        the quantities cannot carry them as constants -- they live in the
-        shared tables, and the range check indexes _aq_gas_max rather than
-        comparing against a name.
-
-        No mask on the presence byte here: eight slots fill a uint8_t exactly,
-        so there is no spare bit for a caller to set wrongly.
-
-        Its wire width is 0, like PM's and the composite's: a presence-masked
-        array has NO fixed width, since what it costs depends on which slots
-        the caller filled.
     -->
     <field name="air_quality_gas" id="0x0052u" bits="0">
 
@@ -408,16 +339,16 @@ static const char *_aq_gas_range[IOTDATA_AIR_QUALITY_GAS_COUNT] = {
             cJSON_AddNumberToObject(obj, _aq_gas_names[i], v->aq_gas[i]);
 ]]></impl>
         <impl lang="c" hook="dump"><![CDATA[    (void)label;
-    size_t s = *bp;
-    uint32_t present = bits_read(buf, bb, bp, IOTDATA_AIR_QUALITY_GAS_PRESENT_BITS);
+    const size_t s1 = *bp;
+    const uint32_t present = bits_read(buf, bb, bp, IOTDATA_AIR_QUALITY_GAS_PRESENT_BITS);
     snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "0x%02" PRIX32, present);
-    n = dump_add(dump, n, s, IOTDATA_AIR_QUALITY_GAS_PRESENT_BITS, present, dump->_dec_buf, "8-bit mask", "aq_gas_present");
+    n = dump_add(dump, n, s1, IOTDATA_AIR_QUALITY_GAS_PRESENT_BITS, present, dump->_dec_buf, "8-bit mask", "aq_gas_present");
     for (int i = 0; i < IOTDATA_AIR_QUALITY_GAS_COUNT; i++)
         if (present & (1U << i)) {
-            s = *bp;
+            const size_t s2 = *bp;
             uint32_t r = bits_read(buf, bb, bp, _aq_gas_bits[i]);
             snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "%" PRIu32 " %s", r * _aq_gas_res[i], _aq_gas_units[i]);
-            n = dump_add(dump, n, s, _aq_gas_bits[i], r, dump->_dec_buf, _aq_gas_range[i], _aq_gas_names[i]);
+            n = dump_add(dump, n, s2, _aq_gas_bits[i], r, dump->_dec_buf, _aq_gas_range[i], _aq_gas_names[i]);
         }
     return n;
 ]]></impl>
@@ -433,14 +364,8 @@ static const char *_aq_gas_range[IOTDATA_AIR_QUALITY_GAS_COUNT] = {
 
     <!-- ---------------------------------------------------------------------------
         AIR_QUALITY - index, particulates and gases as one slot.
-
-        The nested quantity paths mean most of the movements derive as they do
-        for any composite; only the arrays and the masked presence byte have to
-        be spelled out, exactly as they are for the parts.
     -->
     <field name="air_quality" id="0x0058u" bits="0" parts="air_quality_index air_quality_pm air_quality_gas" delegates="yes">
-
-        <!-- no notes -->
 
         <constants/>
 
