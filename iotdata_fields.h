@@ -1107,10 +1107,10 @@ enum iotdata_status_t_ iotdata_decode_depth(struct iotdata_decoder_t_ *const dec
 #define IOTDATA_POSITION_LAT_RANGE    180.0
 #define IOTDATA_POSITION_LON_OFFSET   180.0
 #define IOTDATA_POSITION_LON_RANGE    360.0
-#define IOTDATA_POSITION_LAT_OFFSET_I 900000000LL
-#define IOTDATA_POSITION_LAT_RANGE_I  1800000000LL
-#define IOTDATA_POSITION_LON_OFFSET_I 1800000000LL
-#define IOTDATA_POSITION_LON_RANGE_I  3600000000LL
+#define IOTDATA_POSITION_LAT_OFFSET_I INT64_C(900000000)
+#define IOTDATA_POSITION_LAT_RANGE_I  INT64_C(1800000000)
+#define IOTDATA_POSITION_LON_OFFSET_I INT64_C(1800000000)
+#define IOTDATA_POSITION_LON_RANGE_I  INT64_C(3600000000)
 #define IOTDATA_FIELDS_DAT_POSITION \
     iotdata_double_t position_lat; \
     iotdata_double_t position_lon;
@@ -1203,9 +1203,9 @@ enum iotdata_status_t_ iotdata_decode_datetime(struct iotdata_decoder_t_ *const 
 static inline uint32_t iotdata_datetime_convert_utc_to_seconds_from_year_start(const int64_t utc) {
     if (utc <= 0)
         return 0;
-    const int d = (int)(utc / 86400), r = (int)(utc % 86400);
-    int y = (int)((10000LL * (long long)d + 14780) / 3652425) + 1970;
-    int j = y * 365 + y / 4 - y / 100 + y / 400 - 719527;
+    const int32_t d = (int32_t)(utc / 86400), r = (int32_t)(utc % 86400);
+    int32_t y = (int32_t)((INT64_C(10000) * (int64_t)d + 14780) / 3652425) + 1970;
+    int32_t j = y * 365 + y / 4 - y / 100 + y / 400 - 719527;
     if (j > d) {
         y--;
         j = y * 365 + y / 4 - y / 100 + y / 400 - 719527;
@@ -2141,7 +2141,7 @@ static void print_link_snr(const void *const vv, iotdata_buf_t *const bp, const 
 #if !defined(IOTDATA_NO_FLOATING)
     bprintf(bp, "  %s:%s %.0f dB SNR\n", label, _padd(label), (double)v->link_snr);
 #else
-    bprintf(bp, "  %s:%s %d.%d dB SNR\n", label, _padd(label), v->link_snr / 10, v->link_snr % 10);
+    bprintf(bp, "  %s:%s %" PRId32 ".%" PRId32 " dB SNR\n", label, _padd(label), v->link_snr / 10, v->link_snr % 10);
 #endif
 }
 #endif
@@ -2267,7 +2267,7 @@ static void print_link(const void *const vv, iotdata_buf_t *const bp, const char
 #if !defined(IOTDATA_NO_FLOATING)
     bprintf(bp, "  %s:%s %" PRIi8 " dBm RSSI, %.0f dB SNR\n", label, _padd(label), v->link_rssi.link_rssi, (double)v->link_snr.link_snr);
 #else
-    bprintf(bp, "  %s:%s %" PRIi8 " dBm RSSI, %d.%d dB SNR\n", label, _padd(label), v->link_rssi.link_rssi, v->link_snr.link_snr / 10, v->link_snr.link_snr % 10);
+    bprintf(bp, "  %s:%s %" PRIi8 " dBm RSSI, %" PRId32 ".%" PRId32 " dB SNR\n", label, _padd(label), v->link_rssi.link_rssi, v->link_snr.link_snr / 10, v->link_snr.link_snr % 10);
 #endif
 }
 #endif
@@ -2416,7 +2416,7 @@ static void print_temperature(const void *const vv, iotdata_buf_t *const bp, con
     bprintf(bp, "  %s:%s %.2f C\n", label, _padd(label), (double)v->temperature);
 #else
     const int32_t ta = v->temperature < 0 ? -(v->temperature) : v->temperature;
-    bprintf(bp, "  %s:%s %s%d.%02d C\n", label, _padd(label), v->temperature < 0 ? "-" : "", ta / 100, ta % 100);
+    bprintf(bp, "  %s:%s %s%" PRId32 ".%02" PRId32 " C\n", label, _padd(label), v->temperature < 0 ? "-" : "", ta / 100, ta % 100);
 #endif
 }
 #endif
@@ -2794,7 +2794,7 @@ static void print_environment(const void *const vv, iotdata_buf_t *const bp, con
     bprintf(bp, "  %s:%s %.2f C, %" PRIu16 " hPa, %" PRIu8 "%%\n", label, _padd(label), (double)v->temperature.temperature, v->pressure.pressure, v->humidity.humidity);
 #else
     const int32_t ta = v->temperature.temperature < 0 ? -(v->temperature.temperature) : v->temperature.temperature;
-    bprintf(bp, "  %s:%s %s%d.%02d C, %" PRIu16 " hPa, %" PRIu8 "%%\n", label, _padd(label), v->temperature.temperature < 0 ? "-" : "", ta / 100, ta % 100, v->pressure.pressure, v->humidity.humidity);
+    bprintf(bp, "  %s:%s %s%" PRId32 ".%02" PRId32 " C, %" PRIu16 " hPa, %" PRIu8 "%%\n", label, _padd(label), v->temperature.temperature < 0 ? "-" : "", ta / 100, ta % 100, v->pressure.pressure, v->humidity.humidity);
 #endif
 }
 #endif
@@ -2938,7 +2938,7 @@ static void print_wind_speed(const void *const vv, iotdata_buf_t *const bp, cons
 #if !defined(IOTDATA_NO_FLOATING)
     bprintf(bp, "  %s:%s %.1f m/s\n", label, _padd(label), (double)v->wind_speed);
 #else
-    bprintf(bp, "  %s:%s %d.%02d m/s\n", label, _padd(label), v->wind_speed / 100, v->wind_speed % 100);
+    bprintf(bp, "  %s:%s %" PRId32 ".%02" PRId32 " m/s\n", label, _padd(label), v->wind_speed / 100, v->wind_speed % 100);
 #endif
 }
 #endif
@@ -3210,7 +3210,7 @@ static void print_wind_gust(const void *const vv, iotdata_buf_t *const bp, const
 #if !defined(IOTDATA_NO_FLOATING)
     bprintf(bp, "  %s:%s %.1f m/s\n", label, _padd(label), (double)v->wind_gust);
 #else
-    bprintf(bp, "  %s:%s %d.%02d m/s\n", label, _padd(label), v->wind_gust / 100, v->wind_gust % 100);
+    bprintf(bp, "  %s:%s %" PRId32 ".%02" PRId32 " m/s\n", label, _padd(label), v->wind_gust / 100, v->wind_gust % 100);
 #endif
 }
 #endif
@@ -3341,8 +3341,8 @@ static void print_wind(const void *const vv, iotdata_buf_t *const bp, const char
 #if !defined(IOTDATA_NO_FLOATING)
     bprintf(bp, "  %s:%s %.1f m/s, %" PRIu16 " deg, gust %.1f m/s\n", label, _padd(label), (double)v->wind_speed.wind_speed, v->wind_direction.wind_direction, (double)v->wind_gust.wind_gust);
 #else
-    bprintf(bp, "  %s:%s %d.%02d m/s, %" PRIu16 " deg, gust %d.%02d m/s\n", label, _padd(label), v->wind_speed.wind_speed / 100, v->wind_speed.wind_speed % 100, v->wind_direction.wind_direction, v->wind_gust.wind_gust / 100,
-            v->wind_gust.wind_gust % 100);
+    bprintf(bp, "  %s:%s %" PRId32 ".%02" PRId32 " m/s, %" PRIu16 " deg, gust %" PRId32 ".%02" PRId32 " m/s\n", label, _padd(label), v->wind_speed.wind_speed / 100, v->wind_speed.wind_speed % 100, v->wind_direction.wind_direction,
+            v->wind_gust.wind_gust / 100, v->wind_gust.wind_gust % 100);
 #endif
 }
 #endif
@@ -5061,7 +5061,7 @@ static void print_radiation_dose(const void *const vv, iotdata_buf_t *const bp, 
 #if !defined(IOTDATA_NO_FLOATING)
     bprintf(bp, "  %s:%s %.1f uSv/h\n", label, _padd(label), (double)v->radiation_dose);
 #else
-    bprintf(bp, "  %s:%s %d.%02d uSv/h\n", label, _padd(label), v->radiation_dose / 100, v->radiation_dose % 100);
+    bprintf(bp, "  %s:%s %" PRId32 ".%02" PRId32 " uSv/h\n", label, _padd(label), v->radiation_dose / 100, v->radiation_dose % 100);
 #endif
 }
 #endif
@@ -5180,7 +5180,7 @@ static void print_radiation(const void *const vv, iotdata_buf_t *const bp, const
 #if !defined(IOTDATA_NO_FLOATING)
     bprintf(bp, "  %s:%s %" PRIu16 " CPM, %.2f uSv/h\n", label, _padd(label), v->radiation_cpm.radiation_cpm, (double)v->radiation_dose.radiation_dose);
 #else
-    bprintf(bp, "  %s:%s %" PRIu16 " CPM, %d.%02d uSv/h\n", label, _padd(label), v->radiation_cpm.radiation_cpm, v->radiation_dose.radiation_dose / 100, v->radiation_dose.radiation_dose % 100);
+    bprintf(bp, "  %s:%s %" PRIu16 " CPM, %" PRId32 ".%02" PRId32 " uSv/h\n", label, _padd(label), v->radiation_cpm.radiation_cpm, v->radiation_dose.radiation_dose / 100, v->radiation_dose.radiation_dose % 100);
 #endif
 }
 #endif

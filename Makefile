@@ -375,7 +375,54 @@ test-selective: $(LIB_HDR) $(LIB_SRC)
 
 ################################################################################
 
-tests: test-suites test-versions test-example test-selective
+# A 16-BIT TARGET, COMPILE ONLY. avr-gcc has `int` at sixteen bits, and that is the one property
+# no amount of testing on x86 or an ESP32 reaches -- both have it at thirty-two. It found two real
+# faults on its first run: the datetime helper held a day number in `int` (y * 365 is about
+# 739000, and its seconds remainder reaches 86399), and ten print formats used %d for an
+# iotdata_float_t, which is `int` on x86 and `long` here.
+#
+# WHAT IT CATCHES is what a compiler can see: a conversion that narrows, a format that does not
+# match its argument, a type whose width the code assumed. It does NOT catch plain arithmetic
+# overflow -- `int j = y * 365` draws no warning here on its own, and the datetime fault was
+# visible only because a long literal in the same expression forced a narrowing conversion at the
+# assignment. Catching the overflow itself would mean RUNNING these, which wants an emulator.
+#
+# Compile only, and no linking: there is no cJSON for an AVR, so the JSON-using suites cannot
+# build and are not asked to. What IS built is the library across the whole configuration matrix,
+# plus the three suites that need no cJSON -- which between them instantiate every field.
+#
+# Nothing here runs. Running it would want an emulator, and that is a separate question.
+AVR_CC    ?= avr-gcc
+AVR_MCU   ?= atmega328p
+AVR_FLAGS  = -mmcu=$(AVR_MCU) -I. $(CFLAGS_OPT) $(CFLAGS_COMMON) $(CFLAGS_STRICT) -DIOTDATA_NO_JSON
+AVR_BASES  = none OPERATE_ORDERED OPERATE_ORDERED+OPERATE_ORDERED_COMPLETE
+AVR_AXES   = none NO_ENCODE NO_DECODE NO_FLOATING NO_FLOATING_DOUBLES NO_PRINT+NO_DUMP \
+             NO_CHECKS_STATE+NO_CHECKS_TYPES
+
+test-16bit:
+	@command -v $(AVR_CC) >/dev/null || { echo "test-16bit: $(AVR_CC) not installed -- skipping"; exit 0; }; \
+	fail=0; n=0; \
+	for base in $(AVR_BASES); do \
+		bf=""; [ "$$base" = none ] || for one in $$(echo $$base | tr '+' ' '); do bf="$$bf -DIOTDATA_$$one"; done; \
+		for ax in $(AVR_AXES); do \
+			af=""; [ "$$ax" = none ] || for one in $$(echo $$ax | tr '+' ' '); do af="$$af -DIOTDATA_$$one"; done; \
+			n=$$((n+1)); \
+			$(AVR_CC) $(AVR_FLAGS) -DIOTDATA_VARIANT_MAPS_DEFAULT $$bf $$af -c $(LIB_SRC) -o /dev/null || { \
+				echo "  FAIL library $$base + $$ax"; fail=$$((fail+1)); }; \
+		done; \
+	done; \
+	for one in "$(TEST_VERSION_SRC) $(CFLAGS_VERSIONS)" "$(TEST_FIELDS_SRC) $(MAPS_FIELDS)" \
+	           "$(TEST_ORDERED_SRC) $(MAPS_ORDERED) -DIOTDATA_OPERATE_ORDERED"; do \
+		n=$$((n+1)); \
+		$(AVR_CC) $(AVR_FLAGS) -I tests -c $$one -o /dev/null || { \
+			echo "  FAIL $$one"; fail=$$((fail+1)); }; \
+	done; \
+	echo "test-16bit: $$((n-fail))/$$n compile clean for $(AVR_MCU) (int is 16 bits there)"; \
+	[ $$fail -eq 0 ]
+
+################################################################################
+
+tests: test-suites test-versions test-example test-selective test-16bit
 
 ################################################################################
 
@@ -388,7 +435,7 @@ prettier:
 clean:
 	rm -f $(LIB_OBJ) $(LIB_STATIC) $(TEST_DEFAULT_BIN) $(TEST_CUSTOM_BIN) $(TEST_COMPLETE_BIN) $(TEST_FAILURES_BIN) $(TEST_EXAMPLE_BIN) $(VERSION_BINS) $(MINIMAL_OBJ) $(STACK_USAGE_FILE_LIST)
 
-.PHONY: all test-default test-custom test-complete test-failures test-suites test-example test-versions test-selective tests lib format clean minimal
+.PHONY: all test-default test-custom test-complete test-failures test-suites test-example test-versions test-selective test-16bit tests lib format clean minimal
 
 ################################################################################
 

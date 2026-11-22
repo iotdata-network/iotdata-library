@@ -177,7 +177,7 @@
 #if !defined(IOTDATA_NO_FLOATING)
     bprintf(bp, "  %s:%s %.1f uSv/h\n", label, _padd(label), (double)v->radiation_dose);
 #else
-    bprintf(bp, "  %s:%s %d.%02d uSv/h\n", label, _padd(label), v->radiation_dose / 100, v->radiation_dose % 100);
+    bprintf(bp, "  %s:%s %" PRId32 ".%02" PRId32 " uSv/h\n", label, _padd(label), v->radiation_dose / 100, v->radiation_dose % 100);
 #endif
 ]]></impl>
 
@@ -228,7 +228,7 @@
 #if !defined(IOTDATA_NO_FLOATING)
     bprintf(bp, "  %s:%s %" PRIu16 " CPM, %.2f uSv/h\n", label, _padd(label), v->radiation_cpm.radiation_cpm, (double)v->radiation_dose.radiation_dose);
 #else
-    bprintf(bp, "  %s:%s %" PRIu16 " CPM, %d.%02d uSv/h\n", label, _padd(label), v->radiation_cpm.radiation_cpm, v->radiation_dose.radiation_dose / 100, v->radiation_dose.radiation_dose % 100);
+    bprintf(bp, "  %s:%s %" PRIu16 " CPM, %" PRId32 ".%02" PRId32 " uSv/h\n", label, _padd(label), v->radiation_cpm.radiation_cpm, v->radiation_dose.radiation_dose / 100, v->radiation_dose.radiation_dose % 100);
 #endif
 ]]></impl>
 

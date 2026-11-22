@@ -144,9 +144,9 @@ enum iotdata_status_t_ iotdata_decode_{{name}}(struct iotdata_decoder_t_ * const
 static inline uint32_t iotdata_datetime_convert_utc_to_seconds_from_year_start(const int64_t utc) {
     if (utc <= 0)
         return 0;
-    const int d = (int)(utc / 86400), r = (int)(utc % 86400);
-    int y = (int)((10000LL * (long long)d + 14780) / 3652425) + 1970;
-    int j = y * 365 + y / 4 - y / 100 + y / 400 - 719527;
+    const int32_t d = (int32_t)(utc / 86400), r = (int32_t)(utc % 86400);
+    int32_t y = (int32_t)((INT64_C(10000) * (int64_t)d + 14780) / 3652425) + 1970;
+    int32_t j = y * 365 + y / 4 - y / 100 + y / 400 - 719527;
     if (j > d) {
         y--;
         j = y * 365 + y / 4 - y / 100 + y / 400 - 719527;

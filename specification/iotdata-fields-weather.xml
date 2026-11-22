@@ -410,7 +410,7 @@
     bprintf(bp, "  %s:%s %.2f C\n", label, _padd(label), (double)v->temperature);
 #else
     const int32_t ta = v->temperature < 0 ? -(v->temperature) : v->temperature;
-    bprintf(bp, "  %s:%s %s%d.%02d C\n", label, _padd(label), v->temperature < 0 ? "-" : "", ta / 100, ta % 100);
+    bprintf(bp, "  %s:%s %s%" PRId32 ".%02" PRId32 " C\n", label, _padd(label), v->temperature < 0 ? "-" : "", ta / 100, ta % 100);
 #endif
 ]]></impl>
 
@@ -599,7 +599,7 @@
     bprintf(bp, "  %s:%s %.2f C, %" PRIu16 " hPa, %" PRIu8 "%%\n", label, _padd(label), (double)v->temperature.temperature, v->pressure.pressure, v->humidity.humidity);
 #else
     const int32_t ta = v->temperature.temperature < 0 ? -(v->temperature.temperature) : v->temperature.temperature;
-    bprintf(bp, "  %s:%s %s%d.%02d C, %" PRIu16 " hPa, %" PRIu8 "%%\n", label, _padd(label), v->temperature.temperature < 0 ? "-" : "", ta / 100, ta % 100, v->pressure.pressure, v->humidity.humidity);
+    bprintf(bp, "  %s:%s %s%" PRId32 ".%02" PRId32 " C, %" PRIu16 " hPa, %" PRIu8 "%%\n", label, _padd(label), v->temperature.temperature < 0 ? "-" : "", ta / 100, ta % 100, v->pressure.pressure, v->humidity.humidity);
 #endif
 ]]></impl>
 
@@ -675,7 +675,7 @@
 #if !defined(IOTDATA_NO_FLOATING)
     bprintf(bp, "  %s:%s %.1f m/s\n", label, _padd(label), (double)v->wind_speed);
 #else
-    bprintf(bp, "  %s:%s %d.%02d m/s\n", label, _padd(label), v->wind_speed / 100, v->wind_speed % 100);
+    bprintf(bp, "  %s:%s %" PRId32 ".%02" PRId32 " m/s\n", label, _padd(label), v->wind_speed / 100, v->wind_speed % 100);
 #endif
 ]]></impl>
 
@@ -818,7 +818,7 @@
 #if !defined(IOTDATA_NO_FLOATING)
     bprintf(bp, "  %s:%s %.1f m/s\n", label, _padd(label), (double)v->wind_gust);
 #else
-    bprintf(bp, "  %s:%s %d.%02d m/s\n", label, _padd(label), v->wind_gust / 100, v->wind_gust % 100);
+    bprintf(bp, "  %s:%s %" PRId32 ".%02" PRId32 " m/s\n", label, _padd(label), v->wind_gust / 100, v->wind_gust % 100);
 #endif
 ]]></impl>
 
@@ -878,7 +878,7 @@
 #if !defined(IOTDATA_NO_FLOATING)
     bprintf(bp, "  %s:%s %.1f m/s, %" PRIu16 " deg, gust %.1f m/s\n", label, _padd(label), (double)v->wind_speed.wind_speed, v->wind_direction.wind_direction, (double)v->wind_gust.wind_gust);
 #else
-    bprintf(bp, "  %s:%s %d.%02d m/s, %" PRIu16 " deg, gust %d.%02d m/s\n", label, _padd(label), v->wind_speed.wind_speed / 100, v->wind_speed.wind_speed % 100, v->wind_direction.wind_direction, v->wind_gust.wind_gust / 100,
+    bprintf(bp, "  %s:%s %" PRId32 ".%02" PRId32 " m/s, %" PRIu16 " deg, gust %" PRId32 ".%02" PRId32 " m/s\n", label, _padd(label), v->wind_speed.wind_speed / 100, v->wind_speed.wind_speed % 100, v->wind_direction.wind_direction, v->wind_gust.wind_gust / 100,
             v->wind_gust.wind_gust % 100);
 #endif
 ]]></impl>

@@ -341,7 +341,7 @@
 #if !defined(IOTDATA_NO_FLOATING)
     bprintf(bp, "  %s:%s %.0f dB SNR\n", label, _padd(label), (double)v->link_snr);
 #else
-    bprintf(bp, "  %s:%s %d.%d dB SNR\n", label, _padd(label), v->link_snr / 10, v->link_snr % 10);
+    bprintf(bp, "  %s:%s %" PRId32 ".%" PRId32 " dB SNR\n", label, _padd(label), v->link_snr / 10, v->link_snr % 10);
 #endif
 ]]></impl>
 
@@ -397,7 +397,7 @@
 #if !defined(IOTDATA_NO_FLOATING)
     bprintf(bp, "  %s:%s %" PRIi8 " dBm RSSI, %.0f dB SNR\n", label, _padd(label), v->link_rssi.link_rssi, (double)v->link_snr.link_snr);
 #else
-    bprintf(bp, "  %s:%s %" PRIi8 " dBm RSSI, %d.%d dB SNR\n", label, _padd(label), v->link_rssi.link_rssi, v->link_snr.link_snr / 10, v->link_snr.link_snr % 10);
+    bprintf(bp, "  %s:%s %" PRIi8 " dBm RSSI, %" PRId32 ".%" PRId32 " dB SNR\n", label, _padd(label), v->link_rssi.link_rssi, v->link_snr.link_snr / 10, v->link_snr.link_snr % 10);
 #endif
 ]]></impl>
 

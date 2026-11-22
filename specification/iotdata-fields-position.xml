@@ -71,10 +71,10 @@
             <constant name="LAT_RANGE" value="180.0" early="yes"/>
             <constant name="LON_OFFSET" value="180.0" early="yes"/>
             <constant name="LON_RANGE" value="360.0" early="yes"/>
-            <constant name="LAT_OFFSET_I" value="900000000LL" early="yes"/>
-            <constant name="LAT_RANGE_I" value="1800000000LL" early="yes"/>
-            <constant name="LON_OFFSET_I" value="1800000000LL" early="yes"/>
-            <constant name="LON_RANGE_I" value="3600000000LL" early="yes"/>
+            <constant name="LAT_OFFSET_I" value="INT64_C(900000000)" early="yes"/>
+            <constant name="LAT_RANGE_I" value="INT64_C(1800000000)" early="yes"/>
+            <constant name="LON_OFFSET_I" value="INT64_C(1800000000)" early="yes"/>
+            <constant name="LON_RANGE_I" value="INT64_C(3600000000)" early="yes"/>
             <constant name="LAT_LOW" value="(-90.0)" when="floating"/>
             <constant name="LAT_HIGH" value="(90.0)" when="floating"/>
             <constant name="LON_LOW" value="(-180.0)" when="floating"/>
