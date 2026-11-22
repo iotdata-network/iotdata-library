@@ -3476,57 +3476,57 @@ static const iotdata_field_ops_t _iotdata_field_def_depth = {
 #if !defined(IOTDATA_NO_ENCODE)
 static uint32_t quantise_position_lat(iotdata_double_t lat) {
 #if !defined(IOTDATA_NO_FLOATING_DOUBLES)
-    return (uint32_t)round((lat + (iotdata_double_t)IOTDATA_POS_LAT_OFFSET) / (iotdata_double_t)IOTDATA_POS_LAT_RANGE * (iotdata_double_t)IOTDATA_POS_SCALE);
+    return (uint32_t)round((lat + (iotdata_double_t)IOTDATA_POSITION_LAT_OFFSET) / (iotdata_double_t)IOTDATA_POSITION_LAT_RANGE * (iotdata_double_t)IOTDATA_POSITION_SCALE);
 #else
-    return (uint32_t)roundf((lat + (iotdata_double_t)IOTDATA_POS_LAT_OFFSET) / (iotdata_double_t)IOTDATA_POS_LAT_RANGE * (iotdata_double_t)IOTDATA_POS_SCALE);
+    return (uint32_t)roundf((lat + (iotdata_double_t)IOTDATA_POSITION_LAT_OFFSET) / (iotdata_double_t)IOTDATA_POSITION_LAT_RANGE * (iotdata_double_t)IOTDATA_POSITION_SCALE);
 #endif
 }
 #endif
 #if !defined(IOTDATA_NO_DECODE) || !defined(IOTDATA_NO_DUMP)
 static iotdata_double_t dequantise_position_lat(uint32_t raw) {
-    return (iotdata_double_t)raw / (iotdata_double_t)IOTDATA_POS_SCALE * (iotdata_double_t)IOTDATA_POS_LAT_RANGE - (iotdata_double_t)IOTDATA_POS_LAT_OFFSET;
+    return (iotdata_double_t)raw / (iotdata_double_t)IOTDATA_POSITION_SCALE * (iotdata_double_t)IOTDATA_POSITION_LAT_RANGE - (iotdata_double_t)IOTDATA_POSITION_LAT_OFFSET;
 }
 #endif
 #if !defined(IOTDATA_NO_ENCODE)
 static uint32_t quantise_position_lon(iotdata_double_t lon) {
 #if !defined(IOTDATA_NO_FLOATING_DOUBLES)
-    return (uint32_t)round((lon + (iotdata_double_t)IOTDATA_POS_LON_OFFSET) / (iotdata_double_t)IOTDATA_POS_LON_RANGE * (iotdata_double_t)IOTDATA_POS_SCALE);
+    return (uint32_t)round((lon + (iotdata_double_t)IOTDATA_POSITION_LON_OFFSET) / (iotdata_double_t)IOTDATA_POSITION_LON_RANGE * (iotdata_double_t)IOTDATA_POSITION_SCALE);
 #else
-    return (uint32_t)roundf((lon + (iotdata_double_t)IOTDATA_POS_LON_OFFSET) / (iotdata_double_t)IOTDATA_POS_LON_RANGE * (iotdata_double_t)IOTDATA_POS_SCALE);
+    return (uint32_t)roundf((lon + (iotdata_double_t)IOTDATA_POSITION_LON_OFFSET) / (iotdata_double_t)IOTDATA_POSITION_LON_RANGE * (iotdata_double_t)IOTDATA_POSITION_SCALE);
 #endif
 }
 #endif
 #if !defined(IOTDATA_NO_DECODE) || !defined(IOTDATA_NO_DUMP)
 static iotdata_double_t dequantise_position_lon(uint32_t raw) {
-    return (iotdata_double_t)raw / (iotdata_double_t)IOTDATA_POS_SCALE * (iotdata_double_t)IOTDATA_POS_LON_RANGE - (iotdata_double_t)IOTDATA_POS_LON_OFFSET;
+    return (iotdata_double_t)raw / (iotdata_double_t)IOTDATA_POSITION_SCALE * (iotdata_double_t)IOTDATA_POSITION_LON_RANGE - (iotdata_double_t)IOTDATA_POSITION_LON_OFFSET;
 }
 #endif
 #else
 #if !defined(IOTDATA_NO_ENCODE)
 static uint32_t quantise_position_lat(int32_t lat7) {
-    return (uint32_t)((((int64_t)lat7 + IOTDATA_POS_LAT_OFFSET_I) * IOTDATA_POS_SCALE + IOTDATA_POS_LAT_OFFSET_I) / IOTDATA_POS_LAT_RANGE_I);
+    return (uint32_t)((((int64_t)lat7 + IOTDATA_POSITION_LAT_OFFSET_I) * IOTDATA_POSITION_SCALE + IOTDATA_POSITION_LAT_OFFSET_I) / IOTDATA_POSITION_LAT_RANGE_I);
 }
 #endif
 #if !defined(IOTDATA_NO_DECODE) || !defined(IOTDATA_NO_DUMP)
 static int32_t dequantise_position_lat(uint32_t raw) {
-    return (int32_t)(((int64_t)raw * IOTDATA_POS_LAT_RANGE_I + IOTDATA_POS_SCALE / 2) / IOTDATA_POS_SCALE - IOTDATA_POS_LAT_OFFSET_I);
+    return (int32_t)(((int64_t)raw * IOTDATA_POSITION_LAT_RANGE_I + IOTDATA_POSITION_SCALE / 2) / IOTDATA_POSITION_SCALE - IOTDATA_POSITION_LAT_OFFSET_I);
 }
 #endif
 #if !defined(IOTDATA_NO_ENCODE)
 static uint32_t quantise_position_lon(int32_t lon7) {
-    return (uint32_t)((((int64_t)lon7 + IOTDATA_POS_LON_OFFSET_I) * IOTDATA_POS_SCALE + IOTDATA_POS_LON_OFFSET_I) / IOTDATA_POS_LON_RANGE_I);
+    return (uint32_t)((((int64_t)lon7 + IOTDATA_POSITION_LON_OFFSET_I) * IOTDATA_POSITION_SCALE + IOTDATA_POSITION_LON_OFFSET_I) / IOTDATA_POSITION_LON_RANGE_I);
 }
 #endif
 #if !defined(IOTDATA_NO_DECODE) || !defined(IOTDATA_NO_DUMP)
 static int32_t dequantise_position_lon(uint32_t raw) {
-    return (int32_t)(((int64_t)raw * IOTDATA_POS_LON_RANGE_I + IOTDATA_POS_SCALE / 2) / IOTDATA_POS_SCALE - IOTDATA_POS_LON_OFFSET_I);
+    return (int32_t)(((int64_t)raw * IOTDATA_POSITION_LON_RANGE_I + IOTDATA_POSITION_SCALE / 2) / IOTDATA_POSITION_SCALE - IOTDATA_POSITION_LON_OFFSET_I);
 }
 #endif
 #endif
 #if !defined(IOTDATA_NO_ENCODE)
 static bool pack_position(uint8_t *buf, size_t bb, size_t *bp, const void *vv) {
     const iotdata_field_position_t *const v = vv;
-    return bits_write(buf, bb, bp, quantise_position_lat(v->position_lat), IOTDATA_POS_LAT_BITS) && bits_write(buf, bb, bp, quantise_position_lon(v->position_lon), IOTDATA_POS_LON_BITS);
+    return bits_write(buf, bb, bp, quantise_position_lat(v->position_lat), IOTDATA_POSITION_LAT_BITS) && bits_write(buf, bb, bp, quantise_position_lon(v->position_lon), IOTDATA_POSITION_LON_BITS);
 }
 #endif
 #if !defined(IOTDATA_NO_ENCODE)
@@ -3538,13 +3538,13 @@ iotdata_status_t iotdata_encode_position_by_slot(iotdata_encoder_t *enc, int slo
     int si = slot;
     RESOLVE_SLOT_EXACT(enc, IOTDATA_FIELD_POSITION, si);
 #if !defined(IOTDATA_NO_CHECKS_TYPES)
-    if (latitude < (iotdata_double_t)IOTDATA_POS_LAT_LOW)
+    if (latitude < (iotdata_double_t)IOTDATA_POSITION_LAT_LOW)
         return IOTDATA_ERR_POSITION_LAT_LOW;
-    if (latitude > (iotdata_double_t)IOTDATA_POS_LAT_HIGH)
+    if (latitude > (iotdata_double_t)IOTDATA_POSITION_LAT_HIGH)
         return IOTDATA_ERR_POSITION_LAT_HIGH;
-    if (longitude < (iotdata_double_t)IOTDATA_POS_LON_LOW)
+    if (longitude < (iotdata_double_t)IOTDATA_POSITION_LON_LOW)
         return IOTDATA_ERR_POSITION_LON_LOW;
-    if (longitude > (iotdata_double_t)IOTDATA_POS_LON_HIGH)
+    if (longitude > (iotdata_double_t)IOTDATA_POSITION_LON_HIGH)
         return IOTDATA_ERR_POSITION_LON_HIGH;
 #endif
     iotdata_field_position_t v;
@@ -3566,13 +3566,13 @@ iotdata_status_t iotdata_encode_position(iotdata_encoder_t *enc, iotdata_double_
     int si = IOTDATA_SLOT_NONE;
     RESOLVE_SLOT(enc, IOTDATA_FIELD_POSITION, si);
 #if !defined(IOTDATA_NO_CHECKS_TYPES)
-    if (latitude < (iotdata_double_t)IOTDATA_POS_LAT_LOW)
+    if (latitude < (iotdata_double_t)IOTDATA_POSITION_LAT_LOW)
         return IOTDATA_ERR_POSITION_LAT_LOW;
-    if (latitude > (iotdata_double_t)IOTDATA_POS_LAT_HIGH)
+    if (latitude > (iotdata_double_t)IOTDATA_POSITION_LAT_HIGH)
         return IOTDATA_ERR_POSITION_LAT_HIGH;
-    if (longitude < (iotdata_double_t)IOTDATA_POS_LON_LOW)
+    if (longitude < (iotdata_double_t)IOTDATA_POSITION_LON_LOW)
         return IOTDATA_ERR_POSITION_LON_LOW;
-    if (longitude > (iotdata_double_t)IOTDATA_POS_LON_HIGH)
+    if (longitude > (iotdata_double_t)IOTDATA_POSITION_LON_HIGH)
         return IOTDATA_ERR_POSITION_LON_HIGH;
 #endif
     enc->position.position_lat = latitude;
@@ -3585,10 +3585,10 @@ iotdata_status_t iotdata_encode_position(iotdata_encoder_t *enc, iotdata_double_
 #if !defined(IOTDATA_NO_DECODE)
 static bool unpack_position(const uint8_t *buf, size_t bb, size_t *bp, void *vv) {
     iotdata_field_position_t *const v = vv;
-    if (*bp + IOTDATA_POS_LAT_BITS + IOTDATA_POS_LON_BITS > bb)
+    if (*bp + IOTDATA_POSITION_LAT_BITS + IOTDATA_POSITION_LON_BITS > bb)
         return false;
-    v->position_lat = dequantise_position_lat(bits_read(buf, bb, bp, IOTDATA_POS_LAT_BITS));
-    v->position_lon = dequantise_position_lon(bits_read(buf, bb, bp, IOTDATA_POS_LON_BITS));
+    v->position_lat = dequantise_position_lat(bits_read(buf, bb, bp, IOTDATA_POSITION_LAT_BITS));
+    v->position_lon = dequantise_position_lon(bits_read(buf, bb, bp, IOTDATA_POSITION_LON_BITS));
     return true;
 }
 #endif
@@ -3641,21 +3641,21 @@ static void json_set_position(cJSON *root, const void *vv, const char *label, io
 static int dump_position(const uint8_t *buf, size_t bb, size_t *bp, iotdata_dump_t *dump, int n, const char *label) {
     (void)label;
     size_t s = *bp;
-    uint32_t r = bits_read(buf, bb, bp, IOTDATA_POS_LAT_BITS);
+    uint32_t r = bits_read(buf, bb, bp, IOTDATA_POSITION_LAT_BITS);
 #if !defined(IOTDATA_NO_FLOATING)
     snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "%.6f", (double)dequantise_position_lat(r));
 #else
     fmt_scaled(dump->_dec_buf, sizeof(dump->_dec_buf), dequantise_position_lat(r), 10000000, "");
 #endif
-    n = dump_add(dump, n, s, IOTDATA_POS_LAT_BITS, r, dump->_dec_buf, "-90..+90", "latitude");
+    n = dump_add(dump, n, s, IOTDATA_POSITION_LAT_BITS, r, dump->_dec_buf, "-90..+90", "latitude");
     s = *bp;
-    r = bits_read(buf, bb, bp, IOTDATA_POS_LON_BITS);
+    r = bits_read(buf, bb, bp, IOTDATA_POSITION_LON_BITS);
 #if !defined(IOTDATA_NO_FLOATING)
     snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "%.6f", (double)dequantise_position_lon(r));
 #else
     fmt_scaled(dump->_dec_buf, sizeof(dump->_dec_buf), dequantise_position_lon(r), 10000000, "");
 #endif
-    n = dump_add(dump, n, s, IOTDATA_POS_LON_BITS, r, dump->_dec_buf, "-180..+180", "longitude");
+    n = dump_add(dump, n, s, IOTDATA_POSITION_LON_BITS, r, dump->_dec_buf, "-180..+180", "longitude");
     return n;
 }
 #endif
@@ -3675,7 +3675,7 @@ static const iotdata_field_ops_t _iotdata_field_def_position = {
     _IOTDATA_OP_ENC_OFF(offsetof(iotdata_encoder_t, position))
     _IOTDATA_OP_DEC_OFF(offsetof(iotdata_decoder_t, position))
     _IOTDATA_OP_NAME("position")
-    _IOTDATA_OP_BITS(IOTDATA_POS_LAT_BITS + IOTDATA_POS_LON_BITS)
+    _IOTDATA_OP_BITS(IOTDATA_POSITION_LAT_BITS + IOTDATA_POSITION_LON_BITS)
     _IOTDATA_OP_PACK(pack_position)
     _IOTDATA_OP_UNPACK(unpack_position)
     _IOTDATA_OP_DUMP(dump_position)
