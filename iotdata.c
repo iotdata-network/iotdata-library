@@ -387,7 +387,7 @@ static char sixbit_to_char(uint8_t val) {
 #if defined(IOTDATA_OPERATE_ORDERED)
 
 static int _iotdata_encode_slot_find(const iotdata_encoder_t *enc, iotdata_field_type_t type) {
-    for (int si = enc->cur_slot; si < enc->slot_count; si++)
+    for (int si = enc->slot_cur; si < enc->slot_count; si++)
         if (enc->vdef->fields[si].type == type)
             return si;
     return IOTDATA_SLOT_NONE;
@@ -404,12 +404,12 @@ static int _iotdata_encode_slot_find(const iotdata_encoder_t *enc, iotdata_field
     do { \
         IOTDATA_SLOT_SET((enc)->slots, (slot_index)); \
         IOTDATA_FIELD_SET((enc)->fields, (field_index)); \
-        (enc)->cur_slot = (int8_t)((slot_index) + 1); \
+        (enc)->slot_cur = (int8_t)((slot_index) + 1); \
     } while (0)
 
 #define RESOLVE_SLOT_EXACT(enc, field_index, slot_index) \
     do { \
-        if ((slot_index) < (enc)->cur_slot) \
+        if ((slot_index) < (enc)->slot_cur) \
             return IOTDATA_ERR_CTX_SLOT_ORDER; \
         if ((slot_index) >= (enc)->slot_count) \
             return IOTDATA_ERR_CTX_NON_EXISTENT_FIELD; \
@@ -471,7 +471,7 @@ static iotdata_status_t _iotdata_decode_wind_to(iotdata_decoder_t *dec, iotdata_
             return _wrc; \
         if (!fn((dec)->buf, (dec)->bb, &(dec)->bp, (vp))) \
             return IOTDATA_ERR_DECODE_TRUNCATED; \
-        (dec)->cur_slot = (int8_t)(_si + 1); \
+        (dec)->slot_cur = (int8_t)(_si + 1); \
     } while (0)
 
 #endif
@@ -538,12 +538,12 @@ static const iotdata_field_ops_t *_iotdata_field_ops[IOTDATA_FIELD_COUNT] = {
 #if defined(IOTDATA_OPERATE_ORDERED) && !defined(IOTDATA_NO_DECODE)
 static iotdata_status_t _iotdata_decode_wind_to(iotdata_decoder_t *dec, iotdata_field_type_t type, int *out_slot) {
     size_t bp = dec->bp;
-    for (int si = dec->cur_slot; si < dec->slot_count; si++)
+    for (int si = dec->slot_cur; si < dec->slot_count; si++)
         if (IOTDATA_SLOT_PRESENT(dec->slots, si)) {
             const iotdata_field_type_t t = dec->vdef->fields[si].type;
             if (t == type) {
                 dec->bp = bp;
-                dec->cur_slot = (int8_t)si;
+                dec->slot_cur = (int8_t)si;
                 *out_slot = si;
                 return IOTDATA_OK;
             }
@@ -638,7 +638,7 @@ iotdata_status_t iotdata_encode_begin(iotdata_encoder_t *enc, uint8_t *buf, size
 #if defined(IOTDATA_OPERATE_ORDERED)
     enc->vdef = vdef;
     enc->slot_count = 0;
-    enc->cur_slot = 0;
+    enc->slot_cur = 0;
     enc->bp = 0;
     enc->pres_bit = 0;
     enc->pres_reserved = 0;
@@ -765,19 +765,19 @@ iotdata_status_t iotdata_encode_end(iotdata_encoder_t *enc, size_t *out_bytes) {
 
 iotdata_status_t iotdata_encode_skip(iotdata_encoder_t *enc) {
     CHECK_CTX_ACTIVE(enc);
-    if (enc->cur_slot >= enc->slot_count)
+    if (enc->slot_cur >= enc->slot_count)
         return IOTDATA_ERR_CTX_NON_EXISTENT_FIELD;
-    enc->cur_slot++;
+    enc->slot_cur++;
     return IOTDATA_OK;
 }
 
 iotdata_status_t iotdata_encode_skip_to(iotdata_encoder_t *enc, int slot) {
     CHECK_CTX_ACTIVE(enc);
-    if (slot < enc->cur_slot)
+    if (slot < enc->slot_cur)
         return IOTDATA_ERR_CTX_SLOT_ORDER;
     if (slot > enc->slot_count)
         return IOTDATA_ERR_CTX_NON_EXISTENT_FIELD;
-    enc->cur_slot = (int8_t)slot;
+    enc->slot_cur = (int8_t)slot;
     return IOTDATA_OK;
 }
 
@@ -785,7 +785,7 @@ int iotdata_encode_slots_remaining(const iotdata_encoder_t *enc) {
     if (!enc || !enc->vdef)
         return -1;
     int n = 0;
-    for (int si = enc->cur_slot; si < enc->slot_count; si++) {
+    for (int si = enc->slot_cur; si < enc->slot_count; si++) {
         if (enc->vdef->fields[si].type == IOTDATA_FIELD_NONE)
             break;
         if (IOTDATA_FIELD_VALID(enc->vdef->fields[si].type))
@@ -802,15 +802,15 @@ iotdata_status_t iotdata_decode_reset(iotdata_decoder_t *dec) {
     if (!dec)
         return IOTDATA_ERR_CTX_NULL;
     dec->bp = dec->data_bit;
-    dec->cur_slot = 0;
+    dec->slot_cur = 0;
     return IOTDATA_OK;
 }
 
 iotdata_status_t iotdata_decode_skip(iotdata_decoder_t *dec) {
     if (!dec)
         return IOTDATA_ERR_CTX_NULL;
-    while (dec->cur_slot < dec->slot_count) {
-        const int si = dec->cur_slot++;
+    while (dec->slot_cur < dec->slot_count) {
+        const int si = dec->slot_cur++;
         if (IOTDATA_SLOT_PRESENT(dec->slots, si)) {
             const iotdata_field_type_t t = dec->vdef->fields[si].type;
             const iotdata_field_ops_t *const ops = ((int)t >= 0 && (int)t < IOTDATA_FIELD_COUNT) ? _iotdata_field_ops[t] : NULL;
@@ -828,18 +828,18 @@ iotdata_status_t iotdata_decode_skip(iotdata_decoder_t *dec) {
 iotdata_status_t iotdata_decode_wind_to_slot(iotdata_decoder_t *dec, int slot) {
     if (!dec)
         return IOTDATA_ERR_CTX_NULL;
-    if (slot < dec->cur_slot)
+    if (slot < dec->slot_cur)
         return IOTDATA_ERR_CTX_SLOT_ORDER;
     if (slot > dec->slot_count)
         return IOTDATA_ERR_DECODE_FIELD_ABSENT;
-    while (dec->cur_slot < slot) {
+    while (dec->slot_cur < slot) {
         const iotdata_status_t rc = iotdata_decode_skip(dec);
         if (rc == IOTDATA_ERR_DECODE_FIELD_ABSENT)
             break; /* nothing present left to step over; the cursor is already past it */
         if (rc != IOTDATA_OK)
             return rc;
     }
-    dec->cur_slot = (int8_t)slot;
+    dec->slot_cur = (int8_t)slot;
     return IOTDATA_OK;
 }
 
@@ -966,7 +966,7 @@ iotdata_status_t iotdata_decode(const uint8_t *buf, size_t len, iotdata_decoder_
     dec->bp = bp;
     dec->data_bit = bp;
     dec->slot_count = (int8_t)slot_count;
-    dec->cur_slot = 0;
+    dec->slot_cur = 0;
 
     if ((pres[0] & IOTDATA_PRES_TLV)) {
         for (int si = 0; si < slot_count; si++)

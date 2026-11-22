@@ -329,7 +329,7 @@ typedef struct iotdata_encoder_t_ {
     size_t pres_bit;
     int8_t pres_reserved;
     int8_t slot_count;
-    int8_t cur_slot;
+    int8_t slot_cur;
 #else
     int8_t slot_of_type[IOTDATA_FIELD_COUNT];
 #endif
@@ -361,7 +361,7 @@ typedef struct iotdata_decoder_t_ {
     size_t bp;
     size_t data_bit;
     int8_t slot_count;
-    int8_t cur_slot;
+    int8_t slot_cur;
 #endif
 
     IOTDATA_FIELDS_MEM_DECODER
@@ -400,7 +400,9 @@ iotdata_status_t iotdata_decode(const uint8_t *buf, size_t len, iotdata_decoder_
 
 #if !defined(IOTDATA_NO_DUMP)
 
+#if !defined(IOTDATA_DUMP_RANGE_STR_NON_STATIC) && !defined(IOTDATA_DUMP_RANGE_STR_STATIC)
 #define IOTDATA_DUMP_RANGE_STR_STATIC
+#endif
 
 #define IOTDATA_DUMP_FIELD_NAME_MAX  32
 #define IOTDATA_DUMP_DECODED_STR_MAX 32
