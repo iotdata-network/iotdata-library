@@ -1,3 +1,16 @@
+/*
+ * GENERATED FILE -- DO NOT EDIT.
+ *
+ * Built by generators/iotdata-generator-fields.js from the field specification in
+ * specification/iotdata-fields-*.xml through generators/templates/fields.c.h.tmpl.
+ * `make generate` rewrites it and `make generate-check` proves it reproduces.
+ *
+ * AN EDIT HERE IS LOST AT THE NEXT GENERATE, and silently: the file still compiles
+ * and the tests still pass, it just no longer says what you made it say. A change
+ * belongs in the SPECIFICATION if the field has been migrated, and in the TEMPLATE
+ * if it has not -- the template still carries the literal text of every field that
+ * has yet to move. iotdata_fields.csv lists which are which.
+ */
 
 /* ---------------------------------------------------------------------------
  * Field identifiers
@@ -131,7 +144,7 @@ enum iotdata_status_t_ iotdata_decode_link(struct iotdata_decoder_t_ *dec, int8_
  * Field ENVIRONMENT, TEMPERATURE, PRESSURE, HUMIDITY
  * -------------------------------------------------------------------------*/
 
-#if defined(IOTDATA_ENABLE_ENVIRONMENT) || defined(IOTDATA_ENABLE_TEMPERATURE)
+#if defined(IOTDATA_ENABLE_TEMPERATURE) || defined(IOTDATA_ENABLE_ENVIRONMENT)
 #define IOTDATA_FIELDS_DAT_TEMPERATURE iotdata_float_t temperature;
 typedef struct {
     IOTDATA_FIELDS_DAT_TEMPERATURE
@@ -176,7 +189,7 @@ enum iotdata_status_t_ iotdata_decode_temperature(struct iotdata_decoder_t_ *dec
 #else
 #define IOTDATA_FIELDS_OPS_TEMPERATURE(E)
 #endif
-#if defined(IOTDATA_ENABLE_ENVIRONMENT) || defined(IOTDATA_ENABLE_PRESSURE)
+#if defined(IOTDATA_ENABLE_PRESSURE) || defined(IOTDATA_ENABLE_ENVIRONMENT)
 #define IOTDATA_FIELDS_DAT_PRESSURE uint16_t pressure;
 typedef struct {
     IOTDATA_FIELDS_DAT_PRESSURE
@@ -214,7 +227,7 @@ enum iotdata_status_t_ iotdata_decode_pressure(struct iotdata_decoder_t_ *dec, u
 #else
 #define IOTDATA_FIELDS_OPS_PRESSURE(E)
 #endif
-#if defined(IOTDATA_ENABLE_ENVIRONMENT) || defined(IOTDATA_ENABLE_HUMIDITY)
+#if defined(IOTDATA_ENABLE_HUMIDITY) || defined(IOTDATA_ENABLE_ENVIRONMENT)
 #define IOTDATA_FIELDS_DAT_HUMIDITY uint8_t humidity;
 typedef struct {
     IOTDATA_FIELDS_DAT_HUMIDITY
@@ -279,7 +292,7 @@ typedef struct {
  * Field WIND, WIND_SPEED, WIND_DIRECTION, WIND_GUST
  * -------------------------------------------------------------------------*/
 
-#if defined(IOTDATA_ENABLE_WIND) || defined(IOTDATA_ENABLE_WIND_SPEED)
+#if defined(IOTDATA_ENABLE_WIND_SPEED) || defined(IOTDATA_ENABLE_WIND)
 #define IOTDATA_FIELDS_DAT_WIND_SPEED iotdata_float_t wind_speed;
 typedef struct {
     IOTDATA_FIELDS_DAT_WIND_SPEED
@@ -318,7 +331,7 @@ enum iotdata_status_t_ iotdata_decode_wind_speed(struct iotdata_decoder_t_ *dec,
 #define IOTDATA_FIELDS_DEF_WIND_SPEED(F)
 #define IOTDATA_FIELDS_OPS_WIND_SPEED(E)
 #endif
-#if defined(IOTDATA_ENABLE_WIND) || defined(IOTDATA_ENABLE_WIND_DIRECTION)
+#if defined(IOTDATA_ENABLE_WIND_DIRECTION) || defined(IOTDATA_ENABLE_WIND)
 #define IOTDATA_FIELDS_DAT_WIND_DIRECTION uint16_t wind_direction;
 typedef struct {
     IOTDATA_FIELDS_DAT_WIND_DIRECTION
@@ -351,11 +364,18 @@ enum iotdata_status_t_ iotdata_decode_wind_direction(struct iotdata_decoder_t_ *
 #define IOTDATA_FIELDS_DEF_WIND_DIRECTION(F)
 #define IOTDATA_FIELDS_OPS_WIND_DIRECTION(E)
 #endif
-#if defined(IOTDATA_ENABLE_WIND) || defined(IOTDATA_ENABLE_WIND_GUST)
+#if defined(IOTDATA_ENABLE_WIND_GUST) || defined(IOTDATA_ENABLE_WIND)
 #define IOTDATA_FIELDS_DAT_WIND_GUST iotdata_float_t wind_gust;
 typedef struct {
     IOTDATA_FIELDS_DAT_WIND_GUST
 } iotdata_field_wind_gust_t;
+#if !defined(IOTDATA_NO_FLOATING)
+#define IOTDATA_WIND_GUST_RES (0.5f)
+#define IOTDATA_WIND_GUST_MAX (63.5f)
+#else
+#define IOTDATA_WIND_GUST_RES (50)
+#define IOTDATA_WIND_GUST_MAX (6350)
+#endif
 #define IOTDATA_WIND_GUST_BITS 7
 #if !defined(IOTDATA_NO_ENCODE)
 enum iotdata_status_t_ iotdata_encode_wind_gust(struct iotdata_encoder_t_ *enc, iotdata_float_t gust_ms);
@@ -415,7 +435,7 @@ typedef struct {
  * Field RAIN, RAIN_RATE, RAIN_SIZE
  * -------------------------------------------------------------------------*/
 
-#if defined(IOTDATA_ENABLE_RAIN) || defined(IOTDATA_ENABLE_RAIN_RATE)
+#if defined(IOTDATA_ENABLE_RAIN_RATE) || defined(IOTDATA_ENABLE_RAIN)
 #define IOTDATA_FIELDS_DAT_RAIN_RATE uint8_t rain_rate;
 typedef struct {
     IOTDATA_FIELDS_DAT_RAIN_RATE
@@ -448,7 +468,7 @@ enum iotdata_status_t_ iotdata_decode_rain_rate(struct iotdata_decoder_t_ *dec, 
 #define IOTDATA_FIELDS_DEF_RAIN_RATE(F)
 #define IOTDATA_FIELDS_OPS_RAIN_RATE(E)
 #endif
-#if defined(IOTDATA_ENABLE_RAIN) || defined(IOTDATA_ENABLE_RAIN_SIZE)
+#if defined(IOTDATA_ENABLE_RAIN_SIZE) || defined(IOTDATA_ENABLE_RAIN)
 #define IOTDATA_FIELDS_DAT_RAIN_SIZE uint8_t rain_size10;
 typedef struct {
     IOTDATA_FIELDS_DAT_RAIN_SIZE
@@ -592,7 +612,7 @@ enum iotdata_status_t_ iotdata_decode_clouds(struct iotdata_decoder_t_ *dec, uin
  * -------------------------------------------------------------------------*/
 
 /* --- Sub-field: AQ_INDEX (AQI 0-500, 9 bits) --- */
-#if defined(IOTDATA_ENABLE_AIR_QUALITY) || defined(IOTDATA_ENABLE_AIR_QUALITY_INDEX)
+#if defined(IOTDATA_ENABLE_AIR_QUALITY_INDEX) || defined(IOTDATA_ENABLE_AIR_QUALITY)
 #define IOTDATA_FIELDS_DAT_AIR_QUALITY_INDEX uint16_t aq_index;
 typedef struct {
     IOTDATA_FIELDS_DAT_AIR_QUALITY_INDEX
@@ -626,7 +646,7 @@ enum iotdata_status_t_ iotdata_decode_air_quality_index(struct iotdata_decoder_t
 #define IOTDATA_FIELDS_OPS_AIR_QUALITY_INDEX(E)
 #endif
 /* --- Sub-field: AQ_PM (4 channels, presence + 8 bits each, res 5 ug/m3) --- */
-#if defined(IOTDATA_ENABLE_AIR_QUALITY) || defined(IOTDATA_ENABLE_AIR_QUALITY_PM)
+#if defined(IOTDATA_ENABLE_AIR_QUALITY_PM) || defined(IOTDATA_ENABLE_AIR_QUALITY)
 #define IOTDATA_AIR_QUALITY_PM_COUNT 4
 #define IOTDATA_FIELDS_DAT_AIR_QUALITY_PM \
     uint8_t aq_pm_present; \
@@ -670,7 +690,7 @@ enum iotdata_status_t_ iotdata_decode_air_quality_pm(struct iotdata_decoder_t_ *
 #define IOTDATA_FIELDS_OPS_AIR_QUALITY_PM(E)
 #endif
 /* --- Sub-field: AQ_GAS (8 slots, presence + variable bits per slot) --- */
-#if defined(IOTDATA_ENABLE_AIR_QUALITY) || defined(IOTDATA_ENABLE_AIR_QUALITY_GAS)
+#if defined(IOTDATA_ENABLE_AIR_QUALITY_GAS) || defined(IOTDATA_ENABLE_AIR_QUALITY)
 #define IOTDATA_AIR_QUALITY_GAS_COUNT 8
 #define IOTDATA_FIELDS_DAT_AIR_QUALITY_GAS \
     uint8_t aq_gas_present; \
@@ -772,7 +792,7 @@ typedef struct {
  * Field RADIATION, RADIATION_CPM, RADIATION_DOSE
  * -------------------------------------------------------------------------*/
 
-#if defined(IOTDATA_ENABLE_RADIATION) || defined(IOTDATA_ENABLE_RADIATION_CPM)
+#if defined(IOTDATA_ENABLE_RADIATION_CPM) || defined(IOTDATA_ENABLE_RADIATION)
 #define IOTDATA_FIELDS_DAT_RADIATION_CPM uint16_t radiation_cpm;
 typedef struct {
     IOTDATA_FIELDS_DAT_RADIATION_CPM
@@ -805,7 +825,7 @@ enum iotdata_status_t_ iotdata_decode_radiation_cpm(struct iotdata_decoder_t_ *d
 #define IOTDATA_FIELDS_DEF_RADIATION_CPM(F)
 #define IOTDATA_FIELDS_OPS_RADIATION_CPM(E)
 #endif
-#if defined(IOTDATA_ENABLE_RADIATION) || defined(IOTDATA_ENABLE_RADIATION_DOSE)
+#if defined(IOTDATA_ENABLE_RADIATION_DOSE) || defined(IOTDATA_ENABLE_RADIATION)
 #define IOTDATA_FIELDS_DAT_RADIATION_DOSE iotdata_float_t radiation_dose;
 typedef struct {
     IOTDATA_FIELDS_DAT_RADIATION_DOSE
@@ -907,7 +927,7 @@ enum iotdata_status_t_ iotdata_decode_depth(struct iotdata_decoder_t_ *dec, uint
 #endif
 
 /* ---------------------------------------------------------------------------
- * Field POSITION
+ * Field POSITION (LATITUDE, LONGITUDE)
  * -------------------------------------------------------------------------*/
 
 #if defined(IOTDATA_ENABLE_POSITION)
@@ -983,7 +1003,7 @@ typedef struct {
 } iotdata_field_datetime_t;
 #define IOTDATA_DATETIME_BITS 24
 #define IOTDATA_DATETIME_RES  5
-#define IOTDATA_DATETIME_MAX  ((1 << IOTDATA_DATETIME_BITS) - 1)
+#define IOTDATA_DATETIME_MAX  (((uint32_t)1 << IOTDATA_DATETIME_BITS) - 1)
 #if !defined(IOTDATA_NO_ENCODE)
 enum iotdata_status_t_ iotdata_encode_datetime(struct iotdata_encoder_t_ *enc, uint32_t seconds_from_year_start);
 #if defined(IOTDATA_OPERATE_ORDERED)
