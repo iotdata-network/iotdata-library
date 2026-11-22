@@ -39,20 +39,11 @@
 #define IOTDATA_TLV_MORE_BITS    1
 #define IOTDATA_TLV_LENGTH_BITS  8
 #define IOTDATA_TLV_HEADER_BITS  (IOTDATA_TLV_FMT_BITS + IOTDATA_TLV_TYPE_BITS + IOTDATA_TLV_MORE_BITS + IOTDATA_TLV_LENGTH_BITS)
-/* What the TLV's OWN framing costs and permits, derived from the fields above rather than written
-   out again. The packet budget -- how much of a frame is left for a value once the iotdata header
-   and the presence map have taken their share -- is IOTDATA_TLV_VALUE_MAX in iotdata.h, because
-   those constants do not exist yet at this point in the include order. */
 #define IOTDATA_TLV_HEADER_BYTES ((IOTDATA_TLV_HEADER_BITS + 7u) / 8u)
 #define IOTDATA_TLV_LENGTH_MAX   ((1u << IOTDATA_TLV_LENGTH_BITS) - 1u)
 #define IOTDATA_TLV_FMT_RAW      0
 #define IOTDATA_TLV_FMT_STRING   1
 
-/* How many TLVs one packet may carry, and how long a DECODED string may be. The string limit is
-   deliberately its own number and not IOTDATA_TLV_LENGTH_MAX: the length field counts BYTES, so
-   under 6-bit packing a 255-byte value yields more characters than that, and the two would have
-   to part company the day that packing is used. A raw value needs no constant of its own -- it is
-   the length field, exactly. */
 #define IOTDATA_TLV_MAX          8
 #define IOTDATA_TLV_STR_LEN_MAX  255
 #if !defined(IOTDATA_NO_ENCODE)
@@ -212,10 +203,10 @@ static inline bool iotdata_issixbit(const char c) {
 #define IOTDATA_TLV_TYPE_PARTIAL     IOTDATA_TLV_TYPE_MAX
 
 static inline bool iotdata_tlv_type_is_system(const uint8_t type) {
-    return (type & IOTDATA_TLV_TYPE_PROPRIETARY) == 0;
+    return !(type & IOTDATA_TLV_TYPE_PROPRIETARY);
 }
 static inline bool iotdata_tlv_key_is_system(const uint8_t key) {
-    return (key & IOTDATA_TLV_KEY_PROPRIETARY) == 0;
+    return !(key & IOTDATA_TLV_KEY_PROPRIETARY);
 }
 
 /* --- kvr: build ---------------------------------------------------------- */
@@ -231,7 +222,7 @@ static inline void iotdata_kvr_init(iotdata_kvr_t *const kv, uint8_t *const buf,
     kv->buf = buf;
     kv->size = size;
     kv->len = 0;
-    kv->overflow = (buf == NULL);
+    kv->overflow = !(buf);
 }
 static inline bool iotdata_kvr_add(iotdata_kvr_t *const kv, const uint8_t key, const void *const val, const uint8_t vlen) {
     if (kv->overflow || kv->len + 2u + (size_t)vlen > kv->size) {
@@ -240,7 +231,7 @@ static inline bool iotdata_kvr_add(iotdata_kvr_t *const kv, const uint8_t key, c
     }
     kv->buf[kv->len++] = key;
     kv->buf[kv->len++] = vlen;
-    if (vlen > 0 && val != NULL) {
+    if (val && vlen > 0) {
         memcpy(&kv->buf[kv->len], val, vlen);
         kv->len += vlen;
     }
@@ -262,8 +253,8 @@ static inline bool iotdata_kvr_add_i8(iotdata_kvr_t *const kv, const uint8_t key
     return iotdata_kvr_add_u8(kv, key, (uint8_t)v);
 }
 static inline bool iotdata_kvr_add_str(iotdata_kvr_t *const kv, const uint8_t key, const char *const s) {
-    const size_t n = (s != NULL) ? strlen(s) : 0;
-    if (n > 255) {
+    const size_t n = s ? strlen(s) : 0;
+    if (n > IOTDATA_TLV_STR_LEN_MAX) {
         kv->overflow = true;
         return false;
     }
@@ -277,38 +268,38 @@ static inline bool iotdata_kvr_add_str(iotdata_kvr_t *const kv, const uint8_t ke
      size_t cur = 0; uint8_t k, n; const uint8_t *v;
      while (iotdata_kvr_next(buf, len, &cur, &k, &v, &n)) { ... } */
 static inline bool iotdata_kvr_next(const uint8_t *const buf, const size_t len, size_t *const cursor, uint8_t *const key, const uint8_t **val, uint8_t *const vlen) {
-    if (buf == NULL || cursor == NULL || *cursor + 2u > len)
+    if (!buf || !cursor || *cursor + 2u > len)
         return false;
     const uint8_t k = buf[*cursor], l = buf[*cursor + 1];
     if (*cursor + 2u + (size_t)l > len)
         return false;
-    if (key != NULL)
+    if (key)
         *key = k;
-    if (vlen != NULL)
+    if (vlen)
         *vlen = l;
-    if (val != NULL)
+    if (val)
         *val = &buf[*cursor + 2u];
     *cursor += 2u + (size_t)l;
     return true;
 }
 
 static inline uint8_t iotdata_kvr_u8(const uint8_t *const v, const uint8_t n, const uint8_t dflt) {
-    return (n == 1) ? v[0] : dflt;
+    return n == 1 ? v[0] : dflt;
 }
 static inline int8_t iotdata_kvr_i8(const uint8_t *const v, const uint8_t n, const int8_t dflt) {
-    return (n == 1) ? (int8_t)v[0] : dflt;
+    return n == 1 ? (int8_t)v[0] : dflt;
 }
 static inline uint16_t iotdata_kvr_u16(const uint8_t *const v, const uint8_t n, const uint16_t dflt) {
-    return (n == 2) ? (uint16_t)(((uint16_t)v[0] << 8) | v[1]) : dflt;
+    return n == 2 ? (uint16_t)(((uint16_t)v[0] << 8) | v[1]) : dflt;
 }
 static inline uint32_t iotdata_kvr_u32(const uint8_t *const v, const uint8_t n, const uint32_t dflt) {
-    return (n == 4) ? (((uint32_t)v[0] << 24) | ((uint32_t)v[1] << 16) | ((uint32_t)v[2] << 8) | v[3]) : dflt;
+    return n == 4 ? (((uint32_t)v[0] << 24) | ((uint32_t)v[1] << 16) | ((uint32_t)v[2] << 8) | v[3]) : dflt;
 }
 static inline size_t iotdata_kvr_str(const uint8_t *const v, const uint8_t n, char *const out, const size_t out_size) {
-    if (out == NULL || out_size == 0)
+    if (!out || !out_size)
         return 0;
     const size_t c = ((size_t)n < out_size - 1) ? (size_t)n : out_size - 1;
-    if (c > 0 && v != NULL)
+    if (v && c > 0)
         memcpy(out, v, c);
     out[c] = '\0';
     return c;
@@ -327,12 +318,12 @@ static inline void iotdata_kvs_init(iotdata_kvs_t *const kv, char *const buf, co
     kv->buf = buf;
     kv->size = size;
     kv->len = 0;
-    kv->overflow = (buf == NULL || size == 0);
+    kv->overflow = (!buf || !size);
     if (!kv->overflow)
         buf[0] = '\0';
 }
 static inline bool iotdata_kvs_add(iotdata_kvs_t *const kv, const char *const name, const char *const value) {
-    if (kv->overflow || name == NULL || value == NULL) {
+    if (kv->overflow || !name || !value) {
         kv->overflow = true;
         return false;
     }
@@ -356,7 +347,7 @@ static inline bool iotdata_kvs_add(iotdata_kvs_t *const kv, const char *const na
 /* Iterate "name value" pairs in a kvs payload. `name`/`value` point into `str` and are NOT
    NUL-terminated -- use the paired lengths. Returns false at the end or on an odd trailing token. */
 static inline bool iotdata_kvs_next(const char *const str, size_t *const cursor, const char **name, size_t *const name_len, const char **value, size_t *const value_len) {
-    if (str == NULL || cursor == NULL)
+    if (!str || !cursor)
         return false;
     size_t i = *cursor;
     while (str[i] == ' ')
@@ -374,13 +365,13 @@ static inline bool iotdata_kvs_next(const char *const str, size_t *const cursor,
     const size_t vs = i;
     while (str[i] != '\0' && str[i] != ' ')
         i++;
-    if (name != NULL)
+    if (name)
         *name = &str[ns];
-    if (name_len != NULL)
+    if (name_len)
         *name_len = ne - ns;
-    if (value != NULL)
+    if (value)
         *value = &str[vs];
-    if (value_len != NULL)
+    if (value_len)
         *value_len = i - vs;
     *cursor = i;
     return true;
@@ -486,7 +477,7 @@ static bool unpack_tlv(const uint8_t *const buf, const size_t bb, size_t *const 
             return false;
         const uint8_t format = (uint8_t)bits_read(buf, bb, bp, IOTDATA_TLV_FMT_BITS);
         const uint8_t type = (uint8_t)bits_read(buf, bb, bp, IOTDATA_TLV_TYPE_BITS);
-        more = bits_read(buf, bb, bp, IOTDATA_TLV_MORE_BITS) != 0;
+        more = (bool)bits_read(buf, bb, bp, IOTDATA_TLV_MORE_BITS);
         const uint8_t length = (uint8_t)bits_read(buf, bb, bp, IOTDATA_TLV_LENGTH_BITS);
         const uint8_t bpv = format == IOTDATA_TLV_FMT_STRING ? IOTDATA_TLV_CHAR_BITS : 8;
         if (*bp + (size_t)bpv * length > bb)
@@ -514,10 +505,7 @@ static bool unpack_tlv(const uint8_t *const buf, const size_t bb, size_t *const 
 #if !defined(IOTDATA_NO_JSON) && !defined(IOTDATA_NO_DECODE)
 static void _json_set_tlv_data(cJSON *obj, const iotdata_decoder_tlv_t *t, iotdata_decode_to_json_scratch_t *const scratch) {
     cJSON_AddStringToObject(obj, "format", t->format == IOTDATA_TLV_FMT_STRING ? "string" : "raw");
-    if (t->format == IOTDATA_TLV_FMT_STRING)
-        cJSON_AddStringToObject(obj, "data", t->str);
-    else
-        cJSON_AddStringToObject(obj, "data", _b64_encode(t->raw, t->length, scratch->tlv.b64));
+    cJSON_AddStringToObject(obj, "data", t->format == IOTDATA_TLV_FMT_STRING ? t->str : _b64_encode(t->raw, t->length, scratch->tlv.b64));
 }
 static void json_set_tlv(cJSON *root, const iotdata_decoder_t *const dec, const char *const label, iotdata_decode_to_json_scratch_t *const scratch) {
     cJSON *arr = cJSON_AddArrayToObject(root, label);
@@ -535,7 +523,7 @@ static iotdata_status_t _json_get_tlv_generic(cJSON *item, iotdata_encoder_t *co
     cJSON *data = cJSON_GetObjectItem(item, "data");
     if (!data || !cJSON_IsString(data))
         return IOTDATA_OK; /* skip malformed */
-    if (strcmp(format ? format->valuestring : "raw", "string") == 0) {
+    if (!strcmp(format ? format->valuestring : "raw", "string")) {
         snprintf(scratch->str[tidx], IOTDATA_TLV_STR_LEN_MAX + 1, "%s", data->valuestring);
         return iotdata_encode_tlv_string(enc, type, scratch->str[tidx]);
     } else
@@ -580,7 +568,7 @@ static int dump_tlv(const uint8_t *const buf, const size_t bb, size_t *const bp,
         size_t s = *bp;
         const uint8_t format = (uint8_t)bits_read(buf, bb, bp, IOTDATA_TLV_FMT_BITS);
         const uint8_t type = (uint8_t)bits_read(buf, bb, bp, IOTDATA_TLV_TYPE_BITS);
-        more = bits_read(buf, bb, bp, IOTDATA_TLV_MORE_BITS) != 0;
+        more = (bool)bits_read(buf, bb, bp, IOTDATA_TLV_MORE_BITS);
         snprintf(dump->_dec_buf, sizeof(dump->_dec_buf), "%s type=0x%02" PRIX8 " more=%d", format == IOTDATA_TLV_FMT_STRING ? "str" : "raw", type, more ? 1 : 0);
         snprintf(dump->_name_buf, sizeof(dump->_name_buf), "tlv[%d].hdr", tlv_idx);
         n = dump_add(dump, n, s, IOTDATA_TLV_FMT_BITS + IOTDATA_TLV_TYPE_BITS + IOTDATA_TLV_MORE_BITS, 0, dump->_dec_buf, "format+type+more", dump->_name_buf);
@@ -642,7 +630,7 @@ static bool iotdata_encode_tlv_data(uint8_t *const buf, const size_t bb, size_t 
 #if !defined(IOTDATA_NO_DECODE)
 static bool iotdata_decode_tlv_data(const uint8_t *const buf, const size_t bb, size_t *const bp, iotdata_decoder_t *const dec, const uint8_t pres0) {
     dec->tlv_count = 0;
-    if ((pres0 & IOTDATA_PRES_TLV) != 0) {
+    if ((pres0 & IOTDATA_PRES_TLV)) {
         IOTDATA_FIELD_SET(dec->fields, IOTDATA_FIELD_TLV);
         return unpack_tlv(buf, bb, bp, dec);
     }
@@ -665,7 +653,7 @@ static iotdata_status_t iotdata_encode_tlv_json_get(cJSON *const root, iotdata_e
 
 #if !defined(IOTDATA_NO_DUMP)
 static int iotdata_dump_tlv(const uint8_t *const buf, const size_t bb, size_t *const bp, iotdata_dump_t *const dump, int n, const char *const label, const uint8_t pres0) {
-    if ((pres0 & IOTDATA_PRES_TLV) != 0)
+    if ((pres0 & IOTDATA_PRES_TLV))
         return dump_tlv(buf, bb, bp, dump, n, label);
     return n;
 }
